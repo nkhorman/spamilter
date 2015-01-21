@@ -1,5 +1,7 @@
 Changelog;
 version - 0.61 - ccyymmdd / unreleased
+	* mod - 150121 - add ipv6 lookups for MtaHostChk functionality
+
 	* tag - build_140227
 	* mod - un-nest callback functions for llvm compatiblity
 

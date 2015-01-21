@@ -50,6 +50,10 @@
 	int dns_query_rr_a_resp_v(const res_state statp, u_char *presp, size_t resplen, char *fmt, va_list vl);
 	int dns_query_rr_a_resp(const res_state statp, u_char *presp, size_t resplen, char *fmt, ...);
 	int dns_query_rr_a(const res_state statp, char *fmt, ...);
+
+	int dns_query_rr_aaaa_resp_v(const res_state statp, u_char *presp, size_t resplen, char *fmt, va_list vl);
+	int dns_query_rr_aaaa(const res_state statp, char *fmt, ...);
+
 	int dns_rdnsbl_has_rr_a(const res_state statp, unsigned long ip, char *domain);
 
 	int dns_hostname_ip_match(const res_state statp, char *hostname, unsigned long hostip);

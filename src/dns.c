@@ -56,21 +56,38 @@ static char const cvsid[] = "@(#)$Id: dns.c,v 1.18 2012/06/26 01:04:29 neal Exp 
 
 #include "spamilter.h"
 
-int dns_query_rr_a_resp_v(const res_state statp, u_char *presp, size_t resplen, char *fmt, va_list vl)
-{	int	x,rc = 0;
-	char	*hn = NULL;
+int dns_query_rr_aaaa_resp_v(const res_state statp, u_char *presp, size_t resplen, char *fmt, va_list vl)
+{	int	haveRR = 0;
+	char	*hostName = NULL;
 
 	if(fmt != NULL && *fmt)
-	{
-		x = vasprintf(&hn,fmt,vl);
-		if(hn != NULL && x > 0)
-			rc = res_nquery(statp, hn,ns_c_in,ns_t_a,presp,resplen);
+	{	int x = vasprintf(&hostName,fmt,vl);
 
-		if(hn != NULL)
-			free(hn);
+		if(hostName != NULL && x > 0)
+			haveRR = res_nquery(statp, hostName, ns_c_in, ns_t_aaaa, presp, resplen);
+
+		if(hostName != NULL)
+			free(hostName);
 	}
 
-	return(rc);
+	return haveRR;
+}
+
+int dns_query_rr_a_resp_v(const res_state statp, u_char *presp, size_t resplen, char *fmt, va_list vl)
+{	int	haveRR = 0;
+	char	*hostName = NULL;
+
+	if(fmt != NULL && *fmt)
+	{	int x = vasprintf(&hostName,fmt,vl);
+
+		if(hostName != NULL && x > 0)
+			haveRR = res_nquery(statp, hostName, ns_c_in, ns_t_a, presp, resplen);
+
+		if(hostName != NULL)
+			free(hostName);
+	}
+
+	return haveRR;
 }
 
 int dns_query_rr_a_resp(const res_state statp, u_char *presp, size_t resplen, char *fmt, ...)
@@ -79,6 +96,18 @@ int dns_query_rr_a_resp(const res_state statp, u_char *presp, size_t resplen, ch
 
 	va_start(vl,fmt);
 	rc = dns_query_rr_a_resp_v(statp,presp,resplen,fmt,vl);
+	va_end(vl);
+
+	return rc;
+}
+
+int dns_query_rr_aaaa(const res_state statp, char *fmt, ...)
+{	va_list	vl;
+	int rc;
+	u_char resp[NS_PACKETSZ];
+
+	va_start(vl,fmt);
+	rc = dns_query_rr_aaaa_resp_v(statp,&resp[0],sizeof(resp),fmt,vl);
 	va_end(vl);
 
 	return rc;
