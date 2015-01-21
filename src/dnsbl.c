@@ -1,0 +1,330 @@
+/*--------------------------------------------------------------------*
+ *
+ * Developed by;
+ *	Neal Horman - http://www.wanlink.com
+ *	Copyright (c) 2003 Neal Horman. All Rights Reserved
+ *
+ *	Redistribution and use in source and binary forms, with or without
+ *	modification, are permitted provided that the following conditions
+ *	are met:
+ *	1. Redistributions of source code must retain the above copyright
+ *	   notice, this list of conditions and the following disclaimer.
+ *	2. Redistributions in binary form must reproduce the above copyright
+ *	   notice, this list of conditions and the following disclaimer in the
+ *	   documentation and/or other materials provided with the distribution.
+ *	3. All advertising materials mentioning features or use of this software
+ *	   must display the following acknowledgement:
+ *	This product includes software developed by Neal Horman.
+ *	4. Neither the name Neal Horman nor the names of any contributors
+ *	   may be used to endorse or promote products derived from this software
+ *	   without specific prior written permission.
+ *	
+ *	THIS SOFTWARE IS PROVIDED BY NEAL HORMAN AND ANY CONTRIBUTORS ``AS IS'' AND
+ *	ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ *	IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ *	ARE DISCLAIMED.  IN NO EVENT SHALL NEAL HORMAN OR ANY CONTRIBUTORS BE LIABLE
+ *	FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ *	DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ *	OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ *	HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *	LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ *	OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ *	SUCH DAMAGE.
+ *
+ *	CVSID:  $Id: dnsbl.c,v 1.39 2012/12/14 04:59:33 neal Exp $
+ *
+ * DESCRIPTION:
+ *	application:	spamilter
+ *	module:		dnsbl.c
+ *--------------------------------------------------------------------*/
+
+static char const cvsid[] = "@(#)$Id: dnsbl.c,v 1.39 2012/12/14 04:59:33 neal Exp $";
+
+#include "config.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <fcntl.h>
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+#include "spamilter.h"
+#include "dns.h"
+#include "dnsbl.h"
+#include "misc.h"
+#include "smisc.h"
+#include "inet.h"
+
+char *dnsbl_str_stage[] = {"None","Conn","From","Rcpt","Hdr","Eom"};
+
+void dnsbl_free_hosts(RBLLISTHOSTS *prlh)
+{
+	if(prlh != NULL)
+	{
+		if(prlh->plist != NULL)
+			free(prlh->plist);
+		free(prlh);
+	}
+}
+
+void dnsbl_free_match(RBLLISTMATCH *pmatch)
+{
+	if(pmatch != NULL)
+	{
+		if(pmatch->ppmatch != NULL)
+			free(pmatch->ppmatch);
+		free(pmatch);
+	}
+}
+
+// Open the RBL data base, parse, and build a structure array of RBLs
+RBLLISTHOSTS *dnsbl_create(const char *pSessionId, char *dbpath)
+{	RBLLISTHOSTS *prlh = calloc(1,sizeof(RBLLISTHOSTS));
+
+	if(dbpath != NULL && *dbpath)
+	{	char *str = NULL;
+		int fd;
+
+		asprintf(&str,"%s/db.rdnsbl",dbpath);
+		fd = open(str,O_RDONLY);
+		if(fd == -1)
+			mlfi_debug(pSessionId,"dnsbl_open: unable to open RDNSBL host file '%s'\n",str);
+		if(str != NULL)
+			free(str);
+
+		if(fd != -1)
+		{	char buf[8192];
+
+			lseek(fd,0l,SEEK_SET);
+			while(mlfi_fdgets(fd,buf,sizeof(buf)) >= 0)
+			{
+				/* handle comments */
+				str = strchr(buf,'#');
+				if(str != NULL)
+				{
+					/* truncate at comment */
+					*(str--) = '\0';
+					/* trim right */
+					while(str >= buf && (*str ==' ' || *str == '\t'))
+						*(str--) = '\0';
+				}
+
+				if(strlen(buf))
+				{	char numbuf[128];
+					RBLHOST *prbl;
+
+					prlh->plist = realloc(prlh->plist,sizeof(RBLHOST)*(prlh->qty+1));
+					prbl = prlh->plist + prlh->qty;
+					prlh->qty++;
+
+					memset(prbl,0,sizeof(RBLHOST));
+					str = mlfi_strcpyadv(prbl->hostname,sizeof(prbl->hostname),buf,'|');
+					str = mlfi_strcpyadv(prbl->url,sizeof(prbl->url),str,'|');
+					str = mlfi_strcpyadv(numbuf,sizeof(numbuf),str,'|');
+					prbl->action =
+						strcasecmp(numbuf,"tag") == 0 ? RBL_A_TAG :
+						strcasecmp(numbuf,"reject") == 0 ? RBL_A_REJECT :
+						RBL_A_NULL;
+					str = mlfi_strcpyadv(numbuf,sizeof(numbuf),str,'|');
+					prbl->stage =
+						strcasecmp(numbuf,"conn") == 0 ? RBL_S_CONN :
+						strcasecmp(numbuf,"from") == 0 ? RBL_S_FROM :
+						strcasecmp(numbuf,"rcpt") == 0 ? RBL_S_RCPT :
+						strcasecmp(numbuf,"hdr") == 0 ? RBL_S_HDR :
+						strcasecmp(numbuf,"eom") == 0 ? RBL_S_EOM :
+						RBL_S_NULL;
+
+					/*
+					mlfi_debug(pSessionId,"dnsbl_create: rbl '%s' '%s' '%s' '%s'\n"
+						,prbl->hostname
+						,prbl->url
+						,(prbl->action == RBL_A_TAG ? "Tag" : prbl->action == RBL_A_REJECT ? "Reject" : "Unknown")
+						,dnsbl_str_stage[prbl->stage]// = {"None","Conn","From","Rcpt","Hdr","Eom"};
+					);
+					*/
+				}
+			}
+			close(fd);
+		}
+	}
+
+	if(prlh != NULL && prlh->qty == 0)
+	{
+		dnsbl_free_hosts(prlh);
+		prlh = NULL;
+	}
+
+	return prlh;
+}
+
+RBLHOST *dnsbl_action(const char *pSessionId, RBLHOST **prbls, int stage)
+{	RBLHOST	*prblh = NULL;
+
+	while(prblh == NULL && prbls != NULL && *prbls != NULL)
+	{
+		if((*prbls)->stage == stage && (*prbls)->action > RBL_A_NULL)
+			prblh = *prbls;
+		else
+			prbls++;
+	}
+	mlfi_debug(pSessionId,"dnsbl_action: %s %s %s\n"
+		,stage == RBL_S_CONN ? "connect" :
+			stage == RBL_S_RCPT ? "rcpt" :
+			stage == RBL_S_FROM ? "from" :
+			stage == RBL_S_HDR ? "hdr" :
+			stage == RBL_S_EOM ? "eom" :
+			"Unknown"
+		,prblh == NULL ? "no action" :
+			prblh->hostname
+		,prblh == NULL ? "" :
+			prblh->action == RBL_A_TAG ? " Tag" :
+			prblh->action == RBL_A_REJECT ? " Reject" :
+			" Unknown"
+		);
+
+	return prblh;
+}
+
+int dnsbl_check_rbl(const char *pSessionId, const res_state statp, struct sockaddr_in *pip, char *domain)
+{	int rc = -1;
+	int flagged = 0;
+
+	if(pip != NULL && domain != NULL && *domain)
+	{	u_char resp[NS_PACKETSZ];
+		char *pipstr = mlfi_sin2str(pip);
+		char *parpaipstr = NULL;
+
+		switch(pip->sin_family)
+		{
+			case AF_INET:
+				{	int a,b,c,d;
+
+					if(sscanf(pipstr,"%u.%u.%u.%u",&a,&b,&c,&d) == 4)
+					{
+						asprintf(&parpaipstr,"%u.%u.%u.%u.%s",d,c,b,a,domain);
+						rc = dns_query_rr_a_resp(statp,&resp[0],sizeof(resp),"%s",parpaipstr);
+					}
+					else
+						rc = 0;
+				}
+				break;
+			case AF_INET6:
+				//rc = dns_query_rr_a_resp(statp,&resp[0],sizeof(resp),"%s.ipv6.%s",parpaipstr);
+				break;
+		}
+
+		if(rc > 0)
+		{	ns_msg	handle;
+		
+			if(ns_initparse(resp,rc,&handle) > -1)
+			{	int	rrnum;
+				ns_rr	rr;
+				int	count = ns_msg_count(handle,ns_s_an);
+
+				for(rrnum=0; rrnum<count; rrnum++)
+				{
+					if(ns_parserr(&handle, ns_s_an, rrnum, &rr) == 0)
+					{
+						switch((unsigned int)ns_rr_type(rr)) // the cast quells the compiler "enumeration not handled" warning
+						{
+							case ns_t_a:
+								{	unsigned long ip = ns_get32(ns_rr_rdata(rr));
+
+									flagged += 1;//((0xffffff00&ip) == 0x7f000000);
+
+									mlfi_debug(pSessionId,"dnsbl_check_rbl '%s' - listed - %u.%u.%u.%u\n"
+										,parpaipstr
+										,((ip&0xff000000)>>24) ,((ip&0x00ff0000)>>16) ,((ip&0x0000ff00)>>8) ,((ip&0x000000ff))
+										);
+								}
+								break;
+							case ns_t_aaaa:
+								break;
+						}
+					}
+				}
+			}
+			else
+				mlfi_debug(pSessionId,"dnsbl_check_rbl '%s' - not listed - ns_initparse fail\n",parpaipstr);
+		}
+		else
+			mlfi_debug(pSessionId,"dnsbl_check_rbl '%s' - not listed\n",parpaipstr);
+
+		if(pipstr != NULL)
+			free(pipstr);
+
+		if(parpaipstr != NULL)
+			free(parpaipstr);
+	}
+
+	return flagged;
+}
+
+RBLLISTMATCH *dnsbl_check(const char *pSessionId, int stage, RBLLISTHOSTS *prbls, struct sockaddr_in *pip, res_state presstate)
+{	RBLLISTMATCH *prblmatches = (RBLLISTMATCH*)calloc(1,sizeof(RBLLISTMATCH));
+
+	if(prbls != NULL
+		&& prbls->plist != NULL
+		&& prbls->qty > 0
+		&& pip != NULL
+		&& !mlfi_isNonRoutableIp(pip) // don't bother testing non-routable ip addresses
+		)
+	{	char *pipstr = mlfi_sin2str(pip);
+		RBLHOST *prblh;
+		RBLHOST **prbl;
+		int i;
+
+		// copy the ip for later reference
+		prblmatches->sock = *pip;
+		// inital storage allocation enough for all rbls listed
+		prbl = prblmatches->ppmatch = (RBLHOST **) calloc(prbls->qty,sizeof(RBLHOST *));
+		// match the rbls to this ip
+		for(i=0; i<prbls->qty; i++)
+		{
+			prblh = prbls->plist + i;
+			if(prblh->stage == stage && dnsbl_check_rbl(pSessionId,presstate,pip,prblh->hostname) > 0)
+			{
+				mlfi_debug(pSessionId,"dnsbl_check '%s.%s' - Blacklisted\n",pipstr,prblh->hostname);
+				*prbl = prblh;
+				prbl++;
+				prblmatches->qty++;
+			}
+		}
+
+		if(pipstr != NULL)
+			free(pipstr);
+	}
+
+	if(prblmatches != NULL && prblmatches->qty == 0)
+	{
+		if(prblmatches->ppmatch != NULL)
+			free(prblmatches->ppmatch);
+		free(prblmatches);
+		prblmatches = NULL;
+	}
+
+	return prblmatches;
+}
+
+void dnsbl_add_hdr(SMFICTX *ctx, RBLHOST *prbl)
+{	mlfiPriv	*priv = MLFIPRIV;
+
+	if(priv != NULL && prbl != NULL)
+	{	char *pipstr = (priv->pip != NULL ? mlfi_sin2str(satosin(priv->pip)) : NULL);
+	
+		//mlfi_addhdr_printf(ctx,"X-RDNSBL-Warning","Source IP tagged as spam source by %s",prbl->hostname);
+		mlfi_addhdr_printf(ctx,"X-Milter","%s DataSet=RDNSBL-Warning; receiver=%s; ip=%s; rbl=%s;"
+			,mlfi.xxfi_name ,gHostname
+			,(pipstr != NULL ? pipstr : "")
+			,prbl->hostname
+			);
+
+		if(pipstr != NULL)
+			free(pipstr);
+	}
+}

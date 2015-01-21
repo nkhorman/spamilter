@@ -1,0 +1,137 @@
+<ALL> #--------------------------------------------------------------------*
+<ALL> #
+<ALL> # Developed by;
+<ALL> #      Neal Horman - http://www.wanlink.com
+<ALL> #
+<ALL> #      CVS:  $Id: Makefile.tmpl,v 1.58 2014/12/31 00:51:49 neal Exp $
+<ALL> #
+<ALL> # DESCRIPTION:
+<ALL> #      Makefile
+<ALL> #
+<ALL> #--------------------------------------------------------------------*
+<ALL>
+#<ALL>CC =		gcc
+<ALL>SRCS =		dns.c <WITH_DBL dbl.c> dnsbl.c hndlrs.c misc.c smisc.c mx.c smtp.c inet.c ifi.c bwlist.c badext.c dupe.c regexapi.c regexmisc.c md5api.c <WITH_ALIASES aliastable.c> <WITH_VIRTUSER virtusertable.c> <WITH_POPAUTH popauth.c><WITH_LIBSPF spfapi.c> <NOT_FreeBSD nstring.c> <WITH_FWDHOSTCHK fwdhostlist.c> <WITH_GEOIP geoip.c> list.c <WITH_TABLE_FLATFILE table.c tableDriverFlatFile.c> <WITH_TABLE_PGSQL pgsql.c tableDriverPsql.c>
+<ALL>OBJS =		${SRCS:.c=.o}
+<ALL>INCLUDES =	${SRCS:.c=.h} spamilter.h <INC_OpenBSD ns_compat.h>
+<ALL>
+<ALL>WATCHERSRCS =	watcher.c
+<ALL>WATCHEROBJS =	${WATCHERSRCS:.c=.o}
+<ALL>WATCHERINCS =	${WATCHERSRCS:.c=.h}
+<ALL>
+<ALL>NRSRCS =	ns_name.c ns_netint.c ns_parse.c
+<ALL>NROBJS =	${NRSRCS:.c=.o}
+<ALL>
+<SMDIR>SMDIR =		<X>
+<LIBSPFDIR>LIBSPFDIR =	<X>/lib
+<LIBSPFDIR>LIBSPFINC =	<X>/src/libspf
+<GEOIPDIR>LIBGEOIPDIR =	geoip/GeoIP-<X>.mod/libGeoIP/.libs
+<GEOIPDIR>LIBGEOIPINC =	geoip/GeoIP-<X>.mod/libGeoIP
+<PGSQLDIR>LIBPGSQLDIR = <X>/lib
+<PGSQLDIR>LIBPGSQLINC = <X>/include
+<PGSQLDIR>LIBPGSQL = -lpq -L${LIBPGSQLDIR} -I${LIBPGSQLINC}
+<NOT_FreeBSD>SMOBJDIR =	${SMDIR}/obj.<SMOBJDIR>
+<ALL>
+<ALL>INCLUDEDIR =	-I. -I${SMDIR}/include <WITH_LIBSPF -I${LIBSPFINC}> <WITH_GEOIP -I${LIBGEOIPINC}>
+<INCDIRS>INCLUDEDIR +=		<X>
+<ALL>
+<ALL>CFLAGS =		-Wall -pthread<INC_SunOS s> -DALLOW_LOCALNET_HOSTS
+<ALL>CFLAGS +=	-ggdb -g3
+<CFLAGS>CFLAGS +=	<X>
+<OFLAGS>OFLAGS =	<X>
+<ALL>LDFLAGS =	
+<ALL>
+<ALL>LIBS =		-lmilter -lmd -lutil
+<Linux>LIBS +=		-lsmutil -lresolv -ldb
+<SunOS>LIBS +=		-lsmutil -lresolv -lsocket -lnsl -lxnet -lpthread
+<LIBS>LIBS +=		<X>
+<ALL>LIBDIRS =
+<BSD>LIBDIRS +=	-L${SMDIR}/libmilter
+<NOT_BSD>LIBDIRS +=	-L${SMOBJDIR}/libmilter -L${SMOBJDIR}/libsmutil -L/usr/lib
+<LIBDIRS>LIBDIRS +=	<X>
+<ALL>
+<ALL>BINDIR =		/usr/local/bin
+<ALL>BINOWN =		bin
+<ALL>BINGRP =		bin
+<ALL>BINMODE =	0555
+<ALL>
+<FreeBSD>RCDIR =		/usr/local/etc/rc.d
+<FreeBSD>RCSHELL =	spamilter.sh
+<FreeBSD>RCMODE =		0754
+<ALL>
+<ALL>all: spamilter dnsblchk <INC_FreeBSD dnsblupd> mxlookup iflookup <INC_FreeBSD ipfwmtad> <WITH_GREYLIST greydbd>
+<ALL>
+<ALL>uninstall:
+<ALL>	rm -f ${BINDIR}/spamilter ${BINDIR}/dnsblchk <INC_FreeBSD ${BINDIR}/dnsblupd> ${BINDIR}/mxlookup <INC_FreeBSD ${BINDIR}/ipfwmtad <WITH_GREYLIST ${BINDIR}/greydbd> ${RCDIR}/${RCSHELL}>
+<ALL>
+<ALL>distclean: clean
+<ALL>	rm -f Makefile
+<GEOIPDIR>	rm -rf geoip/.built geoip/GeoIP-<X>.mod
+<PKGLIBSPF>	rm -rf libspf/.built libspf/build
+<ALL>
+<ALL>clean:
+<ALL>	rm -f *.o *core spamilter dnsblchk <INC_FreeBSD dnsblupd> mxlookup iflookup <INC_FreeBSD ipfwmtad> <WITH_GREYLIST greydbd>
+<ALL>
+<ALL>install: install-spamilter install-dnsblchk <INC_FreeBSD install-dnsblupd> install-mxlookup <INC_FreeBSD install-ipfwmtad <WITH_GREYLIST install-greydbd> install-startup
+<ALL>
+<ALL>install-spamilter: spamilter
+<ALL>	install -c -m ${BINMODE} -g ${BINGRP} -o ${BINOWN} spamilter ${BINDIR}
+<ALL>
+<ALL>install-dnsblchk: dnsblchk
+<ALL>	install -c -m ${BINMODE} -g ${BINGRP} -o ${BINOWN} dnsblchk ${BINDIR}
+<ALL>
+<FreeBSD>install-dnsblupd: dnsblupd
+<FreeBSD>	install -c -m ${BINMODE} -g ${BINGRP} -o ${BINOWN} dnsblupd ${BINDIR}
+<FreeBSD>
+<ALL>install-mxlookup: mxlookup
+<ALL>	install -c -m ${BINMODE} -g ${BINGRP} -o ${BINOWN} mxlookup ${BINDIR}
+<ALL>
+<FreeBSD>install-ipfwmtad: ipfwmtad
+<FreeBSD>	install -c -m 0500 -g ${BINGRP} -o ${BINOWN} ipfwmtad ${BINDIR}
+<FreeBSD>
+<ALL><WITH_GREYLIST install-greydbd: greydbd>
+<ALL><WITH_GREYLIST 	install -c -m ${BINMODE} -g ${BINGRP} -o ${BINOWN} greydbd ${BINDIR}>
+<ALL>
+<FreeBSD>install-startup:
+<FreeBSD>	if [ ! -e ${RCDIR}/*${RCSHELL}* ]; then install -c -m ${RCMODE} -g ${BINGRP} -o ${BINOWN} ../rc.d/${RCSHELL} ${RCDIR}; fi
+<FreeBSD>
+<ALL>tar: clean
+<ALL>#	cd ..; tar --exclude CVS -cvzf spamilter.tgz spamilter/*
+<ALL>	tar -C .. -Ttgz.lst -czf ../spamilter.tgz
+<ALL>
+<PKGGEOIP>${LIBGEOIPDIR}/libGeoIP.a:
+<PKGGEOIP>	cd geoip && ./build.sh
+<PKGGEOIP>
+<PKGLIBSPF>${LIBSPFDIR}/libspf.a:
+<PKGLIBSPF>	cd libspf && ./build.sh
+<PKGLIBSPF>
+<ALL>spamilter: Makefile <WITH_GEOIP ${LIBGEOIPDIR}/libGeoIP.a> <WITH_LIBSPF ${LIBSPFDIR}/libspf.a> ${WATCHERSRCS} ${SRCS} <NOT_FreeBSD ${NRSRCS}> spamilter.o ${WATCHEROBJS} ${OBJS} <NOT_FreeBSD ${NROBJS}> ${INCLUDES} ${WATCHERINCS}
+<ALL>	${CC} ${CFLAGS} -o spamilter spamilter.o ${WATCHEROBJS} ${OBJS} <NOT_FreeBSD ${NROBJS}> <WITH_LIBSPF ${LIBSPFDIR}/libspf.a> <WITH_GEOIP ${LIBGEOIPDIR}/libGeoIP.a> ${LIBDIRS} ${LIBS} ${LIBPGSQL}
+<ALL>
+<ALL>dnsblchk: Makefile ${SRCS} <NOT_FreeBSD ${NRSRCS}> <NOT_FreeBSD nstring.c> dnsblchk.o ${OBJS} <NOT_FreeBSD ${NROBJS}> <NOT_FreeBSD nstring.o> ${INCLUDES} dnsblchk.c
+<ALL>	${CC} ${CFLAGS} -o dnsblchk dnsblchk.o dnsbl.o dns.o smisc.o misc.o mx.o smtp.o inet.o ifi.o <NOT_FreeBSD ${NROBJS}> <INC_SunOS nstring.o> ${LIBDIRS} ${LIBS}
+<ALL>
+<FreeBSD># dnsblupd is for use with the companion shell script blupd as an Exec action
+<FreeBSD>dnsblupd: Makefile dnsblupd.c dnsupdate.c dns.c dnsblupd.o dnsupdate.o dns.o  dnsupdate.h dns.h config.h <NOT_FreeBSD ${NRSRCS} ${NROBJS}>
+<FreeBSD>	${CC} ${CFLAGS} -o dnsblupd dnsblupd.o dnsupdate.o dns.o <NOT_FreeBSD ${NROBJS}> ${LIBDIRS} ${LIBS}
+<FreeBSD>
+<FreeBSD>ipfwmtad: Makefile ipfwmtad.c ipfw_direct.c inet.c misc.c <WITH_PAM pam.o> uam.o ipfwmtad.o ipfw_direct.o inet.o misc.o <WITH_PAM pam.o> uam.o key.o inet.h misc.h <WITH_PAM pam.h> uam.h key.h config.h
+<FreeBSD>	${CC} ${CFLAGS} -o ipfwmtad ipfwmtad.o ipfw_direct.o inet.o misc.o <WITH_PAM pam.o> uam.o key.o <WITH_PAM -lpam> -lcrypto -lcrypt
+<FreeBSD>
+<ALL>mxlookup: Makefile mxlookup.c mx.c <NOT_FreeBSD ${NRSRCS}> mxlookup.o mx.o <NOT_FreeBSD ${NROBJS}> mx.h
+<ALL>	${CC} ${CFLAGS} -o mxlookup mxlookup.o mx.o ${LIBDIRS} ${LIBS} <NOT_FreeBSD ${NROBJS}> <NOT_BSD -lresolv>
+<ALL>	
+<ALL>iflookup: Makefile iflookup.c ifi.c iflookup.o ifi.o ifi.h
+<ALL>	${CC} ${CFLAGS} -o iflookup iflookup.o ifi.o ${LIBDIRS} ${LIBS}
+<ALL>
+<PKGGREYLIST>greydbd: Makefile greydbd.o inet.o inet.h pgsql.o pgsql.h md5api.o md5api.h config.h
+<PKGGREYLIST>	${CC} ${CFLAGS} -o greydbd greydbd.o inet.o pgsql.o md5api.o -lmd ${LIBPGSQL}
+<SUPPORTTABLEFLAT>
+<SUPPORTTABLEFLAT>bwlist_flat: Makefile bwlist.c table.c tableDriverFlatFile.c list.c misc.c
+<SUPPORTTABLEFLAT>	${CC} -ggdb -g3 -DSUPPORT_TABLE_FLATFILE -DUNIT_TEST -o bwlist_flat bwlist.c table.c tableDriverFlatFile.c list.c misc.c
+<SUPPORTTABLEPGSQL>
+<SUPPORTTABLEPGSQL>bwlist_pgsql: Makefile bwlist.c table.c tableDriverPgsql.c list.c misc.c pgsql.c
+<SUPPORTTABLEPGSQL>	${CC} -ggdb -g3 -DSUPPORT_TABLE_PGSQL -DUNIT_TEST -o bwlist_pgsql bwlist.c table.c tableDriverPsql.c list.c misc.c pgsql.c ${LIBPGSQL}
+<ALL>
+<ALL>.c.o: Makefile ${INCLUDES}
+<ALL>	${CC} ${CFLAGS} ${OFLAGS} ${INCLUDEDIR} -c $*.c <WITH_GREYLIST -I/usr/local/psql/include>

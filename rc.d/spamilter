@@ -1,0 +1,138 @@
+#!/bin/sh
+
+# PROVIDE: spamilter
+# REQUIRE: psql
+# BEFORE: LOGIN
+# KEYWORD: nojail shutdown
+
+. /etc/rc.subr
+
+name="spamilter"
+spamilter_enable=${spamilter_enable:-"NO"}
+ipfwmtad_enable=${ipfwmtad_enable:-"NO"}
+greydbd_enable=${greydbd_enable:-"NO"}
+rcvar=${name}_enable
+pidfile="/tmp/spamilter.pid"
+extra_commands="status"
+
+start_cmd="spamilter_start"
+stop_cmd="spamilter_stop"
+status_cmd="spamilter_status"
+
+proc_spamilter="/usr/local/bin/spamilter"
+proc_ipfwmtad="/usr/local/bin/ipfwmtad"
+proc_greydbd="/usr/local/bin/greydbd"
+
+proc_pid_status()
+{
+	local _pidcmd
+
+	_pidcmd="`check_pidfile ${1} ${2}`"
+	if [ -z $_pidcmd ]; then
+		# failure - not running
+		return 1
+	else
+		# success - running
+		echo ${_pidcmd}
+		return 0
+	fi
+}
+
+spamilter_status()
+{
+	local pid
+	pid="`proc_pid_status ${pidfile} ${name}`"
+	rc=0
+
+	if [ -n "$pid" ]; then
+		echo "${name} is running as pid ${pid}."
+	else
+		echo "${name} is not running."
+		rc=1
+	fi
+
+	if [ "${ipfwmtad_enable}" = "YES" ]; then
+		pid_ipfwmtad="`check_process ${proc_ipfwmtad}`"
+		if [ -n "$pid_ipfwmtad" ]; then
+			echo "ipfwmtad is running as pid ${pid_ipfwmtad}"
+		else
+			echo "ipfwmtad is not running."
+		fi
+	fi
+
+	if [ "${greydbd_enable}" = "YES" ]; then
+		pid_greydbd="`check_process ${proc_greydbd}`"
+		if [ -n "$pid_greydbd" ]; then
+			echo "greydbd is running as pid ${pid_greydbd}"
+		else
+			echo "greydbd is not running."
+		fi
+	fi
+
+	return $rc
+}
+
+spamilter_start()
+{
+	psql_user="psql"
+	psql_path="`grep ${psql_user} /etc/passwd|cut -f 6 -d:`"
+	rc=1
+	if [ -z "`proc_pid_status ${pidfile} ${name}`" ]; then
+		LD_LIBRARY_PATH="${psql_path}/lib" ${proc_spamilter}
+		rc=0
+	fi
+
+	if [ "${ipfwmtad_enable}" = "YES" ]; then
+		if [ -z "`check_process ${proc_ipfwmtad}`" ]; then
+			${proc_ipfwmtad}
+			rc=0
+		fi
+	fi
+
+	if [ "${greydbd_enable}" = "YES" ]; then
+		if [ -z "`check_process ${proc_greydbd}`" ]; then
+			LD_LIBRARY_PATH="${psql_path}/lib" ${proc_greydbd}
+			rc=0
+		fi
+	fi
+
+	return $rc
+}
+
+spamilter_stop()
+{
+	local pids
+
+	pid_spamilter="`proc_pid_status ${pidfile} ${name}`"
+
+	if [ ! -z "$pid_spamilter" ]; then
+		kill $sig_stop ${pid_spamilter}
+		pids="${pids} ${pid_spamilter}"
+	fi
+
+	if [ "${ipfwmtad_enable}" = "YES" ]; then
+		pid_ipfwmtad="`check_process ${proc_ipfwmtad}`"
+		if [ ! -z "${pid_ipfwmtad}" ]; then
+			kill $sig_stop ${pid_ipfwmtad}
+			pids="${pids} ${pid_ipfwmtad}"
+		fi
+	fi
+
+	if [ "${greydbd_enable}" = "YES" ]; then
+		pid_greydbd="`check_process ${proc_greydbd}`"
+		if [ ! -z "${pid_greydbd}" ]; then
+			kill $sig_stop ${pid_greydbd}
+			pids="${pids} ${pid_greydbd}"
+		fi
+	fi
+
+	if [ -n "${pids}" ]; then 
+		wait_for_pids ${pids}
+		return 0
+	fi
+
+	return 1
+}
+
+load_rc_config $name
+run_rc_command "$1"

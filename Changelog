@@ -1,0 +1,207 @@
+Changelog;
+version - 0.61 - ccyymmdd / unreleased
+	* tag - build_140227
+	* mod - un-nest callback functions for llvm compatiblity
+
+	* tag - build_130713_1
+	* add - HLO host DBL checking
+	* add - body host DBL checking
+
+	* tag - build_121118_1
+	* add - session id for logging purposes
+
+	* tag - build_121006
+	* add - do geoip checking for 'X-Originating-IP' hotmail header
+
+	* fix - don't ignore SMFIS result from BodyHost checking function
+	* mod - tweak replyto BWL handling behavior
+
+	* mod - don't do Body URL black listing and Body URL CC black listing if there is rcpt or sndr Accept
+		action, or is localnet host
+	* mod - reply-to header delivery checking to ignore '<>' return path
+	* add - setproctitle for "watcher" and "worker"
+
+	* tag - build_120625_2
+	* fix - regression of dns_query_rr_a() function use by "Invalid MTA hostname" filter
+
+	* tag - build_120625_1
+	* mod - bwlist to support postgresql
+	* mod - table driver framework to support postgresql table driver
+	* add - add postgresql table driver
+
+	* tag - build_120618_1
+	* mod - rewrite bwlist to be based off of the table framework and the flat file table driver
+	* add - add flat file table driver
+	* add - generic table driver framework
+
+	* add - filter - using regex, scan the body for http/https/ftp urls and do BWL and geoip contry code lookup rejection
+
+	* add - filter - received by/from header hostname BWL checking and geoip contry code ip lookup rejection
+	* mod - change all injected headers to use the basic format of "X-Milter: Spamilter DataSet=xxx; foo=bar; foo=bar; ..."
+	* add - filter - BWL and geoip country code lookup rejection for connecting mta
+
+	* mod - start working towards ipv6 support
+
+	* add - filter - reply to header return address verification
+	* mod - test all RBL entries for the connecting mta ip address, to inject headers when tagging instead of rejecting
+
+	* add - filter - grey listing mechanism (requires postgresl)
+	* add - filter - fwdhost lookup - allow an edge MTA to consult an athorative inner MTA for recipent delivery status
+
+	* add - ability for local definitions of localnet testing in ifi_islocalnet() via addtions to the struct _localnethosts
+		defintion from the ifilocal.inc file
+	* add - framework for local content filtering via c code from hndlrs_contentfilter_local.inc file
+	* add - framework for local message duplication based on sender or recipient via hard coded rules in c code from
+		dupelocal.inc file
+	* mod - treat SASL authorized connections as a localnet host
+
+	* add - filter to reject if recipent is not a target listed in virtusertable.db
+	* add - filter to reject if recipent is not a target listed in aliases.db
+	* add - filter to reject if recipent is not a local system user
+	* mod - don't do dns lookups on a given rbl host until the reject/tag stage as listed/configured in spamilter.rc
+		instead of doing the lookups at connect and then reject/tagging at stage
+	* fix - local asprintf implementation in nstring.c to not segfault on a %s parameter when NULL
+	* fix - null pointer sanity tests
+	* add - cli -f to spamilter to keep it in foreground with debug info
+	* mod - to EOM handler to tag or flag with all filter results instead of just one result
+	* fix - for sender address verification to treat the mbox in a case insensative way per RFC2821
+	* mod - don't collect body if not used
+	* fix - debugmode > 1 works now
+
+version - 0.60 - 051127
+	* fix - actually use the configured db path instead of the hard coded one - patch from Luns Tee
+	* fix - make sure the priv->smtprc is initialized. - patch from Luns Tee
+	* fix - remove NULL assignment of argptr, Linux 7.? barfs on it
+	* fix - Makefile.tmpl so that SunOs CC can deal with += vars, add -lpthread for SunOs
+	* fix - memory leak in ifi.c - patch from Luns Tee
+	* fix - memory leak in dnsbl.c - patch from Luns Tee
+	* mod - to combat rfc ignorant mta hosts, try twice to negotiate an accepted
+		"mail from:, rcpt to:" sequence, first with <>, then with <postmaster@`local host name`>
+		if that fails.
+	* fix - globally use mx_res_search that resizes the query buffer as needed - drastically altered
+		patch from Luns Tee
+	* mod - if not doing attachment checks, don't do body processing - patch from Luns Tee
+	* mod - add --with-???? options to configure. see configure --help for more details
+	* mod - use res_n???? thread safe resolver library calls
+	* mod - rename spf.[ch] to spfapi.[ch] so as to not conflict with libspf's spf.h
+	* mod - drop the included libspf in favor of using the "current" version as published on the
+		web site at http://www.libspf.org now that --with-libspf is available in configure
+		ntbw. installation of the library is not required, rather just configuration and
+		compilation, as it is statically linked.
+	* mod - ipfwmtad to handle exculpate correctly
+	* add - ipfwmtad -u ipfw rule number
+	* add - initial support for OpenBSD
+	* mod - move MsExtChk core code into separate source module
+	* add - support for reading MsExtChk file list from db.extensions in lue of being hard coded
+	* add - support for ipfw2 in ipfwmtad_direct
+	* mod - compile with Wall by default
+	* fix - for RFC 2821 compliance - patch submitted by Claus Assmann
+
+version - 0.59 - 040410
+	* fix - solaris inet_ntoa segfaults for iflookup
+	* fix - solaris compile changes for dnsblchk and iflookup
+	* fix - attempt to concatenate a domain name to the host name
+		for hosts that don't return a FQHN
+	* fix - blacklisted error printf specifier
+	* mod/fix - bwlist match logic so that last rule to match wins
+	* fix - ipfwmtad will now correctly create the backup database from scratch
+		if it does not exist previously
+	* fix - FINALLY - NetSockClose descriptor leak that would cause spamilter
+		to steadily consume sockets under high load conditons. (I feel really
+		stupid for missing this one... um, can you say FIONBIO. duh!)
+	* add - pop before smtp support
+	* add - MtaHostChk test for ip address as MTA hostname
+	* add - MtaHostChk test for recipient domain name as MTA hostname
+	* add - initial implementation of MtaSpfChk SPF filter using libspf
+		see http://spf.pobox.com & http://libspf.org
+	* mod - ipfwmtad to use the programatic API to add and remove rules to the firewall
+		instead of the cli utility
+	* fix - ipfwmtad to not apply duplicate hosts to the firewall rules
+	* mod - X-Spamilter header now includes some audit trail information
+
+version - 0.58rc1 - 040104
+	* fix - don't continue to do filter testing at the "end of message phase" if the 
+		recpient has been flagged as "Accept". - pointed out by Kula Yu
+	* fix - handle white space in Content-Disposition and Content-Type headers for
+		MsExtChk filter
+	* fix - memory leak - free attachment file name pointers after use in MsExtChk 
+		filter
+	* fix - inet_ntoa cast segfault on solaris - [modified] patch from Luns Tee
+	* add - changes to experimental MtaHostIpfwNominate; internally rename 'nominate'
+		to 'inculpate', and add 'exculpate' on !Reject
+	* fix - add res_close in key places in order to try and close any dns connections
+		that have been left open. (it would be nice if there was some doucmentation
+		in the man pages for the resolver library that is actually worth while!)
+	* mod - update dnsblupd command line usage to be clearer
+	* fix - memory leak - free ifi info structure in ifi_islocalip call
+	* mod - make smtp error messages more consistent and add html anchors to url
+	* mod - use new ifi_islocalnet in favor of ifi_islocalip && islocalip combination
+		to better detect local network host vs foriegn network host connections
+	* add - mxlookup and iflookup cli utils
+	* mod - drop the use of MtaUrl config entry in spamilter.rc and use PolicyUrl
+		with an anchor instead
+	* add - preliminary compile support for solaris
+
+version - 0.57 - 031012
+	* fix - don't free the reject "reason" pointer more than once per allocation. ;)
+	* add - global SmtpSndrChkAction and MsExtChkAction with 'Tag' or 'Reject' actions in
+		spamilter.rc to optionally tag a given email instead of rejecting it. - suggested by Alex Barger
+	* add - rudimentary homebrew configure script
+	* add - Experimental MtaHostIpChk configure switch
+	* add - Experimental MtaHostIpfwNominate configure switch and support to ipfwmtad
+	* fix - do not treat empty lines in the db.* files as end of file - bug submitted by Eugiene Fokin
+	* fix - white listing a sender as "ACCEPT" now correctly does not do rdnsbl checks and rejects. - patch from Eugiene Fokin
+	* add - date/time and pid stamps to debug output - variation of patch from Eugiene Fokin
+	* mod - smtp sender validation will reject if the MX host refuses the socket connection - suggested by Eugiene Fokin
+	* add - write the running PID to /tmp/Spamilter.pid at startup - suggested by Dayne Jordan
+	* fix - don't nominate local ip addresses on mta connect
+
+version - 0.56 - 030914
+	* mod - logging to record reject reason in field 5
+	* mod - ipfwmtad now has cli operator to remove entries from the fwblock list
+	* mod - ipfwmtad now has cli operator to add entries to the fwblock list
+
+version - 0.55 - 030902
+	* fix - Segfault fixes for 0.54
+	* add - MtaHostIpfw code - Invalid MTA hostnames are added to the firewall block list
+		via ipfwmtad
+
+Version - 0.54 - 030821
+	* Add - Microsoft file extension attachment vulnerablility reject filter
+	* Mod - Provide Conservative/Aggressive file extension list for the
+		Microsoft file extension attahcment vulnerability reject filter
+		base on the value of MsExtChk = 1 or 2 respectively
+
+Version - 0.53 - 030810
+	* Fix - Socket descriptor leak in ifi.c
+	* Mod - Recipient black/white list action now takes precidence over the Sender action
+		This was done to allow users to opt-out of the filter by creating an Accept entry.
+		(There is always that one person that has to wine because he can't receive
+		email from everyone since the email cops have restricted his freedom! Here is some
+		cheese, now go away.)
+	* Add - 'Exec' black/white list action
+	* Mod - Remove partially implemented honeypot code in favor of the 'Exec' action
+
+Version - 0.52 - 030603
+	* Add Makefile.linux
+	* Add ns_??? resolver library functions from FreeBSD libc for linux
+		(It's kind of silly for linux to have the function declarations
+		in the header files, but not the actual funtions in a library
+		somewhere!)
+
+Version - 0.51 - 030527
+	* Remove cunp.h cruft
+		Will compile now on stock RedHat 9.0 with libmilter and bind.
+		You will probably have to do some Makefile tweaking for paths.
+
+	* fix - hndlrs.c:mlfi_envrcpt
+		Do not 'Reject' if there was a prior 'Accept' action
+
+	* fix - smtp.c:smtp_host_is_deliverable
+		Better handling of non-220 MTA connects - return failure instead of unreachable
+
+	* fix - mx.c:mx_get_rr_bydomain
+		Try twice to get MX records
+
+version - 0.50 - 030503
+	* Initial public release

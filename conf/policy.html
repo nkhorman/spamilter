@@ -1,0 +1,125 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<!-- $Id: policy.html,v 1.7 2005/12/15 06:27:59 neal Exp $ -->
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/>
+<title>Email policy messages</title>
+<style type="text/css">
+	body { font-family: arial, sans-serif; font-size:80%; }
+	.msg { border-top:1px dotted #999; }
+	.msgtitle { background: #77aaee; padding: 1px; }
+</style>
+</head>
+<body>
+<!-- <center><img src="your-logo-here.jpg"></img></center><br> -->
+
+<div class="msg">
+<p>
+<a name="general"><span class="msgtitle">550 5.7.1 Rejecting due to security policy, Please see: ...</span></a><br>
+Your email has been rejected due to an unspecified reason.
+</p>
+</div>
+
+<div class="msg">
+<p>
+<a name="dnsbl"><span class="msgtitle">550 5.7.1 Rejecting due to security policy - DNSBL, Please see: ... and ...</span></a><br>
+Your email server has been put on a list of servers that spam by one or more of the following entities;<br>
+<br>
+<a href="http://www.njabl.org">njabl.org</a><br>
+<a href="http://www.ordb.org">ordb.org</a><br>
+<a href="http://www.dsbl.org">dsbl.org</a><br>
+<a href="http://www.spamcop.net">spamcop.net</a><br>
+<a href="http://www.spamhaus.org">spamhaus.org</a><br>
+<br>
+Please reference these sites to determine how to remove your email server from the list(s).
+</p>
+</div>
+
+<div class="msg">
+<p>
+<a name="invalidhostname"><span class="msgtitle">550 5.7.1 Rejecting due to security policy - Invalid hostname '...'. Please see: ...</span></a><br>
+Your email server is providing a hostname which does not properly resolve to an ip address.<br>
+This problem can be fixed by your Internet Domain Administrator.<br>
+Please forward the error message that directed you here, to that person.
+</p>
+</div>
+
+<div class="msg">
+<p>
+<a name="hostnameipmismatch"><span class="msgtitle">550 5.7.1 Rejecting due to security policy - Helo hostname/ip mismatch, Please see: ...</span></a><br>
+Your email server is providing a hostname which does not properly resolve to the name of the ip address used by your email server.<br>
+This problem can be fixed by your Internet Domain Administrator.<br>
+Please forward the error message that directed you here, to that person.
+</p>
+</div>
+
+<div class="msg">
+<p>
+<a name="attachmentinline"><span class="msgtitle">550 5.7.1 Rejecting due to security policy - Inline executable attachement, Please see: ...</span></a><br>
+<a name="attachmentbody"><span class="msgtitle">550 5.7.1 Rejecting due to security policy - Executable attachement, Please see: ...</span></a><br>
+You sent an email with an attachement with one or more of the following extenentions;
+<ul>
+<li>Uncomment a file list</li>
+<!-- conservative list
+<li>.vbs .shs .pif .scr .cpl .bat .com .reg .bas .inf</li>
+<li>.vb .vbe</li>
+-->
+<!-- aggressive list
+<li>.ade .adp .bas .bat .chm .cmd .com .cpl .crt .exe</li>
+<li>.hlp .hta .inf .ins .isp .js .jse .lnk .mdb .mde</li>
+<li>.msc .msi .msp .mst .pcd .pif .reg .scr .sct .shs</li>
+<li>.shb .url .vb .vbe .vbs .wsc .wsf .wsh</li>
+-->
+</ul>
+These are the some of the most commonly suspect file types by which viruses are propogated, and are therefore denied entry into this network.<br>
+If you need to send a file or files with one or more of the extensions listed here, please ZIP the file and resend it.<br>
+</p>
+</div>
+
+<div class="msg">
+<p>
+<a name="blacklistedrecipent"><span class="msgtitle">550 5.7.1 Rejecting due to security policy - Recipient has been blacklisted, Please see: ...</span></a><br>
+The recipient to whom your email was addressed is not allowed to receive email.
+</p>
+</div>
+
+<div class="msg">
+<p>
+<a name="blacklistedsender"><span class="msgtitle">550 5.7.1 Rejecting due to security policy - Sender '...' has been blacklisted, Please see: ...</span></a><br>
+Your email address is not allowed to send email to recipents of this network.
+</p>
+</div>
+
+<div class="msg">
+<p>
+<a name="invalidsender"><span class="msgtitle">550 5.7.1 Rejecting due to security policy - Unable to validate Sender address ..., Please see: ...</span></a><br>
+Our mail server was unable to validate your email address, as such, your email will not be allowed to enter this network.
+</p>
+</div>
+
+<div class="msg">
+<p>
+<a name="tempfailinvalidsender"><span class="msgtitle">451 4.7.1 Temporary failure - Unable to validate Sender address ..., Please see: ...</span></a><br>
+Our mail server was temporarily unable to validate your email address, as such, your email will not be allowed to enter this network.<br>
+Please try again later.
+</p>
+</div>
+
+<div class="msg">
+<p>
+<a name="helol"><span class="msgtitle">550 5.7.1 Rejecting due to security policy - Helo or Ehlo MTA greeting expected, Please see: ...</span></a><br>
+Your email server did not properly identify it's self, as such, your email will not be allowed to enter this network.
+</p>
+</div>
+
+<div class="msg">
+<p>
+<a name="undeliverable"><span class="msgtitle">550 5.7.1 Rejecting due to security policy - Not deliverable, Please see: ...</span></a><br>
+Your email was unable to be delivered to the specified unknown recipient.
+</p>
+</div>
+
+</body>
+</html>
+

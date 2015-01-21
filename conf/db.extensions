@@ -1,0 +1,9 @@
+# Spamilter - file extension check database
+#
+# This file contains rows that are a '|' delimited list of filename extensions which are to be rejected
+#
+# File format
+# <numeric list name><white space><dot><extension name><bar><dot><extension name><bar><dot><extension name><bar>...
+#
+1 .vbs|.shs|.pif|.scr|.cpl|.bat|.com|.reg|.bas|.inf|.vb|.vbe
+2 .ade|.adp|.bas|.bat|.chm|.cmd|.com|.cpl|.crt|.exe|.hlp|.hta|.inf|.ins|.isp|.js|.jse|.lnk|.mdb|.mde|.msc|.msi|.msp|.mst|.pcd|.pif|.reg|.scr|.sct|.shs|.shb|.url|.vb|.vbe|.vbs|.wsc|.wsf|.wsh

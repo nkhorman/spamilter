@@ -1,0 +1,368 @@
+#!/bin/sh
+
+#--------------------------------------------------------------------*
+#
+# Developed by;
+#      Neal Horman - http://www.wanlink.com
+#
+#      CVS:  $Id: configure,v 1.38 2014/12/31 00:51:49 neal Exp $
+#
+# DESCRIPTION:
+#	application:	Spamilter
+#	module:		configure
+#
+#--------------------------------------------------------------------*
+
+tmpsed="/tmp/t.$$.1"
+tmpcli="/tmp/t.$$.2"
+log="config.tmp"
+
+os="`uname -s`"
+osver="`uname -r`"
+case "$os" in
+	SunOS)
+		echobin="/usr/ucb/echo"
+		;;
+	*)
+		echobin="echo"
+		;;
+esac
+
+rm -f $tmpsed
+$echobin -n "./configure " > $log
+
+usage()
+{
+cat <<EOF
+Usage:
+	--help
+	-f			- forceMakefile creation
+	--sendmail-dir		- directory prefix of previously compiled sendmail source
+	--debug-timestamp	- add date/time and pid stamps to debug output
+	--with-libspf		- compile in support for libspf
+	--with-popauth		- compile in support for pop after smtp
+	--with-pam		- compile in support for pam for ipfwmtad (for use on FreeBSD)
+	--have-resn		- platform has support for res_n???? functions (--with-libbind defines this)
+	--with-libbind		- directory prefix of previously compiled bind source
+	--with-libdb		- directory prefix of previously compiled db source - use this if your system doesn't include libdb,
+	--with-virtuser		- compile in support for rejecting recpients not listed in virtusertable
+	--with-aliases		- compile in support for rejecting recpients not listed in aliases table
+	--with-localuser	- compile in support for rejecting recpients not listed in local user database
+	--with-postgresql	- directory prefix of previously compiled PostgreSql source
+	--with-greylist		- compile the greydbd grey listing daemon (requires PostgreSql database to be installed)
+	--with-fwdhostchk	- compile in support for recipient forwarding host checking
+	--with-geoip		- compile in support for GeoIP CC checking
+	--with-tables-flatfile	- use ascii flat files for data tables
+	--with-tables-pgsql	- use PostgreSql for data tables
+	--with-dbl		- compile in support for rejecting based on Domain name Black List checking
+EOF
+}
+
+Not()
+{
+	$echobin "s/<NOT_$1 \([^>]*\)>/\1 /g" >> $tmpsed
+	$echobin "s/<NOT_$1>/<ALL>/g" >> $tmpsed
+}
+
+Has()
+{
+	$echobin "s/<$1 \([^>]*\)>/\1 /g" >> $tmpsed
+	$echobin "s/<$1>/<ALL>/g" >> $tmpsed
+}
+
+Include()
+{
+	Has INC_$1
+}
+
+With()
+{
+	Has WITH_$1
+}
+
+TagLine()
+{
+if [ "$2" != "" ]; then cat<<EOF >> $tmpsed
+/<$1>/s/<[Xx]>/$2/
+s/<$1>/<ALL>/
+EOF
+fi
+}
+
+CheckDir()
+{
+	if [ ! -d "$2" ]; then
+		$echobin "$1 \"$2\" does not exist, no action taken."
+		exit 0;
+	fi
+}
+
+SedifyDir()
+{
+	$echobin $1|sed -e's/[\./ ]/\\&/g'
+}
+
+ConfigSwitch()
+{
+	local theflag="$1"; shift
+	local info="$@"
+
+	$echobin -n "${info} " >> $log
+	cflags="-D${theflag} $cflags"
+	$echobin "${info}" >> $tmpcli
+}
+
+ConfigSwitchWith()
+{
+	local theflag="$1"; shift
+	local info="$@"
+	ConfigSwitch "SUPPORT_${theflag}" "${info}"
+	With "${theflag}"
+}
+
+if [ "$1" = "" ]; then usage; exit; fi
+
+while [ "$1" != "" ]; do
+	case "$1" in
+		-f)
+			$echobin -n "$1 " >> $log
+			if [ -f Makefile ]; then
+				make distclean || rm -f Makefile
+			fi
+			;;
+		--sendmail-dir)
+			if [ "$2" = "" ]; then
+				echo "Missing --sendmail-dir directory paramater";
+				exit 1;
+			fi
+			$echobin -n "$1 $2 " >> $log
+			CheckDir "$1" "$2"
+			smdir=$2
+			shift
+			;;
+		--debug-timestamp)
+			ConfigSwitch "DEBUG_TIMESTAMP" "$1"
+			;;
+		--with-popauth)
+			ConfigSwitchWith "POPAUTH" "$1"
+			;;
+		--with-virtuser)
+			ConfigSwitchWith "VIRTUSER" "$1"
+			;;
+		--with-aliases)
+			ConfigSwitchWith "ALIASES" "$1"
+			;;
+		--with-localuser)
+			ConfigSwitchWith "LOCALUSER" "$1"
+			;;
+		--with-libspf)
+			if [ "$2" = "" ]; then
+				libspfdir="libspf/build"
+				TagLine "PKGLIBSPF" ALL
+			else
+				libspfdir="$2"
+				CheckDir "$1" "$2/src/libspf"
+				CheckDir "$1" "$2/lib"
+			fi
+			x="`SedifyDir ${libspfdir}`"
+			TagLine "LIBSPFDIR" $x
+			if [ "$2" = "" ]; then
+				ConfigSwitchWith "LIBSPF" "$1"
+			else
+				ConfigSwitchWith "LIBSPF" "$1 ${libspfdir}"
+			fi
+			shift
+			;;
+		--with-pam)
+			ConfigSwitchWith "PAM" "$1"
+			;;
+		--have-resn)
+			ConfigSwitch "HAVE_RES_N" "$1"
+			;;
+		--with-libbind)
+			if [ "$2" = "" ]; then
+				echo "Missing --with-libbind directory paramater";
+				exit 1;
+			fi
+			ConfigSwitch "HAVE_RES_N" "$1 $2"
+			incdirs="-I`SedifyDir $2/include` $incdirs"
+			libdirs="-L`SedifyDir $2/lib` $libdirs"
+			libs="-lbind $libs"
+			CheckDir "$1" "$2/include"
+			CheckDir "$1" "$2/lib"
+			shift
+			;;
+		--with-libdb)
+			if [ "$2" = "" ]; then
+				echo "Missing --with-libdb directory paramater";
+				exit 1;
+			fi
+			$echobin -n "$1 $2 " >> $log
+			incdirs="-I`SedifyDir $2/include` $incdirs"
+			libdirs="-L`SedifyDir $2/lib` $libdirs"
+			libs="-ldb $libs"
+			CheckDir "$1" "$2/include"
+			CheckDir "$1" "$2/lib"
+			$echobin "$1 $2" >> $tmpcli
+			shift
+			;;
+		--with-postgresql)
+			if [ "$2" = "" ]; then
+				echo "Missing --with-postgresql directory paramater";
+				exit 1;
+			fi
+			x="`SedifyDir $2`"
+			TagLine "PGSQLDIR" $x
+			CheckDir "$1" "$2/include"
+			CheckDir "$1" "$2/lib"
+			ConfigSwitchWith "PGSQL" "$1 $2"
+			shift
+			;;
+
+		--with-greylist)
+			ConfigSwitchWith "GREYLIST" "$1"
+			TagLine "PKGGREYLIST" ALL
+			;;
+		--with-fwdhostchk)
+			ConfigSwitchWith "FWDHOSTCHK" "$1"
+			;;
+		--with-geoip)
+			x="`SedifyDir 1.4.8`"
+			TagLine "GEOIPDIR" $x
+			TagLine "PKGGEOIP" ALL
+			ConfigSwitchWith "GEOIP" "$1"
+			;;
+		--with-tables-flatfile)
+			ConfigSwitchWith "TABLE_FLATFILE" "$1"
+			TagLine "SUPPORTTABLEFLAT" ALL
+			;;
+		--with-tables-pgsql)
+			ConfigSwitchWith "TABLE_PGSQL" "$1"
+			TagLine "SUPPORTTABLEPGSQL" ALL
+			;;
+		--with-dbl)
+			ConfigSwitchWith "DBL" "$1"
+			;;
+		--help)
+			usage;
+			exit 0;
+			;;
+		*)
+			$echobin "Unsupported configure paramenter \"$1\""
+			usage;
+			exit 0;
+			;;
+	esac
+	shift
+done
+
+if [ -f Makefile ]; then
+	$echobin "Makefile exists, no action taken."
+	$echobin "Use configure -f to rebuild the Makefile";
+	exit 0;
+else
+#	osbsd="`uname -s|sed -e's/^.*[Bb][Ss][Dd]/BSD/'`"
+	oflags="-DOS_$os"
+	case "$os" in
+		FreeBSD)
+			smdir="/usr/src/contrib/sendmail"
+			Has "BSD"
+			;;
+		SunOS)
+			if [ "$osver" = "5.8" -o "$osver" = "5.9" -o "$osver" = "5.10" ]; then
+				cflags="-DHAVE_RES_N $cflags"
+			else
+				cflags="-DUSE_RR_CL $cflags"
+			fi
+			smobj="$os.`uname -r`.`uname -m|sed -e's/.$//'`"
+			$echobin "s/<SMOBJDIR>/$smobj/g" >> $tmpsed
+			Not "FreeBSD"
+			Not "BSD"
+			;;
+		OpenBSD)
+			smobj="$os.`uname -r`.`uname -m`"
+			$echobin "s/<SMOBJDIR>/$smobj/g" >> $tmpsed
+			Not "FreeBSD"
+			Has "BSD"
+			;;
+		Linux)
+			smobj="$os.`uname -r`.`uname -m`"
+			$echobin "s/<SMOBJDIR>/$smobj/g" >> $tmpsed
+			Not "FreeBSD"
+			Not "BSD"
+			;;
+		HP-UX)
+			smobj="$os.`uname -r`.`uname -m`"
+			$echobin "s/<SMOBJDIR>/$smobj/g" >> $tmpsed
+			Not "FreeBSD"
+			Not "BSD"
+			;;
+		Darwin)
+			smobj="$os.`uname -r`.`uname -m`"
+			$echobin "s/<SMOBJDIR>/$smobj/g" >> $tmpsed
+			Not "FreeBSD"
+			Has "BSD"
+			;;
+		*)
+			$echobin "Unknown OS $os"
+			exit 0;
+			;;
+	esac
+
+
+CheckDir "--sendmail-dir" "$smdir"
+
+$echobin "Creating Makefile for $os"
+$echobin "--sendmail-dir $smdir"
+if [ -f $tmpcli ]; then cat $tmpcli; fi
+$echobin ""
+rm -f $tmpcli
+
+echo " \$@" >> $log
+cp $log config.log
+rm -f $log
+
+smdir="`SedifyDir $smdir`"
+TagLine "SMDIR" $smdir
+
+TagLine "CFLAGS" "$cflags"
+TagLine "OFLAGS" $oflags
+TagLine "INCDIRS" $incdirs
+TagLine "LIBDIRS" $libdirs
+TagLine "LIBS" $libs
+
+Include $os
+
+# Filter out <INC_....> sections that are not expanded
+# Filter out <WITH_....> sections that are not expanded
+# Filter out all lines that are not tagged with <ALL> or the os name.
+cat <<EOF >> $tmpsed
+s/<NOT_\([^>]*\)>//g
+s/<INC_\([^>]*\)>//g
+s/<WITH_\([^>]*\)>//g
+/^<ALL>/{
+s/^<[^>]*>//
+p
+}
+/^<$os>/{
+s/^<[^>]*>//
+p
+}
+EOF
+
+cat <<EOF > Makefile
+ #--------------------------------------------------------------------*
+ #
+ # WARNING! - any changes you make to this file will be lost the next
+ # time you run configure.
+ #
+EOF
+
+sed -n -f $tmpsed Makefile.tmpl >> Makefile
+rm -f $tmpsed
+
+for file in dupelocal.inc hndlrs_contentfilter_local.inc ifilocal.inc; do
+	if [ ! -f "$file" ]; then touch "$file"; fi
+done
+
+fi # if [ -f Makefile ]; then

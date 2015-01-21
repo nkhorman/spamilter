@@ -1,0 +1,28 @@
+# Spamilter - Realtime DNS Blacklist config file
+#
+# hostname                      | reference URL                         |action |action delivery stage
+# ---------------------------------------------------------------------------------------------------------
+bl.spamcop.net			|http://www.spamcop.net			|Reject	|Rcpt
+bl.spamcop.net			|http://www.spamcop.net			|Reject	|Hdr
+dnsbl-1.uceprotect.net		|http://www.uceprotect.net/en/index.php?m=3&s=3		|Reject	|Rcpt
+dnsbl-1.uceprotect.net		|http://www.uceprotect.net/en/index.php?m=3&s=3		|Reject	|Hdr
+dnsbl-2.uceprotect.net		|http://www.uceprotect.net/en/index.php?m=3&s=4		|Reject	|Rcpt
+dnsbl-2.uceprotect.net		|http://www.uceprotect.net/en/index.php?m=3&s=4		|Reject	|Hdr
+#
+#bl.csma.biz			|http://bl.csma.biz			|Reject	|Rcpt
+#relays.ordb.org			|http://www.ordb.org			|Reject	|Rcpt
+#
+sbl.spamhaus.org		|http://www.spamhaus.org/sbl		|Reject	|Hdr
+xbl.spamhaus.org		|http://www.spamhaus.org/xbl		|Reject	|Hdr
+#pbl.spamhaus.org		|http://www.spamhaus.org/pbl		|Reject	|Rcpt
+#zen is a composit of all of them
+zen.spamhaus.org		|http://www.spamhaus.org/zen		|Reject	|Rcpt
+#
+dnsbl.dronebl.org		|http://www.dronbl.org			|Reject |Rcpt
+dnsbl.dronebl.org		|http://www.dronbl.org			|Reject |Hdr
+b.barracudacentral.org		|http://www.barracudacentral.org/rbl	|Reject	|Rcpt
+b.barracudacentral.org		|http://www.barracudacentral.org/rbl	|Reject	|Hdr
+#
+# these two are composited by xbl.spamhaus.org
+#dnsbl.njabl.org			|http://www.njabl.org			|Reject	|Rcpt
+#cbl.abuseat.org			|http://cbl.abuseat.org			|Reject	|Rcpt

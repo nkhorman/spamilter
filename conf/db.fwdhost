@@ -1,0 +1,6 @@
+# Spamilter - Recipient delivery verification by forwarding
+# the validation to an inner / other MTA host
+#
+# domain	| interior smtp mta host ip
+#----------------------------------------------
+#example.com	| 192.168.0.1

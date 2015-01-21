@@ -1,0 +1,29 @@
+UserName		= nobody
+PolicyUrl		= http://www.somedomain.com/policy.html
+Dbpath			= /var/db/spamilter
+Conn			= inet:7726@localhost
+DnsBlChk		= 1
+SmtpSndrChk		= 1
+SmtpSndrChkAction	= Reject	# valid options are 'Tag' or 'Reject'
+MtaHostChk		= 1
+MtaHostChkAsIp		= 0
+MtaHostIpfw		= 0
+MtaHostIpfwNominate	= 0
+MtaHostIpChk		= 0
+MtaSpfChk		= 1
+MsExtChk		= 2
+MsExtChkAction		= Reject	# valid options are 'Tag' or 'Reject'
+PopAuthChk		=
+#
+#
+# if the user@domain.com is not in the table(s) used below, 'Reject'
+#
+#VirtUserTablChk	= /etc/mail/virtuser.db	# the file must be readable by the user 'UserName'
+AliasTableChk		= /etc/mail/aliases.db # the file must be readable by the user 'UserName'
+LocalUserTablChk	= 1
+#
+GreyListChk		= 1
+HeaderReplyToChk	= 1
+HeaderReceivedChk	= 1
+GeoIPDBPath		= /var/db/spamilter/geoip
+GeoIPChk		= 1

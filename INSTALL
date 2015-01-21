@@ -1,0 +1,6 @@
+See; http://www.wanlink.com/spamilter/docs.php or
+docs/docs.html or
+docs/docs.txt
+
+cd src
+./configure --help

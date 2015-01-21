@@ -1,0 +1,225 @@
+This documentation is applicable to the current release, and should mostly be applicable to older releases..
+
+    * Installation
+    * Configuration
+    * Startup
+
+Installation
+
+This documentation is FreeBSD centric (because that is what I use and develop on), so you may have to use eqivalent methods for your flavor of OS.
+
+   1. Decide, when started as ROOT, what user id Spamilter should switch to.
+      If the user Nobody is fine, then your set, go to the next step.
+      Otherwise, you may want to create a new user, or use an existing one. Either way, you'll need to modify the UserName parameter of spamilter.rc. See Configuration
+
+   2. If you are going to use the SPF feature, pull and build the latest libspf distribution in an adjacent directory to spamilter, since it is no longer included the the tar ball. NB. You will need to add something like
+
+--with-libspf ../libspf
+
+      to your spamilter configure invocation below in order to link to the library.
+   3. Unpack the tar ball with something like;
+
+tar xvfz spamilter-0.50.tgz
+
+   4. You must have a libmiter enabled version of Sendmail. Otherwise all is for naught.
+         1. FreeBSD
+            On FreeBSD 4.8 and greater, sendmail is libmilter enabled out of the box. Otherwise, it is not. To build an enabled version, you must have the system source installed, or have installed sendmail from scratch with -D_FFR_MILTER. If you have the FreeBSD 4.x system source installed, put the libmilter.sh script in /usr/src, (or your src tree directory equivalent) and run it. This will build and install all that is needed for the version of sendmail that came with the system.
+         2. Other
+            If your OS installation doesn't come with a libmilter enabled sendmail, then you'll need to download the source and build it with
+
+APPENDDEF(`conf_sendmail_ENVDEF', `-DMILTER')
+
+            in your sendmail-x.x.x/devtools/Site/site.config.m4 file. After you build and install sendmail, you'll need to cd to the libmiter directory in the distribution and run make before Spamilter will compile.
+      Consult the FAQ to see how to check if sendmail is libmilter enabled.
+
+   5. Do
+
+./configure --help
+
+      to show all available compile time options that you may want to use, such as pop before stmp.
+
+   6. Then do;
+         1. FreeBSD
+
+cd spamilter && ./configure && make all install
+
+         2. Other
+
+cd spamilter && ./configure --sendmail_dir ../sendmail-x.x.x && make all install
+
+
+      This will build Spamilter and install it in /usr/local/bin with mode 0555. Spamilter has no need to be setuid or setgid enabled.
+
+   7. Spamilter uses the Syslog facility for tracking Accept/Reject actions. Add the following to your syslog.conf;
+
+!Spamilter
+*.=info		/var/log/spam.log
+*.<>info	/var/log/spam.err
+
+      Notice the capitalized S.
+
+   8. Add log rotation entries into newsyslog.conf as follows;
+
+/var/log/spam.log	644 7 * $D0 Z
+/var/log/spam.err	644 7 100 * Z
+
+
+   9. Then;
+
+touch /var/log/spam.log /var/log/spam.err
+
+      and HUP syslogd with;
+
+killall -s -HUP syslogd
+
+
+  10. Create the Realtime DNS and local black/white list database dir;
+
+mkdir /var/db/spamilter
+
+      and copy the default database files into it;
+
+cp conf/db.* /var/db/spamilter
+
+      Make sure that the directory has the right permissions for the Spamilter user to be able to read the files. Write access is not needed.
+
+  11. Copy the default config file to /etc;
+
+cp conf/spamilter.rc /etc
+
+  12. You must configure your sendmail.cf file to enable the use of the milter.
+      Add the following to your sendmail.m4 and rebuild the sendmail.cf file, then restart sendmail;
+
+INPUT_MAIL_FILTER(`spamilter', `S=inet:7726@localhost, F=T, T=C:30s;R:4m;S:30s;E:30s')
+
+      Alternately, add the following somewhere near the top of the file, and then restart sendmail;
+
+Xspamilter, S=inet:7726@localhost, F=T, T=C:30s;R:4m;S:30s;E:30s
+O InputMailFilters=spamilter
+
+      NB. That F=T wil configure sendmail to TempFail any incomming mail when Spamilter is unavailable. This should cause the connecting MTA to queue the email for later delivery attempts.
+
+Configuration
+
+Edit the following files to taste; Note: The files that are linked to here, are the same that are in the tarball.
+
+   1. /etc/spamilter.rc
+      UserName	The system user id to switch to if Spamilter is run as root.
+      PolicyUrl	The URL reference address supplied in email rejections.
+      Dbpath	The directory path to where db.sndr, db.rcpt, and db.rdnsbl files are stored.
+      Conn	The connection type that sendmail will use to connect to Spamilter. Note: It must match what is specified in sendmail.cf.
+      DnsBlChk	If non-zero, the real time DNS block filter will be enabled.
+      SmtpSndrChk	If non-zero, the sender address verification filter will be enabled.
+      SmtpSndrChkAction	If the sender address verification test fails, either 'Reject' or 'Tag' the email.
+      MtaHostChk	If non-zero, and the hostname supplied by the opposing MTA in the "Helo" MTA negotiation phase is not resolvable to a DNS A RR, then the connect attempt is rejected. Note: This goes against RFC! For sites other than low-volume/personal, you may want to disable this filter.
+      MtaHostIpfw	If non-zero and an email is marked as Reject in the MtaHostChk filter, then the ip address is injected into the system firewall rules via the ipfwmtad daemon, thereby blocking all further connects by that ip address for 48 hours.
+      MtaHostIpfwNominate	If non-zero the connecting MTA ip address will be presented to ipfwmtad for connection rate limiting nomination.
+      MtaHostIpChk	If non-zero the connecting MTA ip address will be tested to see if it matches the HELO MTA hostname ip address, and Reject upon failure.
+      MsExtChkAction	If the MsExtChk filter finds a listed extension, then either 'Reject' or 'Tag' the email.
+      MsExtChk	If non-zero, enables rejection or tagging of emails that have attachments where the extension name is in the specified list from the /var/db/spamilter/db.extensions file.
+      PopAuthChk	If non-null, then the specified db file will be consulted to determine if the client connection should be treated as a local net host, there by passing all filters. This should work with Pop-before-smtp and DRAC
+      MtaSpfChk	If non-zero, then the client connection is valided with the SPF proccess using libspf
+
+   2. /var/db/spamilter/db.sndr
+      This file is used to match filter rules of the Black/White list filter, against a given sender address. This sender address is the one given to sendmail in the "mail from: " phase of the MTA to MTA negotiation, not the one specified in the "From: " header of the email.
+
+   3. /var/db/spamilter/db.rcpt
+      This file is used to match filter rules of the Black/White list filter, against a given recipient address. This recipient address is also the one given to sendmail in the "rcpt to: " phase of the MTA to MTA negotiation, not the one specified in the "To:" header of the email.
+
+   4. /var/db/spamilter/db.rdnsbl
+      This file is used to configure any realtime dns block lists to be consulted for rejection or tagging. See DnsBlChk in spamilter.rc
+
+   5. /var/db/spamilter/db.extensions
+      This file is used to configure which file attachments that should be rejected based on the filename extension.
+
+   6. Don't forget to create the html file that the policy URL points to. A sample policy file has been provided in conf/policy.html
+
+   7. Don't forget to publish an SPF record if you are not already. You can use the wizard to quickly generate an appropriate record. It's easy, painless, an will only take 5 minutes.
+
+This sub-section deals specifically with the Action field of both db.sndr and db.rcpt files.
+The rest of the fields in the files are described in the top of each one.
+
+If a given email "Mail from: " or "Rcpt to: " address as provided during the MTA to MTA negotiation phase matches a "rule" entry, then the email is marked with the action specified in the action column.
+The action column can be one of the following;
+
+   1. None
+      The email will continue to be proccessed normally by sendmail and Spamilter.
+
+   2. Accept
+      The email will continue to be proccessed normally by sendmail and will not be further processed by other Spamilter filters.
+
+   3. Reject
+      Sendmail will reject reception of the email, causing it to not be delivered to the end user.
+
+   4. Discard
+      Sendmail will accept the email, but silently discard it, causing it to not be delivered to the end user.
+
+   5. Fail
+      Sendmail will not accept the message, and further, will instruct the sending MTA to try again later.
+
+   6. Tarpit
+      Sendmail will, like "Reject", not deliver the email to the end user, but will also delay completion of the MTA negotiation phase by a fixed 2 minutes, and thereby slow down the opposing MTA.
+
+   7. Exec
+      A match of the rule;
+
+.netinfo4u.com | | Exec | /usr/local/bin/someexecutable
+
+      in either db.sndr or db.rcpt will result in /usr/local/bin/someexecutable being called with the following three paramaters respectively;
+         1. Connecting MTA ip address
+         2. "Mail from: " address
+         3. "Rcpt to: " address
+      The executable can return following values and sendmail will act accordingly;
+          * 0 - Sendmail and Spamilter will continue to proccess the email.
+          * 1 - Sendmail will "Reject" the email.
+          * 2 - Sendmail will "Fail" the email.
+          * 3 - Sendmail will "Discard" the email.
+
+The Reject, Discard, Fail, Tarpit, and Exec actions are handled at the end of the MTA "Rcpt to: " negotiaion phase.
+
+This sub-section deals specifically with the Action and Stage fields of the db.rdnsbl file.
+The rest of the fields in the file are described in the top of the file.
+
+If a given rdnsbl host finds the connecting MTA's ip address in the rdnsbl database, then Spamilter can take one of two actions;
+
+   1. Tag
+      Accept the email, but flag it for the user in three ways, if sendmail reaches the EOM MTA handling phase;
+         1. Prepend "Spam ? - " to the subject line header.
+         2. Inject an "X-Status: F" header in to the email. (This does not seem to survive traversal of Microsoft Exchange Server)
+         3. Inject an "X-Keywords: $Label5" header into the email. (This does not seem to survive traversal of Microsoft Exchange Server)
+
+   2. Reject
+      Reject the email. 
+
+at one of four stages of the MTA negotiation/handling phases;
+
+   1. Conn
+      When the opposing MTA connects.
+
+   2. From
+      After the opposing MTA specifies the sender email address.
+
+   3. Rcpt
+      After the opposing MTA specifies the recipient email address.
+
+   4. EOM
+      After the headers and the body of the email has been received. 
+
+At this point in the evolution of Spamilter, it only makes sense to "Reject" at the "Conn", "From", or "Rcpt" MTA negotiation stages, and it only makes sense to "Tag" at the "EOM" stage.
+Startup
+
+   1. For manual startup,
+
+spamilter
+
+      to background the filter or;
+
+spamilter -d1
+
+      to keep it in the foreground and watch what happens.
+      For automatic startup, on FreeBSD /usr/local/etc/rc.d/spamilter.sh is installed for you, on other systems, you'll need to craft a startup script.
+
+   2. Sit back and enjoy the sea of tranquility that is your new inbox.
+
+Copyright 2003, Neal Horman. All Rights Reserved.
+

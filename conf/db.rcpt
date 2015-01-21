@@ -1,0 +1,20 @@
+# Spamilter - "Rcpt To:" or Recipient address "Match Action" config file
+#
+# Actions; None,Accept,Reject,Discard,Fail,Tarpit,Exec
+#
+# Leading .'s in the domain column will match the Right Hand Side of the
+# address domain that is being tested. Where as those without leading .'s
+# will match the address domain exactly.
+#
+# Entries without a "User" specification will match against all of the
+# domain portion of the address being tested.
+#
+# Address testing does not stop after the first "Match", but continues
+# to the end of the "Match Action" list.
+#
+# Entries that match both "Domain" and "User" are given preference
+# over potential matches of just "Domain"
+#
+#
+# domain			| user		| action
+#

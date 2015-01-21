@@ -1,0 +1,16 @@
+# Spamilter - Country code Black White list rejection based on geolocation of ip address
+#
+# see http://dev.maxmind.com/geoip/ and http://dev.maxmind.com/geoip/legacy/install/country/
+# You can use the script geoip/fetchgeoip.sh to download and update the databases
+#
+#----------
+# 
+# example - reject all countries except the United States
+#.*      |Reject
+#US      |none
+#
+# example - allow all but RO, MX, and CN
+#.      |none
+#ro     |Reject
+#mx     |Reject
+#cn     |Reject
