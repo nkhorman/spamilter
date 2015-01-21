@@ -1162,7 +1162,8 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 		// The HLO MTA hostname should resolve to an ip address
 		if(continue_checks
 			&& gMtaHostChk
-			&& !( dns_query_rr_a(priv->presstate,"%s",priv->helo) || dns_query_rr_aaaa(priv->presstate,"%s",priv->helo) )
+			&& !dns_query_rr_a(priv->presstate,"%s",priv->helo)
+			&& !dns_query_rr_aaaa(priv->presstate,"%s",priv->helo)
 			)
 		{
 			mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Invalid hostname '%s', Please see: %s#invalidhostname",priv->helo,gPolicyUrl);
