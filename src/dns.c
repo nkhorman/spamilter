@@ -179,7 +179,7 @@ int dns_hostname_ip_match(const res_state statp, char *hostname, unsigned long h
 
 // Build an arpa request for an ipv4 or ipv6 address.
 // The consumer must free() the return value.
-char *dns_inet_ptoarpa(const char *pHost, int afNet)
+char *dns_inet_ptoarpa(const char *pHost, int afNet, const char *pDomainRoot)
 {	char *pArpa = NULL;
 
 	if(pHost != NULL)
@@ -202,7 +202,9 @@ char *dns_inet_ptoarpa(const char *pHost, int afNet)
 						snprintf(bufstr+strlen(bufstr), sizeof(bufstr)-strlen(bufstr)
 							, (i>0 ? "%u." : "%u"), ((char *)pIp4)[i] & 0xff
 							);
-					snprintf(bufstr+strlen(bufstr), sizeof(bufstr)-strlen(bufstr), ".in-addr.arpa");
+					snprintf(bufstr+strlen(bufstr), sizeof(bufstr)-strlen(bufstr), "%s"
+						, (pDomainRoot == NULL ? ".in-addr.arpa" : pDomainRoot)
+						);
 				}
 				break;
 			case AF_INET6:
@@ -214,7 +216,9 @@ char *dns_inet_ptoarpa(const char *pHost, int afNet)
 							, pIp6->__u6_addr.__u6_addr8[i] & 0x0f
 							, (pIp6->__u6_addr.__u6_addr8[i] & 0xf0) >> 4
 							);
-					snprintf(bufstr+strlen(bufstr), sizeof(bufstr)-strlen(bufstr), ".ip6.arpa");
+					snprintf(bufstr+strlen(bufstr), sizeof(bufstr)-strlen(bufstr), "%s"
+						, (pDomainRoot == NULL ? ".ip6.arpa" : pDomainRoot)
+						);
 				}
 				break;
 		}

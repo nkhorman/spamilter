@@ -75,5 +75,5 @@
 
 	// Build an arpa request for an ipv4 or ipv6 address
 	// The consumer must free() the return value.
-	char *dns_inet_ptoarpa(const char *pHost, int afNet);
+	char *dns_inet_ptoarpa(const char *pHost, int afNet, const char *pDomainRoot);
 #endif

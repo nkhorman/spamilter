@@ -232,7 +232,7 @@ int dnsbl_check_rbl(const char *pSessionId, const res_state statp, struct sockad
 	if(pip != NULL && domain != NULL && *domain)
 	{	u_char resp[NS_PACKETSZ];
 		char *pIpStr = mlfi_sin2str(pip);
-		char *pArpaIpStr = dns_inet_ptoarpa(pIpStr, pip->sin_family);
+		char *pArpaIpStr = dns_inet_ptoarpa(pIpStr, pip->sin_family, domain);
 
 		switch(pip->sin_family)
 		{
