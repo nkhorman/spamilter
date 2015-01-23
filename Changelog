@@ -1,5 +1,7 @@
 Changelog;
 version - 0.61 - ccyymmdd / unreleased
+	* add - 150123 - dns, dbl and dnsbl changes to grok ipv6
+
 	* mod - 150121 - add ipv6 lookups for MtaHostChk functionality
 
 	* tag - build_140227
