@@ -47,14 +47,29 @@
 
 	#define mkip(a,b,c,d) ((((a)&0xff)<<24)|(((b)&0xff)<<16)|(((c)&0xff)<<8)|((d)&0xff))
 
-	int dns_query_rr_a_resp_v(const res_state statp, u_char *presp, size_t resplen, char *fmt, va_list vl);
-	int dns_query_rr_a_resp(const res_state statp, u_char *presp, size_t resplen, char *fmt, ...);
-	int dns_query_rr_a(const res_state statp, char *fmt, ...);
+	// primatives
+	// The consumer provides the response buffer
+	int dns_query_rr_resp_v(const res_state statp, u_char *presp, size_t respLen, int nsType, char *fmt, va_list vl);
+	// The consumer provides the response buffer, because they want to parse it
+	int dns_query_rr_resp(const res_state statp, u_char *presp, size_t respLen, int nsType, char *fmt, ...);
+	// The consumer doesn't care about the response content
+	int dns_query_rr(const res_state statp, int nsType, char *fmt, ...);
 
-	int dns_query_rr_aaaa_resp_v(const res_state statp, u_char *presp, size_t resplen, char *fmt, va_list vl);
-	int dns_query_rr_aaaa(const res_state statp, char *fmt, ...);
-
+	// Make an in-addr.arpa style ipv4 query, and return 1 if found
 	int dns_rdnsbl_has_rr_a(const res_state statp, unsigned long ip, char *domain);
 
+	// Query a hostname and find an ipv4 match
 	int dns_hostname_ip_match(const res_state statp, char *hostname, unsigned long hostip);
+
+	typedef struct _nsrrr_t
+	{
+		u_char *pResp;
+		size_t respLen;
+		ns_rr rr;
+	} nsrr_t;
+
+	// Iterate a given section of a response
+	void dns_parse_response(u_char *presp, size_t respLen, ns_sect nsSection, int (*pCallbackFn)(nsrr_t *, void *), void *pCallbackData);
+	// Iterate the Answer Section of a response
+	void dns_parse_response_answer(u_char *presp, size_t respLen, int (*pCallbackFn)(nsrr_t *, void *), void *pCallbackData);
 #endif
