@@ -43,49 +43,116 @@
 #include <unistd.h>
 #include <string.h>
 
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <arpa/nameser.h>
+#include <resolv.h>
+#include <netdb.h>
+
 #include "dbl.h"
 
-int dbl_check(const res_state statp, const char *pDbl, const char *pDomain, dbl_callback_t pCallback, void *pCallbackData)
+// double your insanity
+typedef struct _dbldns_t
+{
+	dblcb_t dblcb;
+	int again;
+} dbldns_t;
+
+// The dns response RR iterator calls us, so we
+// in turn call the consumers callback abstracting the dns
+// iterator's callback function protyping from the consumer
+// as well as calling the policy function callback, which
+// might seem silly on the surface of it, but by using a policy
+// callback, you an maintain the DBL return result processing in
+// one place instead of dealing with it in a billion callback
+// functions that only care about when the DBL failed the queried
+// Domain.
+// (That is one long runon sentence...)
+static int dbl_check_callback(nsrr_t *pNsrr, void *pData)
+{	dbldns_t *pDbldns = (dbldns_t *)pData;
+
+	// convience pointers
+	dblcb_t *pDblcb = &pDbldns->dblcb;
+	const dblq_t *pDblq = pDblcb->pDblq;
+
+	pDblcb->pNsrr = pNsrr;
+
+	switch(ns_rr_type(pDblcb->pNsrr->rr))
+	{
+		// valid DBL answer types
+		case ns_t_a: // 0x7f0001xx
+		case ns_t_aaaa: // ::FFFF:7F00:2
+		case ns_t_txt:
+			// It's our job to make sure this is empty, and free it afterwards
+			pDblcb->pDblResult = NULL;
+
+			if(
+				// the consumer knows how to deal wth the ns_rr
+				pDblq->pCallbackPolicyFn == NULL
+				// let the policy callback deal with ns_rr testing
+				|| (pDblq->pCallbackPolicyFn != NULL && pDblq->pCallbackPolicyFn(pDblcb))
+			)
+			{
+				pDbldns->again = pDblq->pCallbackFn(pDblcb);
+			}
+
+			// Because the policy callback filled this out, we are supposed to free it
+			if(pDblcb->pDblResult != NULL)
+			{
+				// We're in trouble f this is not heap!
+				free((void *)pDblcb->pDblResult);
+					pDblcb->pDblResult = NULL;
+			}
+			break;
+
+		// all other answers
+		default:
+			break;
+	}
+
+	return 1; // again
+}
+
+// Our consumer, gives us a context to pass to the callback for every RR in the dns response.
+// So, since we ourselves, use an iterator for the RR's, we have to stuff the consumer foo, in
+// a context struct, to pass through the iterator to use when calling the consumer's callback.
+// Double your pleasure, double your fun... :)
+int dbl_check(const res_state statp, const char *pDbl, const dblq_t *pDblq)
 {	u_char resp[NS_PACKETSZ];
-	int rc = dns_query_rr_a_resp(statp,&resp[0],sizeof(resp),"%s.%s",pDomain,pDbl);
+	int rc = dns_query_rr_resp(statp, &resp[0], sizeof(resp), ns_t_a, "%s.%s", pDblq->pDomain, pDbl);
 	int again = 1;
 
 	if(rc > 0)
-	{	ns_msg	handle;
-	
-		if(ns_initparse(resp,rc,&handle) > -1)
-		{	int	rrnum;
-			ns_rr	rr;
-			int	count = ns_msg_count(handle,ns_s_an);
+	{
+		dbldns_t dbldns;
 
-			for(rrnum=0; rrnum<count; rrnum++)
-			{
-				if(ns_parserr(&handle, ns_s_an, rrnum, &rr) == 0)
-				{
-					switch((unsigned int)ns_rr_type(rr)) // the cast quells the compiler "enumeration not handled" warning
-					{
-						case ns_t_a:
-							again = pCallback(pDbl,pDomain,ns_get32(ns_rr_rdata(rr)),pCallbackData);
-							break;
-						case ns_t_aaaa:
-							break;
-					}
-				}
-			}
-		}
+		memset(&dbldns, 0, sizeof(dbldns));
+		dbldns.dblcb.pDblq = pDblq;
+		dbldns.dblcb.pDbl = pDbl;
+		dbldns.again = 1;
+
+		dns_parse_response_answer(resp, rc, &dbl_check_callback, &dbldns);
+
+		again = dbldns.again;
 	}
 
 	return again;
 }
 
-void dbl_check_list(const res_state statp, const char **ppDbl, const char *pDomain, dbl_callback_t pCallback, void *pCallbackData)
+// Iterate a list of DBLs using a callback
+void dbl_check_list(const res_state statp, const char **ppDbl, const dblq_t *pDblq)
 {	int again = 1;
 
 	while(*ppDbl && again)
-		again = dbl_check(statp,*(ppDbl++),pDomain,pCallback,pCallbackData);
+		again = dbl_check(statp,*(ppDbl++), pDblq);
 }
 
-void dbl_check_all(const res_state statp, const char *pDomain, dbl_callback_t pCallback, void *pCallbackData)
+// A predefined list of DBLs to iterate using a callback
+// TODO - Move this list out into a config table, using
+// the table driver and tableForEachRow()... oooh, another callback!
+// tripple your insanity
+void dbl_check_all(const res_state statp, const dblq_t *pDblq)
 {
 	const char *pDbls[] =
 	{
@@ -95,12 +162,108 @@ void dbl_check_all(const res_state statp, const char *pDomain, dbl_callback_t pC
 		NULL
 	};
 
-	dbl_check_list(statp,pDbls,pDomain,pCallback,pCallbackData);
+	dbl_check_list(statp,pDbls, pDblq);
+}
+
+int dbl_callback_policy_std(dblcb_t *pDblcb)
+{	int bCallbackProceed = 0;
+	nsrr_t *pNsrr = pDblcb->pNsrr;
+
+	// http://www.spamhaus.org/faq/section/Spamhaus%20DBL#277
+	// http://www.rfc-editor.org/rfc/rfc5782.txt
+	//
+	// http://www.spamhaus.org/faq/section/Spamhaus%20DBL#291
+	// Return Codes	Data Source
+	// 127.0.1.2	spam domain
+	// 127.0.1.4	phish domain
+	// 127.0.1.5	malware domain
+	// 127.0.1.6	botnet C&C domain
+	// http://www.spamhaus.org/faq/section/Spamhaus%20DBL#411
+	// 127.0.1.102	abused legit spam
+	// 127.0.1.103	abused spammed redirector domain
+	// 127.0.1.104	abused legit phish
+	// 127.0.1.105	abused legit malware
+	// 127.0.1.106	abused legit botnet C&C
+	// 127.0.1.255	IP queries prohibited!
+
+	switch(ns_rr_type(pNsrr->rr))
+	{
+		case ns_t_a: // 0x7f0001xx
+			if(ns_rr_rdlen(pNsrr->rr) == NS_INADDRSZ)
+			{	unsigned long ip = ns_get32(ns_rr_rdata(pNsrr->rr));
+
+				if((ip&0xffffff00) == 0x7f000100)
+				{
+					pDblcb->abused = ((ip & 0x000000ff) >= 100); // an abused domain
+
+					if(!pDblcb->abused)
+					{	char bufstr[INET_ADDRSTRLEN+1];
+
+						memset(bufstr, 0, sizeof(bufstr));
+						if(inet_ntop(AF_INET, ns_rr_rdata(pNsrr->rr), bufstr, sizeof(bufstr)-1) != NULL)
+							pDblcb->pDblResult = strdup(bufstr);
+					}
+
+					bCallbackProceed = !pDblcb->abused;
+				}
+			}
+			break;
+
+		case ns_t_aaaa: // ::FFFF:7F00:2
+			// TODO - none of this logic is validated
+			if(ns_rr_rdlen(pNsrr->rr) == NS_IN6ADDRSZ)
+			{
+				struct in6_addr *pIp6 = (struct in6_addr *)ns_rr_rdata(pNsrr->rr);
+
+				// 0x0000_0000 0000_0000 0000_ffff 7f00_0002
+				if(
+					pIp6->__u6_addr.__u6_addr32[0] == 0
+					&& pIp6->__u6_addr.__u6_addr32[1] == 0
+					&& pIp6->__u6_addr.__u6_addr32[2] == 0x0000ffff
+					&& (pIp6->__u6_addr.__u6_addr32[3] & 0xffffff00) == 0x7f000100
+					)
+				{
+					pDblcb->abused = ((pIp6->__u6_addr.__u6_addr32[3] & 0x000000ff) >= 100); // an abused domain
+
+					if(!pDblcb->abused)
+					{	char bufstr[INET6_ADDRSTRLEN+1];
+
+						memset(bufstr, 0, sizeof(bufstr));
+						if(inet_ntop(AF_INET6, pIp6, bufstr, sizeof(bufstr)-1) != NULL)
+						pDblcb->pDblResult = strdup(bufstr);
+					}
+				}
+			}
+			break;
+
+		//case ns_t_txt: // TODO
+		//	break;
+
+		default:
+			break;
+	}
+
+	//if(pDblcb->pDblResult != NULL)
+	//	printf("pDblResult %s\n", pDblcb->pDblResult);
+
+	return bCallbackProceed;
 }
 
 #ifdef _UNIT_TEST
+static int callback(const dblcb_t *pDblcb)
+{
+	printf("DBL '%s' query '%s' returned '%s'%s\n"
+		, pDblcb->pDbl
+		, pDblcb->pDblq->pDomain
+		, pDblcb->pDblResult
+		, (pDblcb->abused ? " - abused" : "")
+		);
+
+	return 1; // again
+}
+
 int main(int argc, char **argv)
-{	char *pDbl = "dbl.spamhaus.org";
+{	char *pDbl = NULL;//"dbl.spamhaus.org";
 	char *pDomain = NULL;
 	int c;
 
@@ -124,40 +287,32 @@ int main(int argc, char **argv)
 	if(pDomain != NULL)
 	{
 		if(pDbl != NULL)
-		{
-			res_state presstate = NULL;
-		
-			presstate = RES_NALLOC(presstate);
+			printf("using DBL '%s' for lookup of '%s'\n",pDbl,pDomain);
 
-			if(presstate != NULL)
-			{	int rc;
-				unsigned long ip = 0;
+		res_state presstate = NULL;
 
-				printf("using DBL '%s' for lookup of '%s'\n",pDbl,pDomain);
+		presstate = RES_NALLOC(presstate);
 
-				int callback(const char *pDbl, const char *pDomain, unsigned ip, void *pData)
-				{
-					if((ip&0xffffff00) == 0x7f000100)
-						printf("'%s' '%s' - %u.%u.%u.%u\n" ,pDbl ,pDomain ,((ip&0xff000000)>>24) ,((ip&0x00ff0000)>>16) ,((ip&0x0000ff00)>>8) ,((ip&0x000000ff)));
+		if(presstate != NULL)
+		{	dblq_t dblq;
 
-					return 1; // again
-				}
+			res_ninit(presstate);
 
-				res_ninit(presstate);
+			dblq.pDomain = pDomain;
+			dblq.pCallbackFn = &callback;
+			dblq.pCallbackData = NULL;
+			dblq.pCallbackPolicyFn = &dbl_callback_policy_std;
 
-				if(pDbl != NULL)
-					dbl_check(presstate,pDbl,pDomain,&callback,NULL);
-				else
-					dbl_check_all(presstate,pDomain,&callback,NULL);
-
-				res_nclose(presstate);
-				free(presstate);
-			}
+			if(pDbl != NULL)
+				dbl_check(presstate, pDbl, &dblq);
 			else
-				printf("enable to init resolver\n");
+				dbl_check_all(presstate, &dblq);
+
+			res_nclose(presstate);
+			free(presstate);
 		}
 		else
-			printf("no DBL specified, use -l [DBL hostname]\n");
+			printf("enable to init resolver\n");
 	}
 	else
 		printf("no domain specified - use -h [host/domain name]\n");

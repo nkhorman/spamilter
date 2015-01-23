@@ -41,11 +41,41 @@
 #ifndef _DBL_H_
 #define _DBL_H_
 
-#include "dns.h"
+	#include "dns.h"
 
-	typedef int(*dbl_callback_t)(const char *pDbl, const char *pDomain, unsigned ip, void *pData);
+	typedef struct _dblq_t dblq_t;
+	typedef struct _dblcb_t dblcb_t;
 
-	int dbl_check(const res_state statp, const char *pDbl, const char *pDomain, dbl_callback_t, void *pCallbackData);
-	void dbl_check_list(const res_state statp, const char **ppDbl, const char *pDomain, dbl_callback_t, void *pCallbackData);
-	void dbl_check_all(const res_state statp, const char *pDomain, dbl_callback_t, void *pCallbackData);
+	typedef int(*dbl_callback_t)(const dblcb_t *);
+	typedef int(*dbl_callback_policy_t)(dblcb_t *);
+
+	// The query parameters
+	struct _dblq_t
+	{
+		const char *pDomain;
+		dbl_callback_t pCallbackFn;
+		void *pCallbackData;
+		dbl_callback_policy_t pCallbackPolicyFn;
+	};
+
+	// Callback context
+	struct _dblcb_t
+	{
+		const dblq_t *pDblq;
+		const char *pDbl;
+		nsrr_t *pNsrr;
+
+		// NB. It's the callback policy function's reponsibility
+		// to fill this out for the callback function's use.
+		// This is meant to be the result of something like a
+		// inet_ntop() based on the pNsrr content.
+		char *pDblResult;
+		// See dbl.c dbl_callback_policy_std() for meaning.
+		int abused;
+	};
+
+
+	void dbl_check_all(const res_state statp, const dblq_t *pDblq);
+
+	int dbl_callback_policy_std(dblcb_t *pDblcb);
 #endif
