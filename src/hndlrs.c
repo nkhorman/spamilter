@@ -934,26 +934,24 @@ typedef struct _cpr_t
 	int *pbContinueChecks;
 }cpr_t;
 
-int dblCheckCallbackHlo(const char *pDbl, const char *pDomain, unsigned ip, void *pData)
-{	cpr_t *pcpr = (cpr_t *)pData;
+int dblCheckCallbackHlo(const dblcb_t *pDblcb)
+{	cpr_t *pcpr = (cpr_t *)pDblcb->pDblq->pCallbackData;
 	SMFICTX *ctx = pcpr->ctx;
 	mlfiPriv *priv = MLFIPRIV;
 
-	if((ip&0xffffff00) == 0x7f000100)
-	{
-		mlfi_debug(priv->pSessionUuidStr,"HLO dbl_check '%s' - listed - %u.%u.%u.%u via '%s'\n" ,priv->helo
-			,((ip&0xff000000)>>24) ,((ip&0x00ff0000)>>16) ,((ip&0x0000ff00)>>8) ,((ip&0x000000ff))
-			,pDbl
-			);
+	mlfi_debug(priv->pSessionUuidStr,"HLO dbl_check '%s' - listed - %s via '%s'\n"
+		,pDblcb->pDblq->pDomain
+		,pDblcb->pDblResult
+		,pDblcb->pDbl
+		);
 
-		mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Blacklisted host, Please see: %s#blacklistedhostdbl",gPolicyUrl);
-		asprintf(pcpr->ppReason,"Blacklisted host DBL '%s' via '%s'",priv->helo,pDbl);
-		mlfi_status_debug(priv,pcpr->prs,LOG_REJECTED_STR,*pcpr->ppReason,"mlfi_hndlrs: Blacklisted host DBL\n");
-		free(*pcpr->ppReason);
-		*pcpr->pbContinueChecks = 0;
-	}
+	mlfi_setreply(ctx, 550, "5.7.1", "Rejecting due to security policy - Blacklisted host, Please see: %s#blacklistedhostdbl", gPolicyUrl);
+	asprintf(pcpr->ppReason, "Blacklisted host DBL '%s' via '%s'", pDblcb->pDblResult, pDblcb->pDbl);
+	mlfi_status_debug(priv, pcpr->prs, LOG_REJECTED_STR, *pcpr->ppReason, "mlfi_hndlrs: Blacklisted host DBL\n");
+	free(*pcpr->ppReason);
+	*pcpr->pbContinueChecks = 0;
 
-	return *pcpr->pbContinueChecks; // again
+	return 0; // not again
 }
 
 #ifdef SUPPORT_GEOIP
@@ -1162,8 +1160,8 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 		// The HLO MTA hostname should resolve to an ip address
 		if(continue_checks
 			&& gMtaHostChk
-			&& !dns_query_rr_a(priv->presstate,"%s",priv->helo)
-			&& !dns_query_rr_aaaa(priv->presstate,"%s",priv->helo)
+			&& !dns_query_rr(priv->presstate, ns_t_a, "%s", priv->helo)
+			&& !dns_query_rr(priv->presstate, ns_t_aaaa, "%s", priv->helo)
 			)
 		{
 			mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Invalid hostname '%s', Please see: %s#invalidhostname",priv->helo,gPolicyUrl);
@@ -1217,13 +1215,19 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 			&& gMtaHostChk
 		)
 		{	cpr_t cpr;
+			dblq_t dblq;
 		
 			cpr.ctx = ctx;
 			cpr.prs = &rs;
 			cpr.ppReason = &reason;
 			cpr.pbContinueChecks = &continue_checks;
 
-			dbl_check_all(priv->presstate,priv->helo,&dblCheckCallbackHlo,&cpr);
+			dblq.pDomain = priv->helo;
+			dblq.pCallbackFn = &dblCheckCallbackHlo;
+			dblq.pCallbackData = &cpr;
+			dblq.pCallbackPolicyFn = &dbl_callback_policy_std;
+
+			dbl_check_all(priv->presstate, &dblq);
 			continue_checks = (rs == SMFIS_CONTINUE);
 			if(continue_checks)
 				mlfi_debug(priv->pSessionUuidStr,"HLO dbl_check '%s' - not listed\n",priv->helo);
@@ -1454,26 +1458,24 @@ int mlfi_prependSubjectHeader(SMFICTX *ctx, char *fmt, ...)
 	return(rc);
 }
 
-int dblCheckCallbackBody(const char *pDbl, const char *pDomain, unsigned ip, void *pData)
-{	cpr_t *pcpr = (cpr_t *)pData;
+int dblCheckCallbackBody(const dblcb_t *pDblcb)
+{	cpr_t *pcpr = (cpr_t *)pDblcb->pDblq->pCallbackData;
 	SMFICTX *ctx = pcpr->ctx;
 	mlfiPriv *priv = MLFIPRIV;
 
-	if((ip&0xffffff00) == 0x7f000100)
-	{
-		mlfi_debug(priv->pSessionUuidStr,"dbl_check '%s' - listed - %u.%u.%u.%u\n" ,pDomain
-			,((ip&0xff000000)>>24) ,((ip&0x00ff0000)>>16) ,((ip&0x0000ff00)>>8) ,((ip&0x000000ff))
-			);
+	mlfi_debug(priv->pSessionUuidStr, "dbl_check '%s' - listed - %s\n"
+		,pDblcb->pDblq->pDomain
+		,pDblcb->pDblResult
+		);
 
-		mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Blacklisted body host, Please see: %s#bodyurldbl",gPolicyUrl);
-		asprintf(pcpr->ppReason,"Body URL DBL host '%s' via '%s'",pDomain,pDbl);
-		mlfi_status_debug(priv,pcpr->prs,LOG_REJECTED_STR,*pcpr->ppReason,"mlfi_eom: Body URL DBL host\n");
-		free(*pcpr->ppReason);
-		*pcpr->prs = SMFIS_REJECT;
-		*pcpr->pbContinueChecks = 0;
-	}
+	mlfi_setreply(ctx, 550, "5.7.1", "Rejecting due to security policy - Blacklisted body host, Please see: %s#bodyurldbl", gPolicyUrl);
+	asprintf(pcpr->ppReason, "Body URL DBL host '%s' via '%s'", pDblcb->pDblq->pDomain, pDblcb->pDbl);
+	mlfi_status_debug(priv, pcpr->prs, LOG_REJECTED_STR, *pcpr->ppReason, "mlfi_eom: Body URL DBL host\n");
+	free(*pcpr->ppReason);
+	*pcpr->prs = SMFIS_REJECT;
+	*pcpr->pbContinueChecks = 0;
 
-	return *pcpr->pbContinueChecks; // again
+	return 0; // not again
 }
 
 typedef struct _lcbh_t
@@ -1529,7 +1531,14 @@ int listCallbackBodyHosts(void *pData, void *pCallbackData)
 #ifdef SUPPORT_DBL
 			if(*pLcbh->cpr.pbContinueChecks) // if BL testing passes
 			{
-				dbl_check_all(priv->presstate,pStr,&dblCheckCallbackBody,&pLcbh->cpr);
+				dblq_t dblq;
+
+				dblq.pDomain = pStr;
+				dblq.pCallbackFn = &dblCheckCallbackBody;
+				dblq.pCallbackData = &pLcbh->cpr;
+				dblq.pCallbackPolicyFn = &dbl_callback_policy_std;
+
+				dbl_check_all(priv->presstate, &dblq);
 				if(*pLcbh->cpr.pbContinueChecks)
 					mlfi_debug(priv->pSessionUuidStr,"dbl_check '%s' - not listed\n",pStr);
 			}
