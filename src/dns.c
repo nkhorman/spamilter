@@ -177,9 +177,9 @@ int dns_hostname_ip_match(const res_state statp, char *hostname, unsigned long h
 	return dmi.match;
 }
 
-#ifdef UNIT_TEST
-// The consumer must free() return value
-char *inet_ptoarpa(const char *pHost, int afNet)
+// Build an arpa request for an ipv4 or ipv6 address.
+// The consumer must free() the return value.
+char *dns_inet_ptoarpa(const char *pHost, int afNet)
 {	char *pArpa = NULL;
 
 	if(pHost != NULL)
@@ -226,6 +226,7 @@ char *inet_ptoarpa(const char *pHost, int afNet)
 	return pArpa;
 }
 
+#ifdef UNIT_TEST
 // Show the text version of a given  RR
 int dnsParseResponseCallback(nsrr_t *pNsrr, void *pdata)
 {
@@ -309,10 +310,10 @@ void test1(int argc, char **argv)
 			herror("cn");
 
 		if(rc_a == 0 && rc_aaaa == 0 && rc_ptr == 0 && rc_cn == 0)
-		{	char *pstr = inet_ptoarpa(argv[i], AF_INET);
+		{	char *pstr = dns_inet_ptoarpa(argv[i], AF_INET);
 
 			if(pstr == NULL)
-				pstr = inet_ptoarpa(argv[i], AF_INET6);
+				pstr = dns_inet_ptoarpa(argv[i], AF_INET6);
 
 			if(pstr != NULL)
 			{

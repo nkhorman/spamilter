@@ -72,4 +72,8 @@
 	void dns_parse_response(u_char *presp, size_t respLen, ns_sect nsSection, int (*pCallbackFn)(nsrr_t *, void *), void *pCallbackData);
 	// Iterate the Answer Section of a response
 	void dns_parse_response_answer(u_char *presp, size_t respLen, int (*pCallbackFn)(nsrr_t *, void *), void *pCallbackData);
+
+	// Build an arpa request for an ipv4 or ipv6 address
+	// The consumer must free() the return value.
+	char *dns_inet_ptoarpa(const char *pHost, int afNet);
 #endif
