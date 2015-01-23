@@ -190,76 +190,80 @@ RBLHOST *dnsbl_action(const char *pSessionId, RBLHOST **prbls, int stage)
 	return prblh;
 }
 
+typedef struct _dcrc_t
+{
+	int flagged;
+	const char *pSessionId;
+	const char *pArpaIpStr;
+} dcrc_t; // Dnsbl_Check_Rbl_Callback
+
+static int dnsbl_check_rbl_callback(nsrr_t *pNsrr, void *pdata)
+{	dcrc_t *pDcrc = (dcrc_t *)pdata;
+	int nsType = ns_rr_type(pNsrr->rr);
+	char buf[INET6_ADDRSTRLEN+1];
+
+	memset(buf,0,sizeof(buf));
+	switch(nsType)
+	{
+		case ns_t_a:
+			if(ns_rr_rdlen(pNsrr->rr) == NS_INADDRSZ)
+				inet_ntop(AF_INET, ns_rr_rdata(pNsrr->rr), buf, sizeof(buf)-1);
+			break;
+
+		case ns_t_aaaa:
+			if(ns_rr_rdlen(pNsrr->rr) == NS_IN6ADDRSZ)
+				inet_ntop(AF_INET6, ns_rr_rdata(pNsrr->rr), buf, sizeof(buf)-1);
+			break;
+	}
+
+	if(strlen(buf))
+	{
+		pDcrc->flagged++;
+		mlfi_debug(pDcrc->pSessionId, "dnsbl_check_rbl '%s' - listed - %s\n", pDcrc->pArpaIpStr, buf);
+	}
+
+	return 1; // again
+}
+
 int dnsbl_check_rbl(const char *pSessionId, const res_state statp, struct sockaddr_in *pip, char *domain)
 {	int rc = -1;
 	int flagged = 0;
 
 	if(pip != NULL && domain != NULL && *domain)
 	{	u_char resp[NS_PACKETSZ];
-		char *pipstr = mlfi_sin2str(pip);
-		char *parpaipstr = NULL;
+		char *pIpStr = mlfi_sin2str(pip);
+		char *pArpaIpStr = dns_inet_ptoarpa(pIpStr, pip->sin_family);
 
 		switch(pip->sin_family)
 		{
 			case AF_INET:
-				{	int a,b,c,d;
-
-					if(sscanf(pipstr,"%u.%u.%u.%u",&a,&b,&c,&d) == 4)
-					{
-						asprintf(&parpaipstr,"%u.%u.%u.%u.%s",d,c,b,a,domain);
-						rc = dns_query_rr_a_resp(statp,&resp[0],sizeof(resp),"%s",parpaipstr);
-					}
-					else
-						rc = 0;
-				}
+				rc = dns_query_rr_resp(statp, resp, sizeof(resp), ns_t_a, "%s", pArpaIpStr);
 				break;
+
 			case AF_INET6:
-				//rc = dns_query_rr_a_resp(statp,&resp[0],sizeof(resp),"%s.ipv6.%s",parpaipstr);
+				rc = dns_query_rr_resp(statp, resp, sizeof(resp), ns_t_aaaa, "%s", pArpaIpStr);
 				break;
 		}
 
 		if(rc > 0)
-		{	ns_msg	handle;
-		
-			if(ns_initparse(resp,rc,&handle) > -1)
-			{	int	rrnum;
-				ns_rr	rr;
-				int	count = ns_msg_count(handle,ns_s_an);
+		{
+			dcrc_t dcrc;
 
-				for(rrnum=0; rrnum<count; rrnum++)
-				{
-					if(ns_parserr(&handle, ns_s_an, rrnum, &rr) == 0)
-					{
-						switch((unsigned int)ns_rr_type(rr)) // the cast quells the compiler "enumeration not handled" warning
-						{
-							case ns_t_a:
-								{	unsigned long ip = ns_get32(ns_rr_rdata(rr));
+			dcrc.flagged = flagged;
+			dcrc.pSessionId = pSessionId;
+			dcrc.pArpaIpStr = pArpaIpStr;
 
-									flagged += 1;//((0xffffff00&ip) == 0x7f000000);
-
-									mlfi_debug(pSessionId,"dnsbl_check_rbl '%s' - listed - %u.%u.%u.%u\n"
-										,parpaipstr
-										,((ip&0xff000000)>>24) ,((ip&0x00ff0000)>>16) ,((ip&0x0000ff00)>>8) ,((ip&0x000000ff))
-										);
-								}
-								break;
-							case ns_t_aaaa:
-								break;
-						}
-					}
-				}
-			}
-			else
-				mlfi_debug(pSessionId,"dnsbl_check_rbl '%s' - not listed - ns_initparse fail\n",parpaipstr);
+			dns_parse_response_answer(resp, rc, &dnsbl_check_rbl_callback, &dcrc);
+			flagged = dcrc.flagged;
 		}
 		else
-			mlfi_debug(pSessionId,"dnsbl_check_rbl '%s' - not listed\n",parpaipstr);
+			mlfi_debug(pSessionId, "dnsbl_check_rbl '%s' - not listed\n", pArpaIpStr);
 
-		if(pipstr != NULL)
-			free(pipstr);
+		if(pIpStr != NULL)
+			free(pIpStr);
 
-		if(parpaipstr != NULL)
-			free(parpaipstr);
+		if(pArpaIpStr != NULL)
+			free(pArpaIpStr);
 	}
 
 	return flagged;
@@ -287,9 +291,9 @@ RBLLISTMATCH *dnsbl_check(const char *pSessionId, int stage, RBLLISTHOSTS *prbls
 		for(i=0; i<prbls->qty; i++)
 		{
 			prblh = prbls->plist + i;
-			if(prblh->stage == stage && dnsbl_check_rbl(pSessionId,presstate,pip,prblh->hostname) > 0)
+			if(prblh->stage == stage && dnsbl_check_rbl(pSessionId, presstate, pip, prblh->hostname) > 0)
 			{
-				mlfi_debug(pSessionId,"dnsbl_check '%s.%s' - Blacklisted\n",pipstr,prblh->hostname);
+				mlfi_debug(pSessionId,"dnsbl_check '%s.%s' - Blacklisted\n", pipstr, prblh->hostname);
 				*prbl = prblh;
 				prbl++;
 				prblmatches->qty++;
