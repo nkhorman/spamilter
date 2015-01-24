@@ -202,8 +202,8 @@ char *dns_inet_ptoarpa(const char *pHost, int afNet, const char *pDomainRoot)
 						snprintf(bufstr+strlen(bufstr), sizeof(bufstr)-strlen(bufstr)
 							, (i>0 ? "%u." : "%u"), ((char *)pIp4)[i] & 0xff
 							);
-					snprintf(bufstr+strlen(bufstr), sizeof(bufstr)-strlen(bufstr), "%s"
-						, (pDomainRoot == NULL ? ".in-addr.arpa" : pDomainRoot)
+					snprintf(bufstr+strlen(bufstr), sizeof(bufstr)-strlen(bufstr), ".%s"
+						, (pDomainRoot == NULL ? "in-addr.arpa" : pDomainRoot)
 						);
 				}
 				break;
@@ -216,8 +216,8 @@ char *dns_inet_ptoarpa(const char *pHost, int afNet, const char *pDomainRoot)
 							, pIp6->__u6_addr.__u6_addr8[i] & 0x0f
 							, (pIp6->__u6_addr.__u6_addr8[i] & 0xf0) >> 4
 							);
-					snprintf(bufstr+strlen(bufstr), sizeof(bufstr)-strlen(bufstr), "%s"
-						, (pDomainRoot == NULL ? ".ip6.arpa" : pDomainRoot)
+					snprintf(bufstr+strlen(bufstr), sizeof(bufstr)-strlen(bufstr), ".%s"
+						, (pDomainRoot == NULL ? "ip6.arpa" : pDomainRoot)
 						);
 				}
 				break;
