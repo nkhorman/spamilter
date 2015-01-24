@@ -441,7 +441,9 @@ sfsistat mlfi_connect(SMFICTX *ctx, char *hostname, _SOCK_ADDR *hostaddr)
 						}
 					}
 					break;
+
 				case AF_INET6:
+					// TODO - ipv6 - finish
 					break;
 			}
 		}
@@ -861,6 +863,7 @@ sfsistat mlfi_header(SMFICTX *ctx, char *headerf, char *headerv)
 			)
 			&& strlen(headerv)
 			)
+		// TODO - ipv6 extraction from header and testing
 		{	unsigned long ip = mlfi_regex_ipv4(headerv);
 			int routeable = (ip != 0 && !mlfi_isNonRoutableIpV4(ip));
 #ifdef SUPPORT_GEOIP
@@ -967,6 +970,8 @@ int listCallbackGeoipReject(void *pData, void *pCallbackData)
 	SMFICTX *ctx = plcgr->cpr.ctx;
 	mlfiPriv *priv = MLFIPRIV;
 	int *pContinueChecks = plcgr->pContinueChecks;
+
+	// TODO - ipv6 support
 	int action = geoip_query_action(ctx, pResult->ip);
 
 	asprintf(plcgr->cpr.ppReason,"Blacklisted Country Code '%s'",pResult->pCountryCode);
@@ -1545,6 +1550,7 @@ int listCallbackBodyHosts(void *pData, void *pCallbackData)
 #endif
 
 #ifdef SUPPORT_GEOIP
+			// TODO - ipv6 support
 			if(*pLcbh->cpr.pbContinueChecks) // if BL testing passes, GEOIP testing
 			{	struct hostent *phostent = gethostbyname(pStr);
 				unsigned long ip = (phostent != NULL ? ntohl(*(unsigned long *)phostent->h_addr) : 0);
@@ -1580,6 +1586,7 @@ int listCallbackBodyHosts(void *pData, void *pCallbackData)
 }
 
 #ifdef SUPPORT_GEOIP
+// TODO - ipv6 handling
 int listCallbackGeoipAddHdr(void *pData, void *pCallbackData)
 {	geoipResult *pResult = (geoipResult *)pData;
 	SMFICTX *ctx = (SMFICTX *)pCallbackData;
