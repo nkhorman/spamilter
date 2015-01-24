@@ -1,0 +1,27 @@
+# build output
+*.o
+*.a
+
+dnsblchk
+dnsblupd
+greydbd
+iflookup
+ipfwmtad
+mxlookup
+spamilter
+
+# library build directories
+GeoIP-1.4.8.mod
+build
+
+# configure output
+config.log
+Makefile
+
+# local policies
+*.inc
+
+# development clutter
+t.?
+test.*
+.built
