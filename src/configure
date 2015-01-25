@@ -39,7 +39,8 @@ Usage:
 	-f			- forceMakefile creation
 	--sendmail-dir		- directory prefix of previously compiled sendmail source
 	--debug-timestamp	- add date/time and pid stamps to debug output
-	--with-libspf		- compile in support for libspf
+	--with-libspf		- compile in support for libspf using specified libspf directory
+	--with-libspf-builtin	- compile in support for libspf using builtin libspf
 	--with-popauth		- compile in support for pop after smtp
 	--with-pam		- compile in support for pam for ipfwmtad (for use on FreeBSD)
 	--have-resn		- platform has support for res_n???? functions (--with-libbind defines this)
@@ -156,22 +157,20 @@ while [ "$1" != "" ]; do
 			ConfigSwitchWith "LOCALUSER" "$1"
 			;;
 		--with-libspf)
-			if [ "$2" = "" ]; then
-				libspfdir="libspf/build"
-				TagLine "PKGLIBSPF" ALL
-			else
-				libspfdir="$2"
-				CheckDir "$1" "$2/src/libspf"
-				CheckDir "$1" "$2/lib"
-			fi
+			libspfdir="$2"
+			CheckDir "$1" "$2/src/libspf"
+			CheckDir "$1" "$2/lib"
 			x="`SedifyDir ${libspfdir}`"
 			TagLine "LIBSPFDIR" $x
-			if [ "$2" = "" ]; then
-				ConfigSwitchWith "LIBSPF" "$1"
-			else
-				ConfigSwitchWith "LIBSPF" "$1 ${libspfdir}"
-			fi
+			ConfigSwitchWith "LIBSPF" "$1 ${libspfdir}"
 			shift
+			;;
+		--with-libspf-builtin)
+			libspfdir="libspf/build"
+			TagLine "PKGLIBSPF" ALL
+			x="`SedifyDir ${libspfdir}`"
+			TagLine "LIBSPFDIR" $x
+			ConfigSwitchWith "LIBSPF" "$1"
 			;;
 		--with-pam)
 			ConfigSwitchWith "PAM" "$1"
@@ -265,7 +264,9 @@ else
 	oflags="-DOS_$os"
 	case "$os" in
 		FreeBSD)
-			smdir="/usr/src/contrib/sendmail"
+			if [ -z "${smdir}" ]; then
+				smdir="/usr/src/contrib/sendmail"
+			fi
 			Has "BSD"
 			;;
 		SunOS)
