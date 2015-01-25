@@ -95,6 +95,18 @@
 <FreeBSD>install-startup:
 <FreeBSD>	if [ ! -e ${RCDIR}/*${RCSHELL}* ]; then install -c -m ${RCMODE} -g ${BINGRP} -o ${BINOWN} ../rc.d/${RCSHELL} ${RCDIR}; fi
 <FreeBSD>
+<ALL>install-config:
+<ALL>	if [ ! -d ${CONFDIR} ]; then \
+<ALL>		install -p -m 0664 ../conf/spamilter.rc /etc; \
+<ALL>		install -d -C -m 0664 ${CONFDIR}; \
+<ALL>		for i in db.extensions db.fwdhost db.geocc db.rcpt db.rdnsbl db.sndr; do \
+<ALL>			install -p -m 0664 ../conf/$${i} ${CONFDIR}; \
+<ALL>		done; \
+<GEOIPDIR>		install -d -C -m 0664 ${CONFDIR}/geoip; \
+<GEOIPDIR>		install -p -m 0754 ../conf/geoip/fetchgeoip.sh ${CONFDIR}/geoip; \
+<GEOIPDIR>		if [ ! -e ${CONFDIR}/geoip/GeoIP.dat ]; then ${CONFDIR}/geoip/fetchgeoip.sh; fi; \
+<ALL>	fi
+<ALL>
 <ALL>tar: clean
 <ALL>#	cd ..; tar --exclude CVS -cvzf spamilter.tgz spamilter/*
 <ALL>	tar -C .. -Ttgz.lst -czf ../spamilter.tgz
