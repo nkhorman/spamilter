@@ -1,8 +1,20 @@
 Changelog;
-version - 0.61 - ccyymmdd / unreleased
-	* add - 150123 - dns, dbl and dnsbl changes to grok ipv6
+	20150125
+	* fix - segfault in badext.c when logging 'unable to open file'
+	* mod - change 'configure --sendmail-dir' can work on FreeBSD
+	* mod - change 'configure --with-libspf' back to previous behavior, and split builtin behavior out to '--with-libspf-builtin'
+	* add - 'make install-config' target to do initial config file installation
+	* add - support for regex pattern matching for BWLIST mbox
 
-	* mod - 150121 - add ipv6 lookups for MtaHostChk functionality
+	20150124
+	* mod - mlfi_regex_mboxsplit() add '=' to valid characters list of mbox regex pattern
+	* mod - fix dnsbl regression
+
+	20150123
+	* add - dns, dbl and dnsbl changes to grok ipv6
+
+	20150121
+	* mod - add ipv6 lookups for MtaHostChk functionality
 
 	* tag - build_140227
 	* mod - un-nest callback functions for llvm compatiblity

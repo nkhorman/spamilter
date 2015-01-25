@@ -11,6 +11,9 @@ It blocks spam using the following methods;
 - Invalid MTA hostname verification
 - Basic Virus/Worm file attachment rejection for files ending in .pif, .scr, etc.. via MsExtChk filter
 - SPF via libspf
+- DBL checking (see http://www.spamhaus.org/dbl/)
+- GeoIP checking via maxmind.com free geoip database
+- Greylisting
 
 Also;
 
