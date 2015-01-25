@@ -78,7 +78,7 @@ tableDriver_t *tableDriverFlatFileCreate(const char *pSessionId)
 
 	if(pDriver != NULL)
 	{
-		//mlfi_debug("tableDriverFlatFileCreate: 1\n");
+		//mlfi_debug(pSessionId, "tableDriverFlatFileCreate: 1\n");
 		pDriver->paramSetFn = &paramSetFn;
 		pDriver->openFn = &openFn;
 		pDriver->closeFn = &closeFn;
@@ -88,7 +88,7 @@ tableDriver_t *tableDriverFlatFileCreate(const char *pSessionId)
 		pDriver->pDriverCtx = (tableDriverCtx_t *)calloc(1,sizeof(tableDriverCtx_t));
 		if(pDriver->pDriverCtx != NULL)
 		{
-			//mlfi_debug("tableDriverFlatFileCreate: 2\n");
+			//mlfi_debug(pSessionId, "tableDriverFlatFileCreate: 2\n");
 			pDriver->pDriverCtx->fd = -1;
 			pDriver->pDriverCtx->pBuffer = calloc(1,BUFFERSIZE);
 			pDriver->pDriverCtx->paramDelim = '|';
@@ -96,7 +96,7 @@ tableDriver_t *tableDriverFlatFileCreate(const char *pSessionId)
 		}
 	}
 	else
-		mlfi_debug(pSessionId,"tableDriverFlatFileCreate: fail - invalid driver\n");
+		mlfi_debug(pSessionId, "tableDriverFlatFileCreate: fail - invalid driver\n");
 
 	return pDriver;
 }
@@ -145,10 +145,10 @@ int openFn(tableDriverCtx_t *pDriverCtx)
 	{
 		pDriverCtx->fd = open(pDriverCtx->pParamFname,O_RDONLY);
 		rc = (pDriverCtx->fd == -1 ? -1 : 0);
-		//mlfi_debug("tableDriverFlatFile:openFn '%s' %d %d\n",pDriverCtx->pParamFname,pDriverCtx->fd,rc);
+		//mlfi_debug(pDriverCtx->pSessionId, "tableDriverFlatFile:openFn '%s' %d %d\n",pDriverCtx->pParamFname,pDriverCtx->fd,rc);
 	}
 	else
-		mlfi_debug(pDriverCtx->pSessionId,"tableDriverFlatFile:openFn fail - invalid context\n");
+		mlfi_debug(pDriverCtx->pSessionId, "tableDriverFlatFile:openFn fail - invalid context\n");
 
 	return rc;
 }
