@@ -168,7 +168,7 @@ void badext_init(mlfiPriv *priv, char *dbpath)
 			fclose(fin);
 		}
 		else
-			mlfi_debug("badext_init: Unable to open Extenstions file '%s'\n",fn);
+			mlfi_debug(priv->pSessionUuidStr, "badext_init: Unable to open Extenstions file '%s'\n", fn);
 		free(fn);
 	}
 }
