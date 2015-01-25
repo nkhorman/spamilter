@@ -137,7 +137,7 @@ static char *mboxRegexPrintf(const char *pFmt, int *pMboxIndex, int *pDomainInde
 	if(pStr != NULL)
 	{	char *pTmp = pStr;
 
-		#define PAT_MBOX "[a-zA-Z0-9][a-zA-Z0-9._-=]{0,}"
+		#define PAT_MBOX "[a-zA-Z0-9][a-zA-Z0-9._=-]{0,}"
 		// A9uIrZhY3SzSuyQ6qJcnOiQ==_1101506954731_ibMa8DdzEeOTMNSuUpzd0w==@in.constantcontact.com
 		#define PAT_DOMAIN "[a-zA-Z0-9][a-zA-Z0-9._-]{0,}[.][a-zA-Z]{2,4}"
 
@@ -358,7 +358,7 @@ int main(int argc, char **argv)
 				if(optarg != NULL && *optarg)
 				{	unsigned long ip = mlfi_regex_ipv4(optarg);
 
-					printf("'%s' = %u.%u.%u.%u\n"
+					printf("'%s' = %lu.%lu.%lu.%lu\n"
 						,optarg
 						,(ip&0xff000000)>>24 ,(ip&0x00ff0000)>>16 ,(ip&0x0000ff00)>>8 ,(ip&0x000000ff)
 						);
@@ -379,6 +379,8 @@ int main(int argc, char **argv)
 						if(dom != NULL)
 							free(dom);
 					}
+					else
+						printf("regex fail\n");
 				}
 				else
 					printf("Bogus/Missing command line arguement\n");
