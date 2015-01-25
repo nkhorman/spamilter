@@ -62,7 +62,7 @@
 <ALL>all: spamilter dnsblchk <INC_FreeBSD dnsblupd> mxlookup iflookup <INC_FreeBSD ipfwmtad> <WITH_GREYLIST greydbd>
 <ALL>
 <ALL>uninstall:
-<ALL>	rm -f ${BINDIR}/spamilter ${BINDIR}/dnsblchk <INC_FreeBSD ${BINDIR}/dnsblupd> ${BINDIR}/mxlookup <INC_FreeBSD ${BINDIR}/ipfwmtad <WITH_GREYLIST ${BINDIR}/greydbd> ${RCDIR}/${RCSHELL}>
+<ALL>	rm -f ${BINDIR}/spamilter ${BINDIR}/dnsblchk <INC_FreeBSD ${BINDIR}/dnsblupd> ${BINDIR}/mxlookup <INC_FreeBSD ${BINDIR}/ipfwmtad ${RCDIR}/${RCSHELL}> <WITH_GREYLIST ${BINDIR}/greydbd>
 <ALL>
 <ALL>distclean: clean
 <ALL>	rm -f Makefile
@@ -72,7 +72,7 @@
 <ALL>clean:
 <ALL>	rm -f *.o *core spamilter dnsblchk <INC_FreeBSD dnsblupd> mxlookup iflookup <INC_FreeBSD ipfwmtad> <WITH_GREYLIST greydbd>
 <ALL>
-<ALL>install: install-spamilter install-dnsblchk <INC_FreeBSD install-dnsblupd> install-mxlookup <INC_FreeBSD install-ipfwmtad <WITH_GREYLIST install-greydbd> install-startup
+<ALL>install: install-spamilter install-dnsblchk <INC_FreeBSD install-dnsblupd> install-mxlookup <INC_FreeBSD install-ipfwmtad install-startup> <WITH_GREYLIST install-greydbd>
 <ALL>
 <ALL>install-spamilter: spamilter
 <ALL>	install -c -m ${BINMODE} -g ${BINGRP} -o ${BINOWN} spamilter ${BINDIR}
