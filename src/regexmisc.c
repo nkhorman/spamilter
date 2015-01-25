@@ -333,8 +333,22 @@ void mlfi_regex_line_http(const char *pSessionId, const char *pbuf, list_t *pLis
 }
 
 #ifdef _UNIT_TEST_REGEXMISC
+void usage(void)
+{
+	printf(
+		"-i [ip address] - test and ip addres to see if it passes an ipv4 regex for use with \"Recived by ...\" headers\n"
+		"-e [email address] - test and email address to see if it passes an email regex\n"
+	);
+}
+
 int main(int argc, char **argv)
 {	int c;
+
+	if(argc < 2)
+	{
+		usage();
+		exit(0);
+	}
 
 	while ((c = getopt(argc, argv, "i:e:")) != -1)
 	{
