@@ -59,6 +59,8 @@ static char const cvsid[] = "@(#)$Id: bwlist.c,v 1.29 2014/02/28 05:37:57 neal E
 #include "tableDriverPsql.h"
 #endif
 
+#include "regexapi.h"
+
 #ifdef UNIT_TEST
 //#define mlfi_debug printf
 void mlfi_debug(const char *pSessionId, const char *pfmt, ...)
@@ -265,7 +267,7 @@ static int bwlistCallbackRow(void *pCallbackCtx, list_t *pRow)
 				|| strcmp(adom,".") == 0
 				)
 			{
-				if(strcasecmp(ambox,pbga->mbox) == 0)
+				if(strcasecmp(ambox,pbga->mbox) == 0 || regexapi(pbga->mbox,ambox, REGEX_DEFAULT_CFLAGS))
 				{
 					pbga->action = action;
 					if(pbga->action == BWL_A_EXEC && strlen(aexec) && pbga->exec != NULL)
