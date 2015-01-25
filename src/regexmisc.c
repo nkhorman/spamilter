@@ -137,7 +137,8 @@ static char *mboxRegexPrintf(const char *pFmt, int *pMboxIndex, int *pDomainInde
 	if(pStr != NULL)
 	{	char *pTmp = pStr;
 
-		#define PAT_MBOX "[a-zA-Z0-9][a-zA-Z0-9._-]{0,}"
+		#define PAT_MBOX "[a-zA-Z0-9][a-zA-Z0-9._-=]{0,}"
+		// A9uIrZhY3SzSuyQ6qJcnOiQ==_1101506954731_ibMa8DdzEeOTMNSuUpzd0w==@in.constantcontact.com
 		#define PAT_DOMAIN "[a-zA-Z0-9][a-zA-Z0-9._-]{0,}[.][a-zA-Z]{2,4}"
 
 		const char *pPatMbox = PAT_MBOX;
