@@ -196,6 +196,15 @@ void mboxdomainsplit(char *mbox, char **domain)
 	}
 }
 
+void usage(void)
+{
+	printf(
+		"-d - debug on\n"
+		"-i [ip address] - test ip address\n"
+		"-e [mbox@domain] - test email delivery\n"
+	);
+}
+
 int main(int argc, char **argv)
 {	int	c;
 	int	smtprc;
@@ -204,6 +213,12 @@ int main(int argc, char **argv)
 	char		sessionId[10];
 
 	sprintf(sessionId,"%04X",(unsigned int)pthread_self());
+
+	if(argc < 2)
+	{
+		usage();
+		exit(0);
+	}
 
 	gDebug = 0;
 	gStatp = RES_NALLOC(gStatp);
