@@ -1,5 +1,6 @@
 Changelog;
 	20150125
+	* mod - configure - do some clean up / modernization
 	* fix - segfault in badext.c when logging 'unable to open file'
 	* mod - change 'configure --sendmail-dir' can work on FreeBSD
 	* mod - change 'configure --with-libspf' back to previous behavior, and split builtin behavior out to '--with-libspf-builtin'

@@ -29,7 +29,7 @@ case "$os" in
 esac
 
 rm -f $tmpsed
-$echobin -n "./configure " > $log
+$echobin "./configure \\" > $log
 
 usage()
 {
@@ -42,21 +42,29 @@ Usage:
 	--with-libspf		- compile in support for libspf using specified libspf directory
 	--with-libspf-builtin	- compile in support for libspf using builtin libspf
 	--with-popauth		- compile in support for pop after smtp
-	--with-pam		- compile in support for pam for ipfwmtad (for use on FreeBSD)
-	--have-resn		- platform has support for res_n???? functions (--with-libbind defines this)
-	--with-libbind		- directory prefix of previously compiled bind source
-	--with-libdb		- directory prefix of previously compiled db source - use this if your system doesn't include libdb,
 	--with-virtuser		- compile in support for rejecting recpients not listed in virtusertable
 	--with-aliases		- compile in support for rejecting recpients not listed in aliases table
 	--with-localuser	- compile in support for rejecting recpients not listed in local user database
 	--with-postgresql	- directory prefix of previously compiled PostgreSql source
-	--with-greylist		- compile the greydbd grey listing daemon (requires PostgreSql database to be installed)
+	--with-greylist		- compile the greydbd grey listing daemon ( requires --with-postgresql )
 	--with-fwdhostchk	- compile in support for recipient forwarding host checking
 	--with-geoip		- compile in support for GeoIP CC checking
 	--with-tables-flatfile	- use ascii flat files for data tables
-	--with-tables-pgsql	- use PostgreSql for data tables
+	--with-tables-pgsql	- use PostgreSql for data tables ( requires --with-postgresql )
 	--with-dbl		- compile in support for rejecting based on Domain name Black List checking
 EOF
+	case "$os" in
+		FreeBSD)
+		;;
+		*)
+cat <<EOF
+	--have-resn		- platform has support for res_n???? functions (--with-libbind defines this)
+	--with-libbind		- directory prefix of previously compiled bind source
+EOF
+		;;
+	esac
+#	--with-pam		- compile in support for pam for ipfwmtad (for use on FreeBSD)
+#	--with-libdb		- directory prefix of previously compiled db source - use this if your system doesn't include libdb
 }
 
 Not()
@@ -108,7 +116,7 @@ ConfigSwitch()
 	local theflag="$1"; shift
 	local info="$@"
 
-	$echobin -n "${info} " >> $log
+	$echobin "${info} \\" >> $log
 	cflags="-D${theflag} $cflags"
 	$echobin "${info}" >> $tmpcli
 }
@@ -126,17 +134,17 @@ if [ "$1" = "" ]; then usage; exit; fi
 while [ "$1" != "" ]; do
 	case "$1" in
 		-f)
-			$echobin -n "$1 " >> $log
+			$echobin "$1 \\" >> $log
 			if [ -f Makefile ]; then
 				make distclean || rm -f Makefile
 			fi
 			;;
 		--sendmail-dir)
 			if [ "$2" = "" ]; then
-				echo "Missing --sendmail-dir directory paramater";
+				$echobin "Missing --sendmail-dir directory paramater";
 				exit 1;
 			fi
-			$echobin -n "$1 $2 " >> $log
+			$echobin "$1 $2 \\" >> $log
 			CheckDir "$1" "$2"
 			smdir=$2
 			shift
@@ -180,7 +188,7 @@ while [ "$1" != "" ]; do
 			;;
 		--with-libbind)
 			if [ "$2" = "" ]; then
-				echo "Missing --with-libbind directory paramater";
+				$echobin "Missing --with-libbind directory paramater";
 				exit 1;
 			fi
 			ConfigSwitch "HAVE_RES_N" "$1 $2"
@@ -191,23 +199,24 @@ while [ "$1" != "" ]; do
 			CheckDir "$1" "$2/lib"
 			shift
 			;;
-		--with-libdb)
-			if [ "$2" = "" ]; then
-				echo "Missing --with-libdb directory paramater";
-				exit 1;
-			fi
-			$echobin -n "$1 $2 " >> $log
-			incdirs="-I`SedifyDir $2/include` $incdirs"
-			libdirs="-L`SedifyDir $2/lib` $libdirs"
-			libs="-ldb $libs"
-			CheckDir "$1" "$2/include"
-			CheckDir "$1" "$2/lib"
-			$echobin "$1 $2" >> $tmpcli
-			shift
-			;;
+# -- vestigile - how to include a library
+#		--with-libdb)
+#			if [ "$2" = "" ]; then
+#				$echobin "Missing --with-libdb directory paramater";
+#				exit 1;
+#			fi
+#			$echobin "$1 $2 \\" >> $log
+#			incdirs="-I`SedifyDir $2/include` $incdirs"
+#			libdirs="-L`SedifyDir $2/lib` $libdirs"
+#			libs="-ldb $libs"
+#			CheckDir "$1" "$2/include"
+#			CheckDir "$1" "$2/lib"
+#			$echobin "$1 $2" >> $tmpcli
+#			shift
+#			;;
 		--with-postgresql)
 			if [ "$2" = "" ]; then
-				echo "Missing --with-postgresql directory paramater";
+				$echobin "Missing --with-postgresql directory paramater";
 				exit 1;
 			fi
 			x="`SedifyDir $2`"
@@ -217,7 +226,6 @@ while [ "$1" != "" ]; do
 			ConfigSwitchWith "PGSQL" "$1 $2"
 			shift
 			;;
-
 		--with-greylist)
 			ConfigSwitchWith "GREYLIST" "$1"
 			TagLine "PKGGREYLIST" ALL
@@ -234,10 +242,12 @@ while [ "$1" != "" ]; do
 		--with-tables-flatfile)
 			ConfigSwitchWith "TABLE_FLATFILE" "$1"
 			TagLine "SUPPORTTABLEFLAT" ALL
+			havetable="1"
 			;;
 		--with-tables-pgsql)
 			ConfigSwitchWith "TABLE_PGSQL" "$1"
 			TagLine "SUPPORTTABLEPGSQL" ALL
+			havetable="1"
 			;;
 		--with-dbl)
 			ConfigSwitchWith "DBL" "$1"
@@ -268,6 +278,7 @@ else
 				smdir="/usr/src/contrib/sendmail"
 			fi
 			Has "BSD"
+			cflags="-DHAVE_RES_N $cflags"
 			;;
 		SunOS)
 			if [ "$osver" = "5.8" -o "$osver" = "5.9" -o "$osver" = "5.10" ]; then
@@ -310,6 +321,10 @@ else
 			;;
 	esac
 
+if [ -z "$havetable" ]; then
+	$echobin "Error - You must use either --with-tables-flatfile or --with-tables-pgsql"
+	exit 0
+fi
 
 CheckDir "--sendmail-dir" "$smdir"
 
@@ -319,7 +334,7 @@ if [ -f $tmpcli ]; then cat $tmpcli; fi
 $echobin ""
 rm -f $tmpcli
 
-echo " \$@" >> $log
+$echobin " \$@" >> $log
 cp $log config.log
 rm -f $log
 
