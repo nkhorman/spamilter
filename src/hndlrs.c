@@ -937,6 +937,7 @@ typedef struct _cpr_t
 	int *pbContinueChecks;
 }cpr_t;
 
+#ifdef SUPPORT_DBL
 int dblCheckCallbackHlo(const dblcb_t *pDblcb)
 {	cpr_t *pcpr = (cpr_t *)pDblcb->pDblq->pCallbackData;
 	SMFICTX *ctx = pcpr->ctx;
@@ -956,6 +957,7 @@ int dblCheckCallbackHlo(const dblcb_t *pDblcb)
 
 	return 0; // not again
 }
+#endif
 
 #ifdef SUPPORT_GEOIP
 typedef struct _lcgr_t
@@ -1463,6 +1465,7 @@ int mlfi_prependSubjectHeader(SMFICTX *ctx, char *fmt, ...)
 	return(rc);
 }
 
+#ifdef SUPPORT_DBL
 int dblCheckCallbackBody(const dblcb_t *pDblcb)
 {	cpr_t *pcpr = (cpr_t *)pDblcb->pDblq->pCallbackData;
 	SMFICTX *ctx = pcpr->ctx;
@@ -1482,6 +1485,7 @@ int dblCheckCallbackBody(const dblcb_t *pDblcb)
 
 	return 0; // not again
 }
+#endif
 
 typedef struct _lcbh_t
 {
