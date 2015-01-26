@@ -1,0 +1,10 @@
+#!/bin/sh
+
+# This script is for use as an Exec action of spamilter.
+# It takes the ip address passed to it, and requests an A RR be inserted into a DNS zone
+# ie. Dynamic RDNSBL creation. Now expiring the entry is a whole other matter, then again, maybe not.
+
+/usr/local/bin/dnsblupd -zrdnsbl.somedomain.com -i$1
+
+#exit 0	# Accept action
+exit 1	# Reject action
