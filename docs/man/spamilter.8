@@ -1,0 +1,66 @@
+.TH SPAMILTER 8 "0.60" "May 30, 2012" ""
+.SH NAME
+.B Spamilter
+\- A libmilter based spamfilter
+.SH SYNOPSIS
+spamilter [-d level] [-c config file path filename] [-f]
+.br
+.SH OPTIONS
+.TP
+.B -d
+[numeric] - debug level, 1 or 2. NB. This implies -f
+.TP
+.B -c
+[string] - config file path filename - default = /etc/spamilter.rc
+.TP
+.B -f
+[boolean] - run spamilter in the foreground
+.SH DESCRIPTION
+Spamilter is a Sendmail milter written entirely in C, and therefore is faster and less cpu intensive than other interperative based solutions.
+.br
+It blocks spam using the following methods;
+.RS
+.IP \(bu 4
+Configurable Realtime DNS Blocklists
+.IP \(bu 4
+Sender/Reply-To Address devilvery verification
+.IP \(bu 4
+Configurable Sender/Recipient Black and White lists
+.IP \(bu 4
+Invalid MTA hostname verification
+.IP \(bu 4
+Basic Virus/Worm file attachment rejection for files ending in .pif, .scr, etc.. via MsExtChk filter
+.IP \(bu 4
+SPF via libspf
+.IP \(bu 4
+GeoIP Country Code block listing
+.RE
+Also;
+.RS
+.IP \(bu 4
+Realtime firewall blocking of MTA hosts with invalid host names via
+.B ipfwmtad
+.IP \(bu 4
+And realtime rate limited connection blocking, also via
+.B ipfwmtad
+.IP \(bu 4
+Greylisting via
+.B greydbd
+.RE
+.br
+All actions are logged via syslog with both the sender and the recipient.
+From this, report generation and notification to recipients showing activity becomes extremely simple.
+.br
+.SH EXAMPLES
+spamilter -d 1
+.SH VERSION
+This documentation describes
+.B Spamilter
+version 0.60
+.SH "SEE ALSO"
+ipfwmtad(8), greydbd(8)
+.br
+.I http://www.wanlink.com/spamilter/
+.SH AUTHOR
+.br
+Neal Horman \<spamilter@wanlink.com\>
