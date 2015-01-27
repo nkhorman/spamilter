@@ -89,26 +89,31 @@ int virtusertable_validate_key(char *rcpt, DB *pdb)
 int virtusertable_validate(const char *pSessionId, char *rcpt, char *dbpath)
 {	int	rc  = 0;
 
-	if(rcpt != NULL && dbpath != NULL)
-	{	DB	*pdb = NULL;
+	if(rcpt != NULL)
+	{
+		if(dbpath != NULL)
+		{	DB	*pdb = NULL;
 #if DB_VERSION_MAJOR < 2
-		pdb = dbopen(dbpath,O_RDONLY,0x444,DB_HASH,NULL);
+			pdb = dbopen(dbpath,O_RDONLY,0x444,DB_HASH,NULL);
 #else
-		db_open(dbpath,DB_HASH,O_RDONLY,0x444,NULL,NULL,&pdb);
+			db_open(dbpath,DB_HASH,O_RDONLY,0x444,NULL,NULL,&pdb);
 #endif
 
-		if(pdb != NULL)
-		{	char *pat = strchr(rcpt,'@');
+			if(pdb != NULL)
+			{	char *pat = strchr(rcpt,'@');
 
-			rc = ((pat != NULL && pat != rcpt ? virtusertable_validate_key(pat,pdb) : 0) || virtusertable_validate_key(rcpt,pdb));
-			pdb->close(pdb
+				rc = ((pat != NULL && pat != rcpt ? virtusertable_validate_key(pat,pdb) : 0) || virtusertable_validate_key(rcpt,pdb));
+				pdb->close(pdb
 #if DB_VERSION_MAJOR >= 2
-				,0
+					,0
 #endif
-				);
+					);
+			}
+			else
+				mlfi_debug(pSessionId,"virtuserastable_validate: unable to open '%s'\n",dbpath);
 		}
 		else
-			mlfi_debug(pSessionId,"virtuserastable_validate: unable to open '%s'\n",dbpath);
+			mlfi_debug(pSessionId,"virtuserastable_validate: no virtuser table pathname specified\n");
 	}
 
 #ifndef _UNIT_TEST

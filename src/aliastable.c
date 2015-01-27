@@ -90,25 +90,30 @@ int aliastable_validate_key(char *rcpt, DB *pdb)
 int aliastable_validate(const char *pSessionId, char *rcpt, char *dbpath)
 {	int	rc  = 0;
 
-	if(rcpt != NULL && dbpath != NULL)
-	{	DB	*pdb = NULL;
+	if(rcpt != NULL)
+	{
+		if(dbpath != NULL)
+		{	DB	*pdb = NULL;
 #if DB_VERSION_MAJOR < 2
-		pdb = dbopen(dbpath,O_RDONLY,0x444,DB_HASH,NULL);
+			pdb = dbopen(dbpath,O_RDONLY,0x444,DB_HASH,NULL);
 #else
-		db_open(dbpath,DB_HASH,O_RDONLY,0x444,NULL,NULL,&pdb);
+			db_open(dbpath,DB_HASH,O_RDONLY,0x444,NULL,NULL,&pdb);
 #endif
 
-		if(pdb != NULL)
-		{
-			rc = aliastable_validate_key(rcpt,pdb);
-			pdb->close(pdb
+			if(pdb != NULL)
+			{
+				rc = aliastable_validate_key(rcpt,pdb);
+				pdb->close(pdb
 #if DB_VERSION_MAJOR >= 2
-				,0
+					,0
 #endif
-				);
+					);
+			}
+			else
+				mlfi_debug(pSessionId,"aliastable_validate: unable to open '%s'\n",dbpath);
 		}
 		else
-			mlfi_debug(pSessionId,"aliastable_validate: unable to open '%s'\n",dbpath);
+			mlfi_debug(pSessionId,"aliastable_validate: no alias table pathname specified\n");
 	}
 
 #ifndef _UNIT_TEST

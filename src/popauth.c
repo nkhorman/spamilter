@@ -64,38 +64,43 @@ int popauth_validate(mlfiPriv *priv, char *dbpath)
 {	int	rc  = 0;
 
 	if(priv != NULL)
-	{	DB	*db = NULL;
+	{
+		if(dbpath != NULL)
+		{	DB	*db = NULL;
 #if DB_VERSION_MAJOR < 2
-		db = dbopen(dbpath,O_RDONLY,0x444,DB_HASH,NULL);
+			db = dbopen(dbpath,O_RDONLY,0x444,DB_HASH,NULL);
 #else
-		db_open(dbpath,DB_HASH,O_RDONLY,0x444,NULL,NULL,&db);
+			db_open(dbpath,DB_HASH,O_RDONLY,0x444,NULL,NULL,&db);
 #endif
 
-		if(db != NULL)
-		{	DBT	key;
-			DBT	value;
+			if(db != NULL)
+			{	DBT	key;
+				DBT	value;
 
-			memset(&key,0,sizeof(key));
-			memset(&value,0,sizeof(value));
+				memset(&key,0,sizeof(key));
+				memset(&value,0,sizeof(value));
 
-			/* this assumes that the db file format is;
-				xxx.xxx.xxx.xxx		some junk
-			*/
-			key.data = priv->ipstr;
-			key.size = strlen(priv->ipstr);
-			rc = (db->get(db,
+				/* this assumes that the db file format is;
+					xxx.xxx.xxx.xxx		some junk
+				*/
+				key.data = priv->ipstr;
+				key.size = strlen(priv->ipstr);
+				rc = (db->get(db,
 #if DB_VERSION_MAJOR >= 2
-				NULL,
+					NULL,
 #endif
-				&key,&value,0) == 0);
-			db->close(db
+					&key,&value,0) == 0);
+				db->close(db
 #if DB_VERSION_MAJOR >= 2
-				,0
+					,0
 #endif
-				);
+					);
+			}
+			else
+				mlfi_debug(priv->pSessionUuidStr, "popauth_validate: unable to open '%s'\n", dbpath);
 		}
 		else
-			mlfi_debug(priv->pSessionUuidStr, "popauth_validate: unable to open '%s'\n", dbpath);
+			mlfi_debug(priv->pSessionUuidStr, "popauth_validate: not popauth pathname specified\n");
 	}
 
 	return(rc);
