@@ -18,9 +18,9 @@ PopAuthChk		=
 #
 # if the user@domain.com is not in the table(s) used below, 'Reject'
 #
-#VirtUserTablChk	= /etc/mail/virtuser.db	# the file must be readable by the user 'UserName'
+VirtUserTableChk	= /etc/mail/virtuser.db	# the file must be readable by the user 'UserName'
 AliasTableChk		= /etc/mail/aliases.db # the file must be readable by the user 'UserName'
-LocalUserTablChk	= 1
+LocalUserTableChk	= 1
 #
 GreyListChk		= 1
 HeaderReplyToChk	= 1
