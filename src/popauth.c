@@ -94,6 +94,8 @@ int popauth_validate(mlfiPriv *priv, char *dbpath)
 #endif
 				);
 		}
+		else
+			mlfi_debug(priv->pSessionUuidStr, "popauth_validate: unable to open '%s'\n", dbpath);
 	}
 
 	return(rc);
