@@ -107,6 +107,8 @@ int aliastable_validate(const char *pSessionId, char *rcpt, char *dbpath)
 #endif
 				);
 		}
+		else
+			mlfi_debug(pSessionId,"aliastable_validate: unable to open '%s'\n",dbpath);
 	}
 
 #ifndef _UNIT_TEST
@@ -193,7 +195,7 @@ int main(int argc, char *argv[])
 	/* seq(gAliasTableChk); */
 	for(i=1; gAliasTableChk != NULL && i<argc; i++)
 	{
-		ok = aliastable_validate(argv[i],gAliasTableChk);
+		ok = aliastable_validate("[pid]", argv[i], gAliasTableChk);
 
 		printf("%s - %d/%s\n",argv[i],ok,(ok ? "Ok" : "Reject"));
 	}

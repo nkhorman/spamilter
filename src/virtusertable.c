@@ -107,6 +107,8 @@ int virtusertable_validate(const char *pSessionId, char *rcpt, char *dbpath)
 #endif
 				);
 		}
+		else
+			mlfi_debug(pSessionId,"virtuserastable_validate: unable to open '%s'\n",dbpath);
 	}
 
 #ifndef _UNIT_TEST
