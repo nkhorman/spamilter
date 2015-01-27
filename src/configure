@@ -37,34 +37,34 @@ cat <<EOF
 Usage:
 	--help
 	-f			- forceMakefile creation
-	--sendmail-dir		- directory prefix of previously compiled sendmail source
 	--debug-timestamp	- add date/time and pid stamps to debug output
+	--sendmail-dir		- directory prefix of previously compiled sendmail source
+	--with-aliases		- compile in support for rejecting recpients not listed in aliases table
+	--with-dbl		- compile in support for rejecting based on Domain name Black List checking
+	--with-fwdhostchk	- compile in support for recipient forwarding host checking
+	--with-greylist		- compile the greydbd grey listing daemon ( requires --with-postgresql )
+	--with-geoip		- compile in support for GeoIP CC checking
+	--with-libdb		- directory prefix of previously compiled db source - use this if your system doesn't include libdb
 	--with-libspf		- compile in support for libspf using specified libspf directory
 	--with-libspf-builtin	- compile in support for libspf using builtin libspf
-	--with-popauth		- compile in support for pop after smtp
-	--with-virtuser		- compile in support for rejecting recpients not listed in virtusertable
-	--with-aliases		- compile in support for rejecting recpients not listed in aliases table
 	--with-localuser	- compile in support for rejecting recpients not listed in local user database
+	--with-pam		- compile in support for pam for ipfwmtad (for use on FreeBSD)
+	--with-popauth		- compile in support for pop after smtp
 	--with-postgresql	- directory prefix of previously compiled PostgreSql source
-	--with-greylist		- compile the greydbd grey listing daemon ( requires --with-postgresql )
-	--with-fwdhostchk	- compile in support for recipient forwarding host checking
-	--with-geoip		- compile in support for GeoIP CC checking
 	--with-tables-flatfile	- use ascii flat files for data tables
 	--with-tables-pgsql	- use PostgreSql for data tables ( requires --with-postgresql )
-	--with-dbl		- compile in support for rejecting based on Domain name Black List checking
+	--with-virtuser		- compile in support for rejecting recpients not listed in virtusertable
 EOF
 	case "$os" in
 		FreeBSD)
 		;;
 		*)
 cat <<EOF
-	--have-resn		- platform has support for res_n???? functions (--with-libbind defines this)
 	--with-libbind		- directory prefix of previously compiled bind source
+	--have-resn		- platform has support for res_n???? functions (--with-libbind defines this)
 EOF
 		;;
 	esac
-#	--with-pam		- compile in support for pam for ipfwmtad (for use on FreeBSD)
-#	--with-libdb		- directory prefix of previously compiled db source - use this if your system doesn't include libdb
 }
 
 Not()
@@ -199,21 +199,20 @@ while [ "$1" != "" ]; do
 			CheckDir "$1" "$2/lib"
 			shift
 			;;
-# -- vestigile - how to include a library
-#		--with-libdb)
-#			if [ "$2" = "" ]; then
-#				$echobin "Missing --with-libdb directory paramater";
-#				exit 1;
-#			fi
-#			$echobin "$1 $2 \\" >> $log
-#			incdirs="-I`SedifyDir $2/include` $incdirs"
-#			libdirs="-L`SedifyDir $2/lib` $libdirs"
-#			libs="-ldb $libs"
-#			CheckDir "$1" "$2/include"
-#			CheckDir "$1" "$2/lib"
-#			$echobin "$1 $2" >> $tmpcli
-#			shift
-#			;;
+		--with-libdb)
+			if [ "$2" = "" ]; then
+				$echobin "Missing --with-libdb directory paramater";
+				exit 1;
+			fi
+			$echobin "$1 $2 \\" >> $log
+			incdirs="-I`SedifyDir $2/include` $incdirs"
+			libdirs="-L`SedifyDir $2/lib` $libdirs"
+			libs="-ldb $libs"
+			CheckDir "$1" "$2/include"
+			CheckDir "$1" "$2/lib"
+			$echobin "$1 $2" >> $tmpcli
+			shift
+			;;
 		--with-postgresql)
 			if [ "$2" = "" ]; then
 				$echobin "Missing --with-postgresql directory paramater";
