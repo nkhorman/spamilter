@@ -98,10 +98,6 @@ static char const cvsid[] = "@(#)$Id: hndlrs.c,v 1.185 2015/01/21 04:41:19 neal 
 #include "dbl.h"
 #endif
 
-#ifndef INET_ADDRSTRLEN
-#define INET_ADDRSTRLEN 16
-#endif
-
 char *str2lo(char *src)
 {	char *p = src;
 
@@ -403,6 +399,7 @@ sfsistat mlfi_connect(SMFICTX *ctx, char *hostname, _SOCK_ADDR *hostaddr)
 					priv->islocalnethost = ifi_islocalnet(ntohl(satosin(priv->pip)->sin_addr.s_addr));
 				break;
 			case AF_INET6:
+				// TODO - ipv6 - finish
 				break;
 		}
 
@@ -683,16 +680,30 @@ int mlfi_greylist(SMFICTX *ctx)
 	{	int sd = NetSockOpenUdp(0,0);
 
 		if(sd != INVALID_SOCKET)
-		{	char ipstr[20];	// string size of a dotted quad plus a few extra for good measure
-			char *pipstr = ipstr;
-			unsigned int ipoctets[4];
+		{
+			char *pipstr = priv->ipstr;
+			char ipstr[INET6_ADDRSTRLEN+1];
 
-			// this is about using only the first three octects of the ip address
-			// ie x.x.x.x/24 for host qualification instead of x.x.x.x/32
-			if(satosin(priv->pip)->sin_family == AF_INET && sscanf(priv->ipstr,"%u.%u.%u.%u",&ipoctets[0],&ipoctets[1],&ipoctets[2],&ipoctets[3]) == 4)
-				sprintf(ipstr,"%u.%u.%u",ipoctets[0],ipoctets[1],ipoctets[2]);
-			else
-				pipstr = priv->ipstr;
+			memset(ipstr,0,sizeof(ipstr));
+
+			switch(satosin(priv->pip)->sin_family)
+			{
+				case AF_INET:
+					{	unsigned int ipoctets[4];
+
+						// this is about using only the first three octects of the ip address
+						// ie x.x.x.x/24 for host qualification instead of x.x.x.x/32
+
+						if(sscanf(priv->ipstr,"%u.%u.%u.%u",&ipoctets[0],&ipoctets[1],&ipoctets[2],&ipoctets[3]) == 4)
+						{
+							sprintf(ipstr,"%u.%u.%u",ipoctets[0],ipoctets[1],ipoctets[2]);
+							pipstr = ipstr;
+						}
+					}
+				case AF_INET6:
+					// TODO - ipv6 support
+					break;
+			}
 
 			// TODO - add greylist host and port to config options
 			if(NetSockPrintfTo(sd,0x7f000001,7892,"<%s> %s %s",pipstr,priv->sndr,priv->rcpt) != SOCKET_ERROR
