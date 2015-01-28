@@ -5,8 +5,10 @@ geolitecity="GeoLiteCity.dat"
 geoipcity="GeoIPCity.dat"
 geoipdir="/var/db/spamilter/geoip"
 
-fetch http://geolite.maxmind.com/download/geoip/database/GeoLiteCountry/${geoip}.gz
-fetch http://geolite.maxmind.com/download/geoip/database/${geolitecity}.gz
+# force to ipv4, because of reports of -6 bustage
+# maybe curl would be better for this
+fetch -4 http://geolite.maxmind.com/download/geoip/database/GeoLiteCountry/${geoip}.gz
+fetch -4 http://geolite.maxmind.com/download/geoip/database/${geolitecity}.gz
 
 if [ -e ${geoip}.gz ]; then
 
