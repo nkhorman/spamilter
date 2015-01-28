@@ -2,6 +2,42 @@
 #
 # Actions; None,Accept,Reject,Discard,Fail,Tarpit,Exec
 #
+# If a given email "Mail from: " or "Rcpt to: " address as provided during the MTA to MTA negotiation phase matches
+#	a "rule" entry, then the email is marked with the action specified in the action column.
+# The action column can be one of the following;
+#	1. None
+#		The email will continue to be proccessed normally by sendmail and Spamilter. 
+#
+#	2. Accept
+#		The email will continue to be proccessed normally by sendmail and will not be further processed by
+#		other Spamilter filters. 
+#
+#	3. Reject
+#		Sendmail will reject reception of the email, causing it to not be delivered to the end user. 
+#
+#	4. Discard
+#		Sendmail will accept the email, but silently discard it, causing it to not be delivered to the end user. 
+#
+#	5. Fail
+#		Sendmail will not accept the message, and further, will instruct the sending MTA to try again later. 
+#
+#	6. Tarpit
+#		Sendmail will, like "Reject", not deliver the email to the end user, but will also delay completion of
+#		the MTA negotiation phase by a fixed 2 minutes, and thereby slow down the opposing MTA. 
+#
+#	7. Exec
+#		A match of the rule;
+#		.netinfo4u.com | | Exec | /usr/local/bin/someexecutable
+#		in either db.sndr or db.rcpt will result in /usr/local/bin/someexecutable being called with the following three paramaters respectively;
+#			1. Connecting MTA ip address
+#			2. "Mail from: " address
+#			3. "Rcpt to: " address
+#		The executable can return following values and sendmail will act accordingly;
+#			0 - Sendmail and Spamilter will continue to proccess the email.
+#			1 - Sendmail will "Reject" the email.
+#			2 - Sendmail will "Fail" the email.
+#			3 - Sendmail will "Discard" the email.
+#
 # Leading .'s in the domain column will match the Right Hand Side of the
 # address domain that is being tested. Where as those without leading .'s
 # will match the address domain exactly.
