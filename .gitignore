@@ -16,7 +16,7 @@ build
 
 # configure output
 config.log
-Makefile
+src/Makefile
 
 # local policies
 *.inc
