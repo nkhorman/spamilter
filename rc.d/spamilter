@@ -9,8 +9,11 @@
 
 name="spamilter"
 spamilter_enable=${spamilter_enable:-"NO"}
+spamilter_flags=${spamilter_flags:-""}
 ipfwmtad_enable=${ipfwmtad_enable:-"NO"}
+ipfwmtad_flags=${ipfwmtad_flags:-""}
 greydbd_enable=${greydbd_enable:-"NO"}
+greydbd_flags=${greydbd_flags:-""}
 rcvar=${name}_enable
 pidfile="/tmp/spamilter.pid"
 extra_commands="status"
@@ -78,20 +81,20 @@ spamilter_start()
 	psql_path="`grep ${psql_user} /etc/passwd|cut -f 6 -d:`"
 	rc=1
 	if [ -z "`proc_pid_status ${pidfile} ${name}`" ]; then
-		LD_LIBRARY_PATH="${psql_path}/lib" ${proc_spamilter}
+		LD_LIBRARY_PATH="${psql_path}/lib" ${proc_spamilter} ${spamilter_flags}
 		rc=0
 	fi
 
 	if [ "${ipfwmtad_enable}" = "YES" ]; then
 		if [ -z "`check_process ${proc_ipfwmtad}`" ]; then
-			${proc_ipfwmtad}
+			${proc_ipfwmtad} ${ipfwmtad_flags}
 			rc=0
 		fi
 	fi
 
 	if [ "${greydbd_enable}" = "YES" ]; then
 		if [ -z "`check_process ${proc_greydbd}`" ]; then
-			LD_LIBRARY_PATH="${psql_path}/lib" ${proc_greydbd}
+			LD_LIBRARY_PATH="${psql_path}/lib" ${proc_greydbd} ${greydbd_flags}
 			rc=0
 		fi
 	fi
