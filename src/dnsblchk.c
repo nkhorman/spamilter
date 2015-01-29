@@ -200,6 +200,7 @@ void usage(void)
 {
 	printf(
 		"-d - debug on\n"
+		"-p - specify directory path to db.rdnsbl file\n"
 		"-i [ip address] - test ip address\n"
 		"-e [mbox@domain] - test email delivery\n"
 	);
@@ -228,13 +229,17 @@ int main(int argc, char **argv)
 	gethostname(gHostnameBuf,sizeof(gHostnameBuf)-1);
 	printf("Hostname: '%s'\n",gHostnameBuf);
 
-	while ((c = getopt(argc, argv, "i:e:d")) != -1)
+	while ((c = getopt(argc, argv, "i:e:dp:")) != -1)
 	{
 		switch (c)
 		{
 			case 'd':
 				gDebug = 1;
 				openlog("dnsblchk", LOG_PERROR|LOG_NDELAY|LOG_PID, LOG_DAEMON);
+				break;
+			case 'p':
+				if(optarg != NULL && *optarg)
+					dbpath = optarg;
 				break;
 			case 'i':
 				if(optarg != NULL && *optarg)
