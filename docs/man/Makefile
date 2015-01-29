@@ -15,7 +15,9 @@ MANOWN= root
 MANGRP=	wheel
 MANDIR= /usr/local/man/man8
 
-all:
+.SUFFIXES: .mm .8
+
+all: ${MANPAGES}
 
 install: ${MANPAGES}
 	for i in ${MANPAGES}; do \
@@ -26,4 +28,11 @@ install: ${MANPAGES}
 uninstall:
 	for i in ${MANPAGES}; do rm -f ${MANDIR}/$${i} ${MANDIR}/$${i}.gz; done
 
-.PHONY: all install uninstall
+clean:
+	for i in ipfwmtad.8 greydbd.8; do rm -f $${i}; done
+#	for i in ${MANPAGES}; do rm -f $${i}; done
+
+.mm.8: Makefile m4man.m4
+	m4 m4man.m4 $< > $@
+
+.PHONY: all install uninstall clean
