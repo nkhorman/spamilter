@@ -214,10 +214,10 @@ sfsistat mlfi_rdnsbl_reject(SMFICTX *ctx, sfsistat *rs, int stage, struct sockad
 				mlfi_status_debug(priv,rs,LOG_REJECTED_STR,reason,"DNSBL rejected - %s\n",priv->ipstr);
 				free(reason);
 
-				if(gMtaHostIpfwNominate)
-					mlfi_MtaHostIpfwAction(priv,"inculpate");
-				else if(gMtaHostIpfw)
+				if(gMtaHostIpfw)
 					mlfi_MtaHostIpfwAction(priv,"add");
+				else if(gMtaHostIpfwNominate) // multi-penalty for RBL hits
+					mlfi_MtaHostIpfwAction(priv,"inculpate");
 			}
 		}
 		else
@@ -609,6 +609,8 @@ sfsistat mlfi_replyto(SMFICTX *ctx)
 					mlfi_status_debug(priv,&rs,LOG_REJECTED_STR,reason
 						,"mlfi_replyto: Blacklisted SMTP Sender(Reply-To), '%s'\n",priv->replyto);
 					free(reason);
+					if(gMtaHostIpfw)
+						mlfi_MtaHostIpfwAction(priv,"add");
 					break;
 				case BWL_A_TEMPFAIL:
 					rs = SMFIS_TEMPFAIL;
@@ -762,7 +764,7 @@ sfsistat mlfi_envrcpt(SMFICTX *ctx, char **argv)
 
 	mlfi_debug(priv->pSessionUuidStr,"mlfi_envrcpt: '%s'\n",*argv);
 
-	if (priv != NULL)
+	if (priv != NULL && !priv->islocalnethost)
 	{	char *pMbox = NULL;
 		char *pDomain = NULL;
 		char *reason = NULL;
@@ -786,6 +788,8 @@ sfsistat mlfi_envrcpt(SMFICTX *ctx, char **argv)
 				mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Recipient has been blacklisted, Please see: %s#blacklistedrecipient",gPolicyUrl);
 				mlfi_status_debug(priv,&rs,LOG_REJECTED_STR,reason
 					,"mlfi_envrcpt: Blacklisted recipient '%s@%s'\n",pMbox,pDomain);
+				if(gMtaHostIpfw)
+					mlfi_MtaHostIpfwAction(priv,"add");
 				break;
 			case BWL_A_TEMPFAIL:
 				mlfi_status_debug(priv,&rs,LOG_TEMPFAILED_STR,reason,NULL);
@@ -823,7 +827,7 @@ sfsistat mlfi_envrcpt(SMFICTX *ctx, char **argv)
 					deliverableValid |= gLocalUserTableChk;
 #endif
 #if defined(SUPPORT_VIRTUSER) || defined(SUPPORT_ALIASES) || defined(SUPPORT_LOCALUSER)
-					if(!priv->islocalnethost && deliverableValid && !deliverable)
+					if(deliverableValid && !deliverable)
 					{
 						mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Not deliverable, Please see: %s#undeliverable",gPolicyUrl);
 						asprintf(&reason,"Not deliverable '%s@%s'",pMbox,pDomain);
@@ -881,7 +885,7 @@ sfsistat mlfi_header(SMFICTX *ctx, char *headerf, char *headerv)
 			const char *pGeoipCC = "--";
 			if(routeable)
 			{	
-				pGeoipCC =geoip_result_add(ctx,ip,geoip_LookupCCByIp(ctx,ip));
+				pGeoipCC = geoip_result_add(ctx,ip,geoip_LookupCCByIp(ctx,ip));
 				mlfi_debug(priv->pSessionUuidStr,"mlfi_header: geoip: %u.%u.%u.%u, CC: %s\n"
 					,(ip>>24)&0xff ,(ip>>16)&0xff ,(ip>>8)&0xff ,ip&0xff
 					,pGeoipCC
@@ -1001,6 +1005,8 @@ int listCallbackGeoipReject(void *pData, void *pCallbackData)
 				);
 			*pContinueChecks = mlfi_status_debug(priv,plcgr->cpr.prs,LOG_REJECTED_STR,*plcgr->cpr.ppReason
 				,"mlfi_hndlrs: Blacklisted Country Code, '%s'\n",pResult->pCountryCode);
+			if(gMtaHostIpfw)
+				mlfi_MtaHostIpfwAction(priv,"add");
 			break;
 		case GEOIPLIST_A_TEMPFAIL:
 			*pContinueChecks = mlfi_status_debug(priv,plcgr->cpr.prs,LOG_TEMPFAILED_STR,*plcgr->cpr.ppReason,NULL);
@@ -1040,6 +1046,7 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 		)
 	{	int x,continue_checks = 1;
 		char *reason = NULL;
+		int ipfwMtaHostIpBanCandidate = 0;
 
 #ifdef SUPPORT_FWDHOSTCHK
 		// Policy enforcment
@@ -1101,6 +1108,7 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 					mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Sender '%s' has been blacklisted, Please see: %s#blacklistedsender",priv->sndr,gPolicyUrl);
 					continue_checks = mlfi_status_debug(priv,&rs,LOG_REJECTED_STR,reason
 						,"mlfi_hndlrs: Blacklisted SMTP Sender, '%s'\n",priv->sndr);
+					ipfwMtaHostIpBanCandidate = 1;
 					break;
 				case BWL_A_TEMPFAIL:
 					continue_checks = mlfi_status_debug(priv,&rs,LOG_TEMPFAILED_STR,reason,NULL);
@@ -1141,8 +1149,9 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 				,"mlfi_hndlrs: Ip address used as MTA hostname '%s'\n",priv->helo);
 			free(reason);
 
-			if(gMtaHostIpfw)
-				mlfi_MtaHostIpfwAction(priv,"add");
+			ipfwMtaHostIpBanCandidate = 1;
+			//if(gMtaHostIpfw)
+			//	mlfi_MtaHostIpfwAction(priv,"add");
 		}
 
 		// Technical enforcement
@@ -1166,8 +1175,9 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 					,"mlfi_hndlrs: Invalid source MTA hostname '%s'\n",priv->helo);
 				free(reason);
 
-				if(gMtaHostIpfw)
-					mlfi_MtaHostIpfwAction(priv,"add");
+				ipfwMtaHostIpBanCandidate = 1;
+				//if(gMtaHostIpfw)
+				//	mlfi_MtaHostIpfwAction(priv,"add");
 			}
 
 			free(mbox);
@@ -1188,8 +1198,9 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 				,"mlfi_hndlrs: Invalid MTA hostname '%s'\n",priv->helo);
 			free(reason);
 
-			if(gMtaHostIpfw)
-				mlfi_MtaHostIpfwAction(priv,"add");
+			ipfwMtaHostIpBanCandidate = 1;
+			//if(gMtaHostIpfw)
+			//	mlfi_MtaHostIpfwAction(priv,"add");
 		}
 
 		// Policy enforcement
@@ -1211,6 +1222,7 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 					mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Blacklisted host, Please see: %s#blacklistedhost",gPolicyUrl);
 					continue_checks = mlfi_status_debug(priv,&rs,LOG_REJECTED_STR,reason
 						,"mlfi_hndlrs: Blacklisted host '%s'\n",priv->helo);
+					ipfwMtaHostIpBanCandidate = 1;
 					break;
 				case BWL_A_TEMPFAIL:
 					continue_checks = mlfi_status_debug(priv,&rs,LOG_TEMPFAILED_STR,reason,NULL);
@@ -1375,6 +1387,8 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 			}
 		}
 #endif
+		if(gMtaHostIpfw && ipfwMtaHostIpBanCandidate)
+			mlfi_MtaHostIpfwAction(priv,"add");
 	}
 
 	return rs;
