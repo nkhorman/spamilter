@@ -1,4 +1,8 @@
 Changelog;
+	20150129
+	* mod - be more aggresive about ipfw blocking MTAs when in blacklist type of conditions
+	* fix - don't double ipfw inculpate ip address
+
 	20150125
 	* mod - configure - do some clean up / modernization
 	* fix - segfault in badext.c when logging 'unable to open file'
