@@ -393,13 +393,21 @@ sfsistat mlfi_connect(SMFICTX *ctx, char *hostname, _SOCK_ADDR *hostaddr)
 		switch(satosin(priv->pip)->sin_family)
 		{
 			case AF_INET:
-				if(!priv->islocalnethost)
-					priv->islocalnethost = ( ntohl(satosin(priv->pip)->sin_addr.s_addr) == INADDR_LOOPBACK );
+				priv->islocalnethost = ( ntohl(satosin(priv->pip)->sin_addr.s_addr) == INADDR_LOOPBACK );
 				if(!priv->islocalnethost)
 					priv->islocalnethost = ifi_islocalnet(ntohl(satosin(priv->pip)->sin_addr.s_addr));
 				break;
 			case AF_INET6:
-				// TODO - ipv6 - finish
+				// TODO - ipv6
+				{	struct in6_addr *pAddr = &((struct sockaddr_in6 *)priv->pip)->sin6_addr;
+
+					priv->islocalnethost = (
+						IN6_ARE_ADDR_EQUAL(pAddr, &in6addr_loopback)
+						|| IN6_IS_ADDR_LINKLOCAL(pAddr) // fe80:xx
+						|| IN6_IS_ADDR_SITELOCAL(pAddr) // fec0::xx
+						);
+					// need ifi_islocalnet() style tests
+				}
 				break;
 		}
 
@@ -440,7 +448,7 @@ sfsistat mlfi_connect(SMFICTX *ctx, char *hostname, _SOCK_ADDR *hostaddr)
 					break;
 
 				case AF_INET6:
-					// TODO - ipv6 - finish
+					// TODO - ipv6
 					break;
 			}
 		}
@@ -703,7 +711,7 @@ int mlfi_greylist(SMFICTX *ctx)
 						}
 					}
 				case AF_INET6:
-					// TODO - ipv6 support
+					// TODO - ipv6
 					break;
 			}
 
@@ -878,7 +886,7 @@ sfsistat mlfi_header(SMFICTX *ctx, char *headerf, char *headerv)
 			)
 			&& strlen(headerv)
 			)
-		// TODO - ipv6 extraction from header and testing
+		// TODO - ipv6 - extraction from header and testing
 		{	unsigned long ip = mlfi_regex_ipv4(headerv);
 			int routeable = (ip != 0 && !mlfi_isNonRoutableIpV4(ip));
 #ifdef SUPPORT_GEOIP
@@ -988,7 +996,7 @@ int listCallbackGeoipReject(void *pData, void *pCallbackData)
 	mlfiPriv *priv = MLFIPRIV;
 	int *pContinueChecks = plcgr->pContinueChecks;
 
-	// TODO - ipv6 support
+	// TODO - ipv6
 	int action = geoip_query_action(ctx, pResult->ip);
 
 	asprintf(plcgr->cpr.ppReason,"Blacklisted Country Code '%s'",pResult->pCountryCode);
@@ -1579,7 +1587,7 @@ int listCallbackBodyHosts(void *pData, void *pCallbackData)
 #endif
 
 #ifdef SUPPORT_GEOIP
-			// TODO - ipv6 support
+			// TODO - ipv6
 			if(*pLcbh->cpr.pbContinueChecks) // if BL testing passes, GEOIP testing
 			{	struct hostent *phostent = gethostbyname(pStr);
 				unsigned long ip = (phostent != NULL ? ntohl(*(unsigned long *)phostent->h_addr) : 0);
@@ -1615,7 +1623,7 @@ int listCallbackBodyHosts(void *pData, void *pCallbackData)
 }
 
 #ifdef SUPPORT_GEOIP
-// TODO - ipv6 handling
+// TODO - ipv6
 int listCallbackGeoipAddHdr(void *pData, void *pCallbackData)
 {	geoipResult *pResult = (geoipResult *)pData;
 	SMFICTX *ctx = (SMFICTX *)pCallbackData;
