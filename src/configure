@@ -16,6 +16,8 @@
 tmpsed="/tmp/t.$$.1"
 tmpcli="/tmp/t.$$.2"
 log="config.tmp"
+tmpflags="/tmp/t.$$.3"
+cflagsfile="config.defs"
 
 os="`uname -s`"
 osver="`uname -r`"
@@ -38,6 +40,9 @@ Usage:
 	--help
 	-f			- forceMakefile creation
 	--debug-timestamp	- add date/time and pid stamps to debug output
+	--disable-localnet-hosts	- prevent RFC1918 local network hosts from bypassing all filter rules
+	--disable-useipfwdirect	- use system() calls to ipfw instead of the ipfw api
+	--path-conf		- path to spamilter.conf (default = /etc/spamilter.rc)
 	--sendmail-dir		- directory prefix of previously compiled sendmail source
 	--with-aliases		- compile in support for rejecting recpients not listed in aliases table
 	--with-dbl		- compile in support for rejecting based on Domain name Black List checking
@@ -112,13 +117,28 @@ SedifyDir()
 	$echobin $1|sed -e's/[\./ ]/\\&/g'
 }
 
+CFlags()
+{
+	theDefine="${1}"
+	theValue="${2}"
+	if [ -z "${theValue}" ]; then
+		theValue="1"
+	fi
+	echo -e "#ifdef ${theDefine}\n#undef ${theDefine}\n#endif" >> $tmpflags
+
+	if [ "${theValue}" != "0" ]; then
+		echo "#define ${theDefine} ${theValue}" >> $tmpflags
+	fi
+}
+
 ConfigSwitch()
 {
 	local theflag="$1"; shift
-	local info="$@"
+	local info="$1"; shift
+	local theValue="$1"
 
 	$echobin "${info} \\" >> $log
-	cflags="-D${theflag} $cflags"
+	CFlags ${theflag} ${theValue}
 	$echobin "${info}" >> $tmpcli
 }
 
@@ -130,7 +150,11 @@ ConfigSwitchWith()
 	With "${theflag}"
 }
 
-if [ "$1" = "" ]; then usage; exit; fi
+if [ "$1" = "" ]; then usage; exit 0; fi
+
+CFlags "ALLOW_LOCALNET_HOSTS"
+CFlags "USEIPFWDIRECT"
+CFlags "PATH_CONFIG" "\"/etc/spamilter.rc\""
 
 while [ "$1" != "" ]; do
 	case "$1" in
@@ -253,8 +277,17 @@ while [ "$1" != "" ]; do
 			ConfigSwitchWith "DBL" "$1"
 			;;
 		--need-libutil)
+			ConfigSwitch "NEED_LIBUTIL_LOCAL" "$1"
 			TagLine "NEED_LIBUTIL_LOCAL" ALL
-			cflags="-DNEED_LIBUTIL_LOCAL $cflags"
+			;;
+		--disable-localnet-hosts)
+			ConfigSwitch "ALLOW_LOCALNET_HOSTS" "$1" "0"
+			;;
+		--disable-useipfwdirect)
+			ConfigSwitch "USEIPFWDIRECT" "$1" "0"
+			;;
+		--path-config)
+			ConfigSwitch "PATH_CONFIG" "$1" "\"${1}\""
 			;;
 		--help)
 			usage;
@@ -275,20 +308,21 @@ if [ -f Makefile ]; then
 	exit 0;
 else
 #	osbsd="`uname -s|sed -e's/^.*[Bb][Ss][Dd]/BSD/'`"
-	oflags="-DOS_$os"
+	CFlags "OS_${os}"
 	case "$os" in
 		FreeBSD)
 			if [ -z "${smdir}" ]; then
 				smdir="/usr/src/contrib/sendmail"
 			fi
 			Has "BSD"
-			cflags="-DHAVE_RES_N $cflags"
+			CFlags "HAVE_RES_N"
+			CFlags "HAVE_SETPROCTITLE"
 			;;
 		SunOS)
 			if [ "$osver" = "5.8" -o "$osver" = "5.9" -o "$osver" = "5.10" ]; then
-				cflags="-DHAVE_RES_N $cflags"
+				CFlags "HAVE_RES_N"
 			else
-				cflags="-DUSE_RR_CL $cflags"
+				CFlags "USE_RR_CL"
 			fi
 			smobj="$os.`uname -r`.`uname -m|sed -e's/.$//'`"
 			$echobin "s/<SMOBJDIR>/$smobj/g" >> $tmpsed
@@ -345,8 +379,6 @@ rm -f $log
 smdir="`SedifyDir $smdir`"
 TagLine "SMDIR" $smdir
 
-TagLine "CFLAGS" "$cflags"
-TagLine "OFLAGS" $oflags
 TagLine "INCDIRS" $incdirs
 TagLine "LIBDIRS" $libdirs
 TagLine "LIBS" $libs
@@ -380,6 +412,15 @@ EOF
 
 sed -n -f $tmpsed Makefile.tmpl >> Makefile
 rm -f $tmpsed
+
+cat <<EOF > $cflagsfile
+// ***
+// * WARNING! - any changes you make to this file
+// * will be lost the next time you run configure.
+// ***
+EOF
+cat $tmpflags >> $cflagsfile
+rm -f $tmpflags
 
 for file in dupelocal.inc hndlrs_contentfilter_local.inc ifilocal.inc; do
 	if [ ! -f "$file" ]; then touch "$file"; fi

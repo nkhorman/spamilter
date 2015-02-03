@@ -1,4 +1,12 @@
 Changelog;
+	20150203
+	* add - configure options. see configure --help
+			--need-libutil
+			--disable-localnet-hosts
+			--disable-useipfwdirect
+			--path-conf
+	* mod - work on configure to generate config.defs instead of using CFLAGS
+
 	20150129
 	* mod - be more aggresive about ipfw blocking MTAs when in blacklist type of conditions
 	* fix - don't double ipfw inculpate ip address

@@ -63,7 +63,7 @@ int	gDebug			= 0;
 int	gForeground		= 0;
 char	*gPolicyUrl		= "http://www.somedomain.com/policy.html";
 char	*gDbpath		= "/var/db/spamilter";
-char	*gConfpath		= "/etc/spamilter.rc";
+char	*gConfpath		= PATH_CONFIG;
 char	*gMlficonn		= "inet:7726@localhost";
 int	gDnsBlChk		= 1;
 int	gSmtpSndrChk		= 1;
@@ -247,7 +247,9 @@ int main(int argc, char *argv[])
 		}
 	}
 
+#ifdef HAVE_SETPROCTITLE
 	setproctitle("startup");
+#endif
 
 	getconf(gConfpath);
 

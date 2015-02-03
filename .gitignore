@@ -25,3 +25,4 @@ src/Makefile
 t.?
 test.*
 .built
+config.defs

@@ -46,16 +46,12 @@ static char const cvsid[] = "@(#)$Id: hndlrs.c,v 1.185 2015/01/21 04:41:19 neal 
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <syslog.h>
 #include <sys/wait.h>
 #include <resolv.h>
 #include <ctype.h>
-#include <uuid.h>
 #include <pthread.h>
 
 #include "spamilter.h"
@@ -372,11 +368,15 @@ sfsistat mlfi_connect(SMFICTX *ctx, char *hostname, _SOCK_ADDR *hostaddr)
 			// so, use sa_family to pick the compile time sizeof() of the socket family structure and
 			// if that fails, use the max
 			// TODO - This should probably be a macro or a function instead
- 			unsigned int sa_len = (hostaddr->sa_len > 0 ?
+#ifdef OS_FreeBSD
+			const unsigned int sa_len = (hostaddr->sa_len > 0 ?
 				hostaddr->sa_len : hostaddr->sa_family == AF_INET ?
 				sizeof(struct sockaddr_in) : hostaddr->sa_family == AF_INET6 ?
 				sizeof(struct sockaddr_in6) : SOCK_MAXADDRLEN
 				);
+#else
+#define sa_len sizeof(struct sockaddr_in6)
+#endif
 
 			priv->pip = (struct sockaddr *)calloc(1,sa_len);
 			if(priv->pip != NULL)

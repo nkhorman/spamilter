@@ -117,7 +117,6 @@ fd_set	gChildFds;
 CLIENT	gChildClients[FD_SETSIZE];
 
 #define TIME24HOURS (60 * 60 * 24)
-#define USEIPFWDIRECT
 
 #ifndef USEIPFWDIRECT
 int serverIpfwAction(char *fmt, ...)

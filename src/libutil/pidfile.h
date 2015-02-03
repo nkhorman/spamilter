@@ -40,7 +40,7 @@
 #define	_PIDFILE_H_
 
 #include <sys/cdefs.h>
-#include <sys/_types.h>
+#include <sys/types.h>
 
 #ifndef pidfh
 /* for pidfile.c */

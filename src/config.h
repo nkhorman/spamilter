@@ -92,3 +92,5 @@
 #endif
 
 #endif
+
+#include "config.defs"

@@ -55,7 +55,7 @@ static char const cvsid[] = "@(#)$Id: watcher.c,v 1.4 2013/07/20 06:50:54 neal E
 #ifndef NEED_LIBUTIL_LOCAL
 #include <libutil.h>
 #else
-#include "libutil.h"
+#include "libutil/pidfile.h"
 #endif
 
 #include "watcher.h"
@@ -155,14 +155,18 @@ int main_watcher(int forking, char *pFnamePid)
 	{
 		if(!forking)
 		{
+#ifdef HAVE_SETPROCTITLE
 			setproctitle("debug worker");
+#endif
 			pidfile_write(g_pfh);
 			rc = worker_main();
 			pidfile_remove(g_pfh);
 		}
 		else if(fork() == 0)	// fork a watcher
 		{
+#ifdef HAVE_SETPROCTITLE
 			setproctitle("watcher");
+#endif
 			pidfile_write(g_pfh);
 
 			stdio_2_devnull();
@@ -185,7 +189,9 @@ int main_watcher(int forking, char *pFnamePid)
 					signal(SIGABRT,main_worker_signal_hndlr);
 
 					syslog(LOG_ERR,"Worker - started as [%d]\n",getpid());
+#ifdef HAVE_SETPROCTITLE
 					setproctitle("worker");
+#endif
 					return worker_main();
 				}
 				else

@@ -213,8 +213,8 @@ char *dns_inet_ptoarpa(const char *pHost, int afNet, const char *pDomainRoot)
 					for(i=15; i>=0; i--)
 						snprintf(bufstr+strlen(bufstr), sizeof(bufstr)-strlen(bufstr)
 							, (i>0 ? "%x.%x." : "%x.%x")
-							, pIp6->__u6_addr.__u6_addr8[i] & 0x0f
-							, (pIp6->__u6_addr.__u6_addr8[i] & 0xf0) >> 4
+							, pIp6->s6_addr[i] & 0x0f
+							, (pIp6->s6_addr[i] & 0xf0) >> 4
 							);
 					snprintf(bufstr+strlen(bufstr), sizeof(bufstr)-strlen(bufstr), ".%s"
 						, (pDomainRoot == NULL ? "ip6.arpa" : pDomainRoot)

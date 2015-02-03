@@ -193,7 +193,7 @@ int gDebug=1;
 int main(int argc, char *argv[])
 {	int i,ok;
 
-	getconf("/etc/spamilter.rc");
+	getconf(PATH_CONFIG);
 
 	ShowKeyValStr("AliasTableChk",gAliasTableChk);
 

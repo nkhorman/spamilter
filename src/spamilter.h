@@ -52,7 +52,7 @@
 	#include <sys/types.h>
 	#include <sys/socket.h>
 	#include <netinet/in.h>
-	#include <sys/uuid.h>
+	#include <uuid.h>
 	#include "dnsbl.h"
 
 #ifdef SUPPORT_GEOIP
