@@ -60,4 +60,6 @@
 
 	unsigned long mlfi_regex_ipv4(const char *pstr);
 	char *mlfi_sin2str(const struct sockaddr_in *psa);
+
+	int mlfi_systemPrintf(char *fmt, ...);
 #endif

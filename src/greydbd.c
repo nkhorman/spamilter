@@ -65,8 +65,7 @@ static char const cvsid[] = "@(#)$Id: greydbd.c,v 1.11 2013/01/04 02:37:49 neal 
 #include <arpa/inet.h>
 
 #include "md5api.h"
-
-
+#include "misc.h"
 #include "inet.h"
 #include "pgsql.h"
 
@@ -267,14 +266,15 @@ void showUsage()
 {
 	showVersion();
 	printf("usage:\n"
-		"\t-v = Service Version Information\n"
-		"\t-d = Service Debug Mode\n"
-		"\t-p = Serivce Port Number\n"
-		"\t-h = PostgreSql Host Name\n"
-		"\t-i = PostgreSql Host Port\n"
-		"\t-j = PostgreSql DataBase Device Name\n"
-		"\t-k = PostgreSql DataBase User Name\n"
-		"\t-l = PostgreSql DataBase User Password\n"
+		"\t-v - Service Version Information\n"
+		"\t-d - Service Debug Mode\n"
+		"\t-p - Serivce Port Number\n"
+		"\t-h - PostgreSql Host Name\n"
+		"\t-i - PostgreSql Host Port\n"
+		"\t-j - PostgreSql DataBase Device Name\n"
+		"\t-k - PostgreSql DataBase User Name\n"
+		"\t-l - PostgreSql DataBase User Password\n"
+		"\t-? - man page\n"
 		);
 }
 
@@ -326,6 +326,12 @@ int main(int argc, char **argv)
 				return 0;
 				break;
 			case '?':
+				if(argc < 3) // show man page, if they arent' trying to figure out other cli params
+					mlfi_systemPrintf("%s", "man spamilter");
+				else
+					showUsage();
+				return 1;
+				break;
 			default:
 				showUsage();
 				return 1;

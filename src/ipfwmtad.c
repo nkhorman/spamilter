@@ -55,7 +55,6 @@ static char const cvsid[] = "@(#)$Id: ipfwmtad.c,v 1.22 2011/10/27 18:16:53 neal
 
 #include <sys/time.h>
 #include <sys/ioctl.h>
-#include <sys/wait.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -118,32 +117,6 @@ CLIENT	gChildClients[FD_SETSIZE];
 
 #define TIME24HOURS (60 * 60 * 24)
 
-#ifndef USEIPFWDIRECT
-int serverIpfwAction(char *fmt, ...)
-{	va_list	vl;
-	char	*str;
-	int	rc = -1;
-	int	ec;
-
-	if(fmt != NULL)
-	{
-		va_start(vl,fmt);
-		rc = vasprintf(&str,fmt,vl);
-		if(str != NULL || rc == -1)
-		{
-			ec = system(str);
-			ec = WIFEXITED(ec) ? WEXITSTATUS(ec) : -1;
-			if(debugmode > 2)
-				printf("IpfwAction: rc: %d - %s",ec,str);
-			free(str);
-		}
-		va_end(vl);
-	}
-
-	return(rc);
-}
-#endif
-
 void MtaInfoIpfwSync(int needDelete)
 {	PMTAINFO	pinfo = gpMtaInfo;
 #ifdef USEIPFWDIRECT
@@ -158,7 +131,7 @@ void MtaInfoIpfwSync(int needDelete)
 #ifdef USEIPFWDIRECT
 		ipfw_del(gRuleNum);
 #else
-		serverIpfwAction("ipfw delete %u\n",gRuleNum);
+		mlfi_systemPrintf("ipfw delete %u\n",gRuleNum);
 #endif
 
 	/* re-create/add the mta rules */
@@ -174,7 +147,7 @@ void MtaInfoIpfwSync(int needDelete)
 #ifdef USEIPFWDIRECT
 					ipfw_add(gRuleNum,pinfo->ip,gPortNum,gAction);
 #else
-					serverIpfwAction("ipfw -q add %u deny tcp from %u.%u.%u.%u to any %u\n",gRuleNum,
+					mlfi_systemPrintf("ipfw -q add %u deny tcp from %u.%u.%u.%u to any %u\n",gRuleNum,
 						((pinfo->ip&0xff000000)>>24),((pinfo->ip&0xff0000)>>16),((pinfo->ip&0xff00)>>8),(pinfo->ip&0xff),gPortNum);
 #endif
 					pinfo->needAdd = 0;
@@ -944,16 +917,17 @@ void cliIpfwAction(char *ipstr, char *action)
 void usage()
 {
 	printf("usage: [-dp -n fname] [-u rule number] | [-i fname] | [-r ipaddress] | [-q ipaddress]\n"
-		"\t-d = debug mode\n"
-		"\t-p = server tcp port number\n"
-		"\t-n = server mode - ip database file name\n"
-		"\t-u = server mode - ipfw rule number\n"
-		"\t-p = server mode - ipfw port number\n"
-		"\t-b = server mode - ipfw action (add/deny)\n"
-		"\t-i = imeadiate mode - ipfw resync using the ip database file name\n"
-		"\t-r = imeadiate mode - queue ipaddress for removal\n"
-		"\t-a = imeadiate mode - queue ipaddress for addition\n"
-		"\t-q = imeadiate mode - query ipaddress\n"
+		"\t-d - debug mode\n"
+		"\t-p - server tcp port number\n"
+		"\t-n - server mode - ip database file name\n"
+		"\t-u - server mode - ipfw rule number\n"
+		"\t-p - server mode - ipfw port number\n"
+		"\t-b - server mode - ipfw action (add/deny)\n"
+		"\t-i - imeadiate mode - ipfw resync using the ip database file name\n"
+		"\t-r - imeadiate mode - queue ipaddress for removal\n"
+		"\t-a - imeadiate mode - queue ipaddress for addition\n"
+		"\t-q - imeadiate mode - query ipaddress\n"
+		"\t-? - man page\n"
 		);
 }
 
@@ -967,7 +941,13 @@ int main(int argc, char **argv)
 
 	if(getuid() != 0)
 	{
-		printf("Not ROOT, exiting.\n");
+		if(argc > 1 && strcmp(argv[1],"-?") == 0)
+			mlfi_systemPrintf("%s", "man ipfwmtad");
+		else
+		{
+			printf("Not ROOT, exiting.\n");
+			usage();
+		}
 		exit(0);
 	}
 
@@ -1034,9 +1014,15 @@ int main(int argc, char **argv)
 				}
 				break;
 			case '?':
+				if(argc < 3) // show man page, if they arent' trying to figure out other cli params
+					mlfi_systemPrintf("%s", "man ipfwmtad");
+				else
+					usage();
+				return 1;
+				break;
 			default:
 				usage();
-				return(1);
+				return 1;
 				break;
 		}
 	}
@@ -1055,5 +1041,5 @@ int main(int argc, char **argv)
 			childStart(port,count,0);
 	}
 
-	return(0);
+	return 0;
 }

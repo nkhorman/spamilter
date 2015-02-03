@@ -21,7 +21,8 @@ all: ${MANPAGES}
 
 install: ${MANPAGES}
 	for i in ${MANPAGES}; do \
-		install -c -m ${MANMODE} -g ${MANGRP} -o ${MANOWN} $${i} ${MANDIR}; \
+		rm -f ${MANDIR}/$${i} ${MANDIR}/$${i}.gz; \
+		install -C -m ${MANMODE} -g ${MANGRP} -o ${MANOWN} $${i} ${MANDIR}; \
 		gzip ${MANDIR}/$${i}; \
 	done
 

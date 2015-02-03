@@ -10,7 +10,7 @@ dnl --------------------------------------------------------------------*
 dnl
 DMpage(greydbd, `8', `1.0', ``May 30, 2012'', `Neal Horman <spamilter@wanlink.com>', `spamilter greylist support database service')
 MANsection(`synopsis')
-greydbd [-v] [-d debug level] [-p port number] [-h psql hostname] [-i psql host port] [-j psql database device name] [-k psql database user name] [-l psql database user password]
+greydbd [-v] [-d debug level] [-p port number] [-h psql hostname] [-i psql host port] [-j psql database device name] [-k psql database user name] [-l psql database user password] [-?]
 MANsection(`options')
 DMoption(`v',`display version')
 DMoption(`d',`debug mode, forces foreground operation - must be non-zero debug level')
@@ -20,6 +20,7 @@ DMoption(`i',`psql host port [5432]')
 DMoption(`j',`psql database device name [spamilter]')
 DMoption(`k',`psql database user name [spamilter]')
 DMoption(`l',`psql database user password []')
+DMoption(`?',`show cli usage if more than one arg, or man page if no args')
 MANsection(`description')
 provides a database storage and aging mechanisim to track ipaddress and email tuples.
 MANsection(`see also')

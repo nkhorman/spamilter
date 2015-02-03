@@ -50,7 +50,6 @@ static char const cvsid[] = "@(#)$Id: spamilter.c,v 1.54 2013/07/13 23:31:37 nea
 #include <sysexits.h>
 #include <string.h>
 #include <sys/types.h>
-#include <sys/wait.h>
 #include <pwd.h>
 
 #include "spamilter.h"
@@ -207,9 +206,11 @@ void getconf(char *confpath)
 
 void usage()
 {
-	printf("spamilter [-c config] [-d 1] \n");
-	printf("\tWhere;\n\t-c specifies a config filename to read at startup\n");
-	printf("\t-d debug mode.\n");
+	printf("spamilter [-c config] [-d 1] [-f] [-?]\n");
+	printf("\tWhere;\n\t-c - config filename\n");
+	printf("\t-d - debug mode\n");
+	printf("\t-f - run in foreground\n");
+	printf("\t-? - man page\n");
 }
 
 int worker_main()
@@ -224,7 +225,7 @@ int main(int argc, char *argv[])
 	int		flags = 0;
 
 	// Process command line options
-	while ((c = getopt(argc, argv, "fd:c:")) != -1)
+	while ((c = getopt(argc, argv, "fd:c:?")) != -1)
 	{
 		switch (c)
 		{
@@ -239,6 +240,13 @@ int main(int argc, char *argv[])
 			case 'f': // forground
 				gDebug = 0;
 				gForeground = 1;
+				break;
+			case '?':
+				if(argc < 3) // show man page, if they arent' trying to figure out other cli params
+					mlfi_systemPrintf("%s", "man spamilter");
+				else
+					usage();
+				exit(0);
 				break;
 			default:
 				usage();

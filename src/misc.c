@@ -47,7 +47,7 @@ static char const cvsid[] = "@(#)$Id: misc.c,v 1.24 2012/12/07 19:38:33 neal Exp
 #include <stdarg.h>
 #include <fcntl.h>
 #include <sys/time.h>
-//#include <pthread.h>
+#include <sys/wait.h>
 #include <syslog.h>
 
 extern int gDebug;
@@ -228,3 +228,29 @@ char *mlfi_sin2str(const struct sockaddr_in *psa)
 
 	return pstr;
 }
+
+int mlfi_systemPrintf(char *fmt, ...)
+{	int	rc = -1;
+
+	if(fmt != NULL)
+	{	char	*str;
+		va_list	vl;
+
+		va_start(vl,fmt);
+		rc = vasprintf(&str,fmt,vl);
+
+		if(str != NULL)
+		{
+			if(rc != -1)
+			{
+				rc = system(str);
+				rc = WIFEXITED(rc) ? WEXITSTATUS(rc) : -1;
+			}
+			free(str);
+		}
+		va_end(vl);
+	}
+
+	return rc;
+}
+

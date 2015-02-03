@@ -26,3 +26,4 @@ t.?
 test.*
 .built
 config.defs
+docs/man/*.8

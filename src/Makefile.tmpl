@@ -23,6 +23,8 @@
 <ALL>NRSRCS =	ns_name.c ns_netint.c ns_parse.c
 <ALL>NROBJS =	${NRSRCS:.c=.o}
 <ALL>
+<RCFILEPATH>RCFILEPATH =		<X>
+<ALL>CONFDIR =	/var/db/spamilter
 <SMDIR>SMDIR =		<X>
 <LIBSPFDIR>LIBSPFDIR =	<X>/lib
 <LIBSPFDIR>LIBSPFINC =	<X>/src/libspf
@@ -61,9 +63,11 @@
 <FreeBSD>RCMODE =		0754
 <ALL>
 <ALL>all: spamilter dnsblchk <INC_FreeBSD dnsblupd> mxlookup iflookup <INC_FreeBSD ipfwmtad> <WITH_GREYLIST greydbd>
+<ALL>	${MAKE} -C ../docs/man
 <ALL>
-<ALL>uninstall:
+<ALL>uninstall: uninstall-man
 <ALL>	rm -f ${BINDIR}/spamilter ${BINDIR}/dnsblchk <INC_FreeBSD ${BINDIR}/dnsblupd> ${BINDIR}/mxlookup <INC_FreeBSD ${BINDIR}/ipfwmtad ${RCDIR}/${RCSHELL}> <WITH_GREYLIST ${BINDIR}/greydbd>
+<ALL>	echo "Files in ${CONFDIR} and ${RCFILEPATH} have been left in place, you'll need to remove them if you don't want them anymore."
 <ALL>
 <ALL>distclean: clean
 <ALL>	rm -f Makefile
@@ -72,8 +76,9 @@
 <ALL>
 <ALL>clean:
 <ALL>	rm -f *.o *core spamilter dnsblchk <INC_FreeBSD dnsblupd> mxlookup iflookup <INC_FreeBSD ipfwmtad> <WITH_GREYLIST greydbd>
+<ALL>	${MAKE} -C ../docs/man clean
 <ALL>
-<ALL>install: install-spamilter install-dnsblchk <INC_FreeBSD install-dnsblupd> install-mxlookup <INC_FreeBSD install-ipfwmtad install-startup> <WITH_GREYLIST install-greydbd>
+<ALL>install: install-spamilter install-dnsblchk <INC_FreeBSD install-dnsblupd> install-mxlookup <INC_FreeBSD install-ipfwmtad install-startup> <WITH_GREYLIST install-greydbd> install-config install-man
 <ALL>
 <ALL>install-spamilter: spamilter
 <ALL>	install -c -m ${BINMODE} -g ${BINGRP} -o ${BINOWN} spamilter ${BINDIR}
@@ -98,7 +103,7 @@
 <FreeBSD>
 <ALL>install-config:
 <ALL>	if [ ! -d ${CONFDIR} ]; then \
-<ALL>		install -p -m 0664 ../conf/spamilter.rc /etc; \
+<ALL>		install -p -m 0664 ../conf/spamilter.rc ${RCFILEPATH}; \
 <ALL>		install -d -C -m 0664 ${CONFDIR}; \
 <ALL>		for i in db.extensions db.fwdhost db.geocc db.rcpt db.rdnsbl db.sndr; do \
 <ALL>			install -p -m 0664 ../conf/$${i} ${CONFDIR}; \
@@ -107,6 +112,12 @@
 <GEOIPDIR>		install -p -m 0754 ../conf/geoip/fetchgeoip.sh ${CONFDIR}/geoip; \
 <GEOIPDIR>		if [ ! -e ${CONFDIR}/geoip/GeoIP.dat ]; then ${CONFDIR}/geoip/fetchgeoip.sh; fi; \
 <ALL>	fi
+<ALL>
+<ALL>install-man:
+<ALL>	${MAKE} -C ../docs/man install
+<ALL>
+<ALL>uninstall-man:
+<ALL>	${MAKE} -C ../docs/man uninstall
 <ALL>
 <ALL>tar: clean
 <ALL>#	cd ..; tar --exclude CVS -cvzf spamilter.tgz spamilter/*
@@ -137,8 +148,8 @@
 <ALL>iflookup: Makefile iflookup.c ifi.c iflookup.o ifi.o ifi.h
 <ALL>	${CC} ${CFLAGS} -o iflookup iflookup.o ifi.o ${LIBDIRS} ${LIBS}
 <ALL>
-<PKGGREYLIST>greydbd: Makefile greydbd.o inet.o inet.h pgsql.o pgsql.h md5api.o md5api.h config.h
-<PKGGREYLIST>	${CC} ${CFLAGS} -o greydbd greydbd.o inet.o pgsql.o md5api.o -lmd ${LIBPGSQL}
+<PKGGREYLIST>greydbd: Makefile greydbd.o inet.o inet.h pgsql.o pgsql.h md5api.o md5api.h misc.o misc.h config.h
+<PKGGREYLIST>	${CC} ${CFLAGS} -o greydbd greydbd.o inet.o pgsql.o md5api.o misc.o -lmd ${LIBPGSQL}
 <SUPPORTTABLEFLAT>
 <SUPPORTTABLEFLAT>bwlist_flat: Makefile bwlist.c table.c tableDriverFlatFile.c list.c misc.c
 <SUPPORTTABLEFLAT>	${CC} -ggdb -g3 -DSUPPORT_TABLE_FLATFILE -DUNIT_TEST -o bwlist_flat bwlist.c table.c tableDriverFlatFile.c list.c misc.c

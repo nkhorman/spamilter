@@ -35,3 +35,9 @@ dnl
 define(`MANlinebreak', `.br')dnl
 define(`MANunderline', `.I $1')dnl
 dnl
+define(`MANrs',`.RS')dnl
+define(`MANre',`.RE')dnl
+dnl
+define(`MANip',`.IP \(bu 4
+$1')dnl
+dnl

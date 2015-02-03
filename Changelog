@@ -1,5 +1,6 @@
 Changelog;
 	20150203
+	* mod - spamilter, ipfwmtad, and greydbd to invoke man page for help
 	* add - configure options. see configure --help
 			--need-libutil
 			--disable-localnet-hosts
