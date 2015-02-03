@@ -252,7 +252,7 @@ while [ "$1" != "" ]; do
 		--with-dbl)
 			ConfigSwitchWith "DBL" "$1"
 			;;
-		--need_libutil)
+		--need-libutil)
 			TagLine "NEED_LIBUTIL_LOCAL" ALL
 			cflags="-DNEED_LIBUTIL_LOCAL $cflags"
 			;;
