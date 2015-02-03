@@ -62,6 +62,7 @@ EOF
 cat <<EOF
 	--with-libbind		- directory prefix of previously compiled bind source
 	--have-resn		- platform has support for res_n???? functions (--with-libbind defines this)
+	--need-libutil		- use local copy of libutil
 EOF
 		;;
 	esac
@@ -250,6 +251,10 @@ while [ "$1" != "" ]; do
 			;;
 		--with-dbl)
 			ConfigSwitchWith "DBL" "$1"
+			;;
+		--need_libutil)
+			TagLine "NEED_LIBUTIL_LOCAL" ALL
+			cflags="-DNEED_LIBUTIL_LOCAL $cflags"
 			;;
 		--help)
 			usage;
