@@ -42,7 +42,7 @@ Usage:
 	--debug-timestamp	- add date/time and pid stamps to debug output
 	--disable-localnet-hosts	- prevent RFC1918 local network hosts from bypassing all filter rules
 	--disable-useipfwdirect	- use system() calls to ipfw instead of the ipfw api
-	--path-conf		- path to spamilter.conf (default = /etc/spamilter.rc)
+	--path-config		- path to spamilter.conf (default = /etc/spamilter.rc)
 	--sendmail-dir		- directory prefix of previously compiled sendmail source
 	--with-aliases		- compile in support for rejecting recpients not listed in aliases table
 	--with-dbl		- compile in support for rejecting based on Domain name Black List checking
@@ -124,10 +124,10 @@ CFlags()
 	if [ -z "${theValue}" ]; then
 		theValue="1"
 	fi
-	echo -e "#ifdef ${theDefine}\n#undef ${theDefine}\n#endif" >> $tmpflags
+	$echobin -e "#ifdef ${theDefine}\n#undef ${theDefine}\n#endif" >> $tmpflags
 
 	if [ "${theValue}" != "0" ]; then
-		echo "#define ${theDefine} ${theValue}" >> $tmpflags
+		$echobin "#define ${theDefine} ${theValue}" >> $tmpflags
 	fi
 }
 
@@ -287,7 +287,15 @@ while [ "$1" != "" ]; do
 			ConfigSwitch "USEIPFWDIRECT" "$1" "0"
 			;;
 		--path-config)
-			ConfigSwitch "PATH_CONFIG" "$1" "\"${1}\""
+			if [ "$2" = "" ]; then
+				$echobin "Missing --path-config file pathname parameter";
+				exit 1;
+			fi
+			$echobin "$1 $2 \\" >> $log
+			CheckDir "$1" "`dirname $2`"
+			$echobin "$1 $2" >> $tmpcli
+			CFlags "PATH_CONFIG" "\"${2}\""
+			shift
 			;;
 		--help)
 			usage;
