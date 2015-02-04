@@ -8,7 +8,7 @@
  #
  #--------------------------------------------------------------------*
 
-MANPAGES = spamilter.8 ipfwmtad.8 greydbd.8 dnsblupd.8
+MANPAGES = spamilter.8 ipfwmtad.8 greydbd.8 dnsblupd.8 dnsblchk.8
 
 MANMODE= 0644
 MANOWN= root
