@@ -927,7 +927,7 @@ void usage()
 		"\t-r - imeadiate mode - queue ipaddress for removal\n"
 		"\t-a - imeadiate mode - queue ipaddress for addition\n"
 		"\t-q - imeadiate mode - query ipaddress\n"
-		"\t-? - man page\n"
+		"\t-? - man page or options summary\n"
 		);
 }
 
@@ -1014,9 +1014,8 @@ int main(int argc, char **argv)
 				}
 				break;
 			case '?':
-				if(argc < 3) // show man page, if they arent' trying to figure out other cli params
-					mlfi_systemPrintf("%s", "man ipfwmtad");
-				else
+				// show man page, if they arent' trying to figure out other cli params
+				if(argc > 2 || mlfi_systemPrintf("%s", "man ipfwmtad"))
 					usage();
 				return 1;
 				break;

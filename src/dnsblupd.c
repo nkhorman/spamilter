@@ -166,9 +166,8 @@ int main(int argc, char **argv)
 					zone = optarg;
 				break;
 			case '?':
-				if(argc < 3) // show man page, if they arent' trying to figure out other cli params
-					mlfi_systemPrintf("%s", "man dnsblupd");
-				else
+				// show man page, if they arent' trying to figure out other cli params
+				if(argc > 2 || mlfi_systemPrintf("%s", "man dnsblupd"))
 					usage();
 				exit(0);
 				break;

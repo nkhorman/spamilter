@@ -206,11 +206,12 @@ void getconf(char *confpath)
 
 void usage()
 {
-	printf("spamilter [-c config] [-d 1] [-f] [-?]\n");
-	printf("\tWhere;\n\t-c - config filename\n");
-	printf("\t-d - debug mode\n");
-	printf("\t-f - run in foreground\n");
-	printf("\t-? - man page\n");
+	printf("spamilter [-c config] [-d 1] [-f] [-?]\n"
+		"\tWhere;\n\t-c - config filename\n"
+		"\t-d - debug mode\n"
+		"\t-f - run in foreground\n"
+		"\t-? - man page or options summary\n"
+		);
 }
 
 int worker_main()
@@ -242,9 +243,8 @@ int main(int argc, char *argv[])
 				gForeground = 1;
 				break;
 			case '?':
-				if(argc < 3) // show man page, if they arent' trying to figure out other cli params
-					mlfi_systemPrintf("%s", "man spamilter");
-				else
+				// show man page, if they arent' trying to figure out other cli params
+				if(argc > 2 || mlfi_systemPrintf("%s", "man spamilter"))
 					usage();
 				exit(0);
 				break;

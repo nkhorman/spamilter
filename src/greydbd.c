@@ -274,7 +274,7 @@ void showUsage()
 		"\t-j - PostgreSql DataBase Device Name\n"
 		"\t-k - PostgreSql DataBase User Name\n"
 		"\t-l - PostgreSql DataBase User Password\n"
-		"\t-? - man page\n"
+		"\t-? - man page or options summary\n"
 		);
 }
 
@@ -326,9 +326,8 @@ int main(int argc, char **argv)
 				return 0;
 				break;
 			case '?':
-				if(argc < 3) // show man page, if they arent' trying to figure out other cli params
-					mlfi_systemPrintf("%s", "man spamilter");
-				else
+				// show man page, if they arent' trying to figure out other cli params
+				if(argc > 2 || mlfi_systemPrintf("%s", "man greydbd"))
 					showUsage();
 				return 1;
 				break;
