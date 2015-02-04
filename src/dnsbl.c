@@ -225,16 +225,16 @@ static int dnsbl_check_rbl_callback(nsrr_t *pNsrr, void *pdata)
 	return 1; // again
 }
 
-int dnsbl_check_rbl(const char *pSessionId, const res_state statp, struct sockaddr_in *pip, char *domain)
+int dnsbl_check_rbl(const char *pSessionId, const res_state statp, struct sockaddr *psa, char *domain)
 {	int rc = -1;
 	int flagged = 0;
 
-	if(pip != NULL && domain != NULL && *domain)
+	if(psa != NULL && domain != NULL && *domain)
 	{	u_char resp[NS_PACKETSZ];
-		char *pIpStr = mlfi_sin2str(pip);
-		char *pArpaIpStr = dns_inet_ptoarpa(pIpStr, pip->sin_family, domain);
+		char *pIpStr = mlfi_sin2str(psa);
+		char *pArpaIpStr = dns_inet_ptoarpa(pIpStr, psa->sa_family, domain);
 
-		switch(pip->sin_family)
+		switch(psa->sa_family)
 		{
 			case AF_INET:
 				rc = dns_query_rr_resp(statp, resp, sizeof(resp), ns_t_a, "%s", pArpaIpStr);
@@ -269,29 +269,29 @@ int dnsbl_check_rbl(const char *pSessionId, const res_state statp, struct sockad
 	return flagged;
 }
 
-RBLLISTMATCH *dnsbl_check(const char *pSessionId, int stage, RBLLISTHOSTS *prbls, struct sockaddr_in *pip, res_state presstate)
+RBLLISTMATCH *dnsbl_check(const char *pSessionId, int stage, RBLLISTHOSTS *prbls, struct sockaddr *psa, res_state presstate)
 {	RBLLISTMATCH *prblmatches = (RBLLISTMATCH*)calloc(1,sizeof(RBLLISTMATCH));
 
 	if(prbls != NULL
 		&& prbls->plist != NULL
 		&& prbls->qty > 0
-		&& pip != NULL
-		&& !mlfi_isNonRoutableIp(pip) // don't bother testing non-routable ip addresses
+		&& psa != NULL
+		&& !mlfi_isNonRoutableIp(psa) // don't bother testing non-routable ip addresses
 		)
-	{	char *pipstr = mlfi_sin2str(pip);
+	{	char *pipstr = mlfi_sin2str(psa);
 		RBLHOST *prblh;
 		RBLHOST **prbl;
 		int i;
 
 		// copy the ip for later reference
-		prblmatches->sock = *pip;
+		prblmatches->sock = *psa;
 		// inital storage allocation enough for all rbls listed
 		prbl = prblmatches->ppmatch = (RBLHOST **) calloc(prbls->qty,sizeof(RBLHOST *));
 		// match the rbls to this ip
 		for(i=0; i<prbls->qty; i++)
 		{
 			prblh = prbls->plist + i;
-			if(prblh->stage == stage && dnsbl_check_rbl(pSessionId, presstate, pip, prblh->hostname) > 0)
+			if(prblh->stage == stage && dnsbl_check_rbl(pSessionId, presstate, psa, prblh->hostname) > 0)
 			{
 				mlfi_debug(pSessionId,"dnsbl_check '%s.%s' - Blacklisted\n", pipstr, prblh->hostname);
 				*prbl = prblh;
@@ -319,7 +319,7 @@ void dnsbl_add_hdr(SMFICTX *ctx, RBLHOST *prbl)
 {	mlfiPriv	*priv = MLFIPRIV;
 
 	if(priv != NULL && prbl != NULL)
-	{	char *pipstr = (priv->pip != NULL ? mlfi_sin2str(satosin(priv->pip)) : NULL);
+	{	char *pipstr = (priv->pip != NULL ? mlfi_sin2str(priv->pip) : NULL);
 	
 		//mlfi_addhdr_printf(ctx,"X-RDNSBL-Warning","Source IP tagged as spam source by %s",prbl->hostname);
 		mlfi_addhdr_printf(ctx,"X-Milter","%s DataSet=RDNSBL-Warning; receiver=%s; ip=%s; rbl=%s;"

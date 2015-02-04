@@ -47,6 +47,11 @@
 	#include <netdb.h>
 	#include <stdarg.h>
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
 	void mlfi_vdebug(const char *pSessionId, const char *pfmt, va_list vl);
 	void mlfi_debug(const char *pSessionId, const char *fmt, ...);
 
@@ -56,10 +61,10 @@
 	char *mlfi_stradvtok(char **ppSrc, char delim);
 
 	int mlfi_isNonRoutableIpV4(unsigned long ip);
-	int mlfi_isNonRoutableIp(struct sockaddr_in *pip);
+	int mlfi_isNonRoutableIp(const struct sockaddr *psa);
 
 	unsigned long mlfi_regex_ipv4(const char *pstr);
-	char *mlfi_sin2str(const struct sockaddr_in *psa);
+	char *mlfi_sin2str(const struct sockaddr *psa);
 
 	int mlfi_systemPrintf(char *fmt, ...);
 #endif

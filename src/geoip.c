@@ -49,6 +49,12 @@ static char const cvsid[] = "@(#)$Id: geoip.c,v 1.12 2012/11/18 21:13:16 neal Ex
 #include <sys/time.h>
 #include <string.h>
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+
 #include "spamilter.h"
 #include "misc.h"
 #include "regexapi.h"
@@ -134,16 +140,42 @@ void geoip_close(SMFICTX *ctx)
 	}
 }
 
-const char *geoip_LookupCCByIp(SMFICTX *ctx, unsigned long ipNum)
+// TODO - ipv6 - to be removed
+const char *geoip_LookupCCByIpv4(SMFICTX *ctx, unsigned long ip)
 {	mlfiPriv *priv = MLFIPRIV;
-	const char *pCC =  (priv != NULL && priv->pGeoipCC ? GeoIP_country_code_by_ipnum(priv->pGeoipCC,ipNum) : NULL);
+	const char *pCC = NULL;
+
+	if(priv != NULL && priv->pGeoipCC != NULL)
+		pCC = GeoIP_country_code_by_ipnum(priv->pGeoipCC, ip);
+
+	return (pCC != NULL ? pCC : "--");
+}
+
+const char *geoip_LookupCCByIp(SMFICTX *ctx, const struct sockaddr *pip)
+{	mlfiPriv *priv = MLFIPRIV;
+	const char *pCC = NULL;
+
+	if(priv != NULL && priv->pGeoipCC != NULL)
+	{
+		switch(pip->sa_family)
+		{
+			case AF_INET:
+				pCC = GeoIP_country_code_by_ipnum(priv->pGeoipCC, ntohl(((struct sockaddr_in *)pip)->sin_addr.s_addr));
+				break;
+			case AF_INET6:
+				// TODO - ipv6 - finish
+				//pCC = GeoIP_country_code_by_ipnum_v6(priv->pGeoipCC, ipNum);
+				break;
+		}
+	}
 
 	return (pCC != NULL ? pCC : "--");
 }
 
 const char *geoip_LookupCCByHost(SMFICTX *ctx, const char *pHostName)
 {	
-	return geoip_LookupCCByIp(ctx, (pHostName != NULL && *pHostName ? _GeoIP_lookupaddress(pHostName) : 0) );
+	// TODO - ipv6
+	return geoip_LookupCCByIpv4(ctx, (pHostName != NULL && *pHostName ? _GeoIP_lookupaddress(pHostName) : 0) );
 }
 
 static char *gpStrsBwlA[] =
@@ -210,12 +242,13 @@ static int geoip_get_action(mlfiPriv *priv, const char *pCC)
 	return rc;
 }
 
+// TODO - ipv6
 int geoip_query_action(SMFICTX *ctx, unsigned long ip)
 {	mlfiPriv *priv = MLFIPRIV;
 	int	rc = GEOIPLIST_A_NULL;
 
 	if(priv != NULL)
-		rc = geoip_get_action(priv,geoip_LookupCCByIp(ctx,ip));
+		rc = geoip_get_action(priv,geoip_LookupCCByIpv4(ctx,ip));
 
 	return(rc);
 }

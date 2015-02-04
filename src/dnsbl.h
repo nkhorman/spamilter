@@ -60,13 +60,13 @@
 
 	typedef struct _rbllistmatch_t
 	{
-		struct sockaddr_in sock;
+		struct sockaddr sock;
 		size_t qty;
 		RBLHOST **ppmatch;
 	}RBLLISTMATCH;
 
-	int dnsbl_check_rbl(const char *pSessionId, const res_state statp, struct sockaddr_in *pip, char *domain);
-	RBLLISTMATCH *dnsbl_check(const char *pSessionId, int stage, RBLLISTHOSTS *prbls, struct sockaddr_in *pip, res_state presstate);
+	int dnsbl_check_rbl(const char *pSessionId, const res_state statp, struct sockaddr *psa, char *domain);
+	RBLLISTMATCH *dnsbl_check(const char *pSessionId, int stage, RBLLISTHOSTS *prbls, struct sockaddr *psa, res_state presstate);
 	RBLHOST *dnsbl_action(const char *pSessionId, RBLHOST **prbls, int stage);
 
 	void dnsbl_add_hdr(SMFICTX *ctx, RBLHOST *prbl);

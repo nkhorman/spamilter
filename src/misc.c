@@ -50,6 +50,11 @@ static char const cvsid[] = "@(#)$Id: misc.c,v 1.24 2012/12/07 19:38:33 neal Exp
 #include <sys/wait.h>
 #include <syslog.h>
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
 extern int gDebug;
 
 #include "misc.h"
@@ -192,30 +197,40 @@ int mlfi_isNonRoutableIpV4(unsigned long ip)
 	return rc;
 }
 
-int mlfi_isNonRoutableIp(struct sockaddr_in *pip)
-{	int	rc = 0;
+int mlfi_isNonRoutableIp(const struct sockaddr *psa)
+{	int nonRoutable = 1;
 
-	/* erm.. this is ip4 only right now */
-	if(pip != NULL)
+	if(psa != NULL)
 	{
-		switch(pip->sin_family)
+		switch(psa->sa_family)
 		{
 			case AF_INET:
-				rc = mlfi_isNonRoutableIpV4(ntohl(pip->sin_addr.s_addr));
+				nonRoutable = mlfi_isNonRoutableIpV4(ntohl(((struct sockaddr_in *)psa)->sin_addr.s_addr));
+				break;
+			// TODO - ipv6 - is this enough ?
+			case AF_INET6:
+				{	struct in6_addr *pAddr = &((struct sockaddr_in6 *)psa)->sin6_addr;
+
+					nonRoutable = (
+						IN6_ARE_ADDR_EQUAL(pAddr, &in6addr_loopback)
+						|| IN6_IS_ADDR_LINKLOCAL(pAddr) // fe80:xx
+						|| IN6_IS_ADDR_SITELOCAL(pAddr) // fec0::xx
+						);
+				}
 				break;
 		}
 	}
 
-	return rc;
+	return nonRoutable;
 }
 
-char *mlfi_sin2str(const struct sockaddr_in *psa)
+char *mlfi_sin2str(const struct sockaddr *psa)
 {	char *pstr = NULL;
 
 	if(psa != NULL)
 	{	size_t s = 0;
 
-		switch(psa->sin_family)
+		switch(psa->sa_family)
 		{
 			case AF_INET: s = INET_ADDRSTRLEN; break;
 			case AF_INET6: s = INET6_ADDRSTRLEN; break;
@@ -223,7 +238,7 @@ char *mlfi_sin2str(const struct sockaddr_in *psa)
 		}
 
 		if(s > 0 && (pstr = calloc(1,s)) != NULL)
-			pstr = (char *)inet_ntop(psa->sin_family,&psa->sin_addr,pstr,s);
+			pstr = (char *)inet_ntop(psa->sa_family, &((struct sockaddr_in *)psa)->sin_addr, pstr, s);
 	}
 
 	return pstr;

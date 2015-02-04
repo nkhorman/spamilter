@@ -44,6 +44,11 @@
 	#include "GeoIP.h"
 	#include "GeoIPCity.h"
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
 	enum { GEOIPLIST_A_NULL, GEOIPLIST_A_ACCEPT, GEOIPLIST_A_REJECT, GEOIPLIST_A_DISCARD, GEOIPLIST_A_TEMPFAIL, GEOIPLIST_A_TARPIT/*, GEOIPLIST_A_IPFW*/ };
 
 	typedef struct _geoipresult_t
@@ -59,7 +64,8 @@
 	void geoip_close(SMFICTX *ctx);
 	int geoip_query_action(SMFICTX *ctx, unsigned long ip);
 
-	const char *geoip_LookupCCByIp(SMFICTX *ctx, unsigned long ipNum);
+	const char *geoip_LookupCCByIpv4(SMFICTX *ctx, unsigned long ip);
+	const char *geoip_LookupCCByIp(SMFICTX *ctx, const struct sockaddr *pip);
 	const char *geoip_LookupCCByHost(SMFICTX *ctx, const char *pHostName);
 
 	const char *geoip_result_add(SMFICTX *ctx, unsigned long ip, const char *pCountryCode);

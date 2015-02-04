@@ -188,16 +188,16 @@ void mlfi_MtaHostIpfwAction(mlfiPriv *priv, char *action)
 	}
 }
 
-sfsistat mlfi_rdnsbl_reject(SMFICTX *ctx, sfsistat *rs, int stage, struct sockaddr_in *pip, RBLLISTHOSTS *prblhosts, RBLLISTMATCH **pprblmatch)
+sfsistat mlfi_rdnsbl_reject(SMFICTX *ctx, sfsistat *rs, int stage, struct sockaddr *psa, RBLLISTHOSTS *prblhosts, RBLLISTMATCH **pprblmatch)
 {
-	if(*rs == SMFIS_CONTINUE && gDnsBlChk && pip != NULL && prblhosts != NULL && pprblmatch != NULL)
+	if(*rs == SMFIS_CONTINUE && gDnsBlChk && psa != NULL && prblhosts != NULL && pprblmatch != NULL)
 	{	mlfiPriv *priv = MLFIPRIV;
 
 		if(!priv->islocalnethost)
 		{	RBLHOST **ppmatch = NULL;
 			RBLHOST *prblh = NULL;
 
-			*pprblmatch = dnsbl_check(priv->pSessionUuidStr,stage,prblhosts,pip,priv->presstate);
+			*pprblmatch = dnsbl_check(priv->pSessionUuidStr,stage,prblhosts,psa,priv->presstate);
 			ppmatch = (*pprblmatch != NULL ? (*pprblmatch)->ppmatch : NULL);
 			if(*pprblmatch != NULL
 				&& (*pprblmatch)->qty
@@ -380,8 +380,8 @@ sfsistat mlfi_connect(SMFICTX *ctx, char *hostname, _SOCK_ADDR *hostaddr)
 
 			priv->pip = (struct sockaddr *)calloc(1,sa_len);
 			if(priv->pip != NULL)
-				memcpy(priv->pip,hostaddr,sa_len);
-			priv->ipstr = mlfi_sin2str(satosin(hostaddr));
+				memcpy(priv->pip, hostaddr, sa_len);
+			priv->ipstr = mlfi_sin2str(hostaddr);
 		}
 
 		if(hostname != NULL)
@@ -390,7 +390,7 @@ sfsistat mlfi_connect(SMFICTX *ctx, char *hostname, _SOCK_ADDR *hostaddr)
 		mlfi_debug(priv->pSessionUuidStr,"mlfi_connect: '%s'/%s\n",hostname,priv->ipstr);
 
 		priv->islocalnethost = 0;
-		switch(satosin(priv->pip)->sin_family)
+		switch(priv->pip->sa_family)
 		{
 			case AF_INET:
 				priv->islocalnethost = ( ntohl(satosin(priv->pip)->sin_addr.s_addr) == INADDR_LOOPBACK );
@@ -418,7 +418,7 @@ sfsistat mlfi_connect(SMFICTX *ctx, char *hostname, _SOCK_ADDR *hostaddr)
 
 		mlfi_debug(priv->pSessionUuidStr,"mlfi_connect: islocalnethost: %u\n",priv->islocalnethost);
 
-		//mlfi_rdnsbl_reject(ctx,&rs,RBL_S_CONN,satosin(priv->pip),priv->pdnsrblhosts,&priv->pdnsrblmatch);
+		//mlfi_rdnsbl_reject(ctx, &rs, RBL_S_CONN, priv->pip, priv->pdnsrblhosts, &priv->pdnsrblmatch);
 
 		// Connection rate limititing, by the fact that the ipfwmtad daemon
 		// will firewall the source ip based on the number and rate of inculpate
@@ -430,26 +430,32 @@ sfsistat mlfi_connect(SMFICTX *ctx, char *hostname, _SOCK_ADDR *hostaddr)
 		if(!priv->islocalnethost
 			//&& gMtaHostChk ?
 			)
-		{
-			switch(satosin(priv->pip)->sin_family)
+		{	const char *pGeoipCC = NULL;
+
+			switch(priv->pip->sa_family)
 			{
 				case AF_INET:
 					{	unsigned long ip = ntohl(satosin(priv->pip)->sin_addr.s_addr);
 
 						if(ip != 0 && !mlfi_isNonRoutableIpV4(ip))
-						{	const char *pGeoipCC = geoip_result_add(ctx,ip,geoip_LookupCCByIp(ctx,ip));
-
-							mlfi_debug(priv->pSessionUuidStr,"mlfi_connect: geoip: %s, CC: %s\n"
-								,priv->ipstr
-								,pGeoipCC
-								);
-						}
+							pGeoipCC = geoip_result_add(ctx, ip, geoip_LookupCCByIp(ctx, priv->pip));
 					}
 					break;
 
 				case AF_INET6:
 					// TODO - ipv6
+					if(!mlfi_isNonRoutableIp(priv->pip))
+					{//	struct in6_addr *pAddr = &((struct sockaddr_in6 *)priv->pip)->sin6_addr;
+					}
 					break;
+			}
+
+			if(pGeoipCC != NULL)
+			{
+				mlfi_debug(priv->pSessionUuidStr,"mlfi_connect: geoip: %s, CC: %s\n"
+					,priv->ipstr
+					,pGeoipCC
+					);
 			}
 		}
 #endif
@@ -696,7 +702,7 @@ int mlfi_greylist(SMFICTX *ctx)
 
 			memset(ipstr,0,sizeof(ipstr));
 
-			switch(satosin(priv->pip)->sin_family)
+			switch(priv->pip->sa_family)
 			{
 				case AF_INET:
 					{	unsigned int ipoctets[4];
@@ -845,7 +851,7 @@ sfsistat mlfi_envrcpt(SMFICTX *ctx, char **argv)
 					}
 					else
 #endif
-						rs = mlfi_rdnsbl_reject(ctx,&rs,RBL_S_RCPT,satosin(priv->pip),priv->pdnsrblhosts,&priv->pdnsrblmatch);
+						rs = mlfi_rdnsbl_reject(ctx, &rs, RBL_S_RCPT, priv->pip, priv->pdnsrblhosts, &priv->pdnsrblmatch);
 				}
 				break;
 		}
@@ -893,7 +899,7 @@ sfsistat mlfi_header(SMFICTX *ctx, char *headerf, char *headerv)
 			const char *pGeoipCC = "--";
 			if(routeable)
 			{	
-				pGeoipCC = geoip_result_add(ctx,ip,geoip_LookupCCByIp(ctx,ip));
+				pGeoipCC = geoip_result_add(ctx,ip,geoip_LookupCCByIpv4(ctx,ip));
 				mlfi_debug(priv->pSessionUuidStr,"mlfi_header: geoip: %u.%u.%u.%u, CC: %s\n"
 					,(ip>>24)&0xff ,(ip>>16)&0xff ,(ip>>8)&0xff ,ip&0xff
 					,pGeoipCC
@@ -920,7 +926,7 @@ sfsistat mlfi_header(SMFICTX *ctx, char *headerf, char *headerv)
 
 				s.sin_addr.s_addr = htonl(ip);
 				s.sin_family = AF_INET;
-				rs = mlfi_rdnsbl_reject(ctx,&rs,RBL_S_HDR,&s,priv->pdnsrblhosts,&prblmatch);
+				rs = mlfi_rdnsbl_reject(ctx, &rs, RBL_S_HDR, (struct sockaddr *)&s, priv->pdnsrblhosts, &prblmatch);
 				dnsbl_free_match(prblmatch);
 			}
 		}
@@ -1309,7 +1315,7 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 			//&& gxxxChk - TODO - should this be configurable ?
 			)
 		{
-			rs = mlfi_rdnsbl_reject(ctx,&rs,RBL_S_FROM,satosin(priv->pip),priv->pdnsrblhosts,&priv->pdnsrblmatch);
+			rs = mlfi_rdnsbl_reject(ctx, &rs, RBL_S_FROM, priv->pip, priv->pdnsrblhosts, &priv->pdnsrblmatch);
 			continue_checks = (rs == SMFIS_CONTINUE);
 		}
 
@@ -1600,7 +1606,7 @@ int listCallbackBodyHosts(void *pData, void *pCallbackData)
 						case GEOIPLIST_A_TARPIT:
 						case GEOIPLIST_A_DISCARD:
 							mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Blacklisted body URL Country Code, Please see: %s#bodyurlcc",gPolicyUrl);
-							asprintf(pLcbh->cpr.ppReason,"Body URL Country Code '%s' for host '%s'",geoip_LookupCCByIp(ctx,ip),pStr);
+							asprintf(pLcbh->cpr.ppReason,"Body URL Country Code '%s' for host '%s'",geoip_LookupCCByIpv4(ctx,ip),pStr);
 							mlfi_status_debug(priv,pLcbh->cpr.prs,LOG_REJECTED_STR,*pLcbh->cpr.ppReason,"mlfi_eom: Body URL host Country Code\n");
 							free(*pLcbh->cpr.ppReason);
 							*pLcbh->cpr.prs = SMFIS_REJECT;

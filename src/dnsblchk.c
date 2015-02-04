@@ -106,7 +106,7 @@ int testip(char *ipstr, unsigned long ip, char *dbpath)
 
 				mlfi_strcpyadv(hostbuf,sizeof(hostbuf),buf,'|');
 				//mlfi_debug(sessinId,"checking - %s %s\n",hostbuf,buf);
-				if(strlen(hostbuf) && dnsbl_check_rbl(sessionId,gStatp,&s,hostbuf))
+				if(strlen(hostbuf) && dnsbl_check_rbl(sessionId, gStatp, (struct sockaddr *)&s, hostbuf))
 				{
 					/*
 					mlfi_debug(sessinId,"\t\t'%u.%u.%u.%u.%s' - Blacklisted\n",
