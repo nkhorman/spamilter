@@ -130,7 +130,7 @@
 <PKGLIBSPF>	cd libspf && ./build.sh
 <PKGLIBSPF>
 <ALL>spamilter: Makefile <WITH_GEOIP ${LIBGEOIPDIR}/libGeoIP.a> <WITH_LIBSPF ${LIBSPFDIR}/libspf.a> ${WATCHERSRCS} ${SRCS} <NOT_FreeBSD ${NRSRCS}> spamilter.o ${WATCHEROBJS} ${OBJS} <NOT_FreeBSD ${NROBJS}> ${INCLUDES} ${WATCHERINCS}
-<ALL>	${CC} ${CFLAGS} -o spamilter spamilter.o ${WATCHEROBJS} ${OBJS} <NOT_FreeBSD ${NROBJS}> <WITH_LIBSPF ${LIBSPFDIR}/libspf.a> <WITH_GEOIP ${LIBGEOIPDIR}/libGeoIP.a> ${LIBDIRS} ${LIBS} ${LIBPGSQL}
+<ALL>	${CC} ${CFLAGS} -o spamilter spamilter.o ${WATCHEROBJS} ${OBJS} <NOT_FreeBSD ${NROBJS}> <WITH_LIBSPF ${LIBSPFDIR}/libspf.a> <WITH_GEOIP ${LIBGEOIPDIR}/libGeoIP.a> ${LIBDIRS} ${LIBS} <WITH_TABLE_PGSQL ${LIBPGSQL}>
 <ALL>
 <ALL>dnsblchk: Makefile ${SRCS} <NOT_FreeBSD ${NRSRCS}> <NOT_FreeBSD nstring.c> dnsblchk.o ${OBJS} <NOT_FreeBSD ${NROBJS}> <NOT_FreeBSD nstring.o> ${INCLUDES} dnsblchk.c
 <ALL>	${CC} ${CFLAGS} -o dnsblchk dnsblchk.o dnsbl.o dns.o smisc.o misc.o mx.o smtp.o inet.o ifi.o <NOT_FreeBSD ${NROBJS}> <INC_SunOS nstring.o> ${LIBDIRS} ${LIBS}
