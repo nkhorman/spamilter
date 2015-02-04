@@ -198,11 +198,13 @@ void mboxdomainsplit(char *mbox, char **domain)
 
 void usage(void)
 {
-	printf(
-		"-d - debug on\n"
-		"-p - specify directory path to db.rdnsbl file\n"
-		"-i [ip address] - test ip address\n"
-		"-e [mbox@domain] - test email delivery\n"
+	printf("dnsblchk [-d] [-p db.rdnsbl file pathname] [-i ip address] [-e mbox@domain] [domain] ...\n"
+		"\t-d - debug on\n"
+		"\t-p - specify directory path to db.rdnsbl file - default = /var/db/spamilter/db.rdnsbl\n"
+		"\t-i - test ip address to see if it is listed at any of the RBLs from db.rdnsbl\n"
+		"\t-e - test email delivery\n"
+		"\t-? - man page or options summary\n"
+		"\t[domain] - test all of the listed MX hosts of a given domain to see if they are listed at any of the RBLs from db.rdnsbl\n"
 	);
 }
 
@@ -229,7 +231,7 @@ int main(int argc, char **argv)
 	gethostname(gHostnameBuf,sizeof(gHostnameBuf)-1);
 	printf("Hostname: '%s'\n",gHostnameBuf);
 
-	while ((c = getopt(argc, argv, "i:e:dp:")) != -1)
+	while ((c = getopt(argc, argv, "i:e:dp:?")) != -1)
 	{
 		switch (c)
 		{
@@ -262,6 +264,11 @@ int main(int argc, char **argv)
 				else
 					printf("Bogus/Missing command line arguement\n");
 				break;
+			case '?':
+				// show man page, if they arent' trying to figure out other cli params
+				if(argc > 2 || mlfi_systemPrintf("%s", "man dnsblchk"))
+					usage();
+				break;
 		}
 	}
 
@@ -277,5 +284,5 @@ int main(int argc, char **argv)
 
 	res_nclose(gStatp);
 
-	return(0);
+	return 0;
 }
