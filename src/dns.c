@@ -108,15 +108,6 @@ int dns_query_rr(const res_state statp, int nsType, char *fmt, ...)
 	return (rc > 0);
 }
 
-// Make an in-addr.arpa style ipv4 query, and return 1 if found
-int dns_rdnsbl_has_rr_a(const res_state statp, unsigned long ip, char *domain)
-{
-	// this is an in-addr.arpa style lookup
-	return dns_query_rr(statp, ns_t_a, "%u.%u.%u.%u.%s",
-			((ip&0x000000ff)), ((ip&0x0000ff00)>>8), ((ip&0x00ff0000)>>16), ((ip&0xff000000)>>24), domain
-			);
-}
-
 // Iterate a given section of a response
 void dns_parse_response(u_char *presp, size_t respLen, ns_sect nsSect, int (*pCallbackFn)(nsrr_t *, void *), void *pCallbackData)
 {	ns_msg	handle;

@@ -916,7 +916,7 @@ void cliIpfwAction(char *ipstr, char *action)
 
 void usage()
 {
-	printf("usage: [-dp -n fname] [-u rule number] | [-i fname] | [-r ipaddress] | [-q ipaddress]\n"
+	printf("usage: [-d] [-p -n fname] [-u rule number] | [-i fname] | [-r ipaddress] | [-q ipaddress]\n"
 		"\t-d - debug mode\n"
 		"\t-p - server tcp port number\n"
 		"\t-n - server mode - ip database file name\n"

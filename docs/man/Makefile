@@ -8,7 +8,7 @@
  #
  #--------------------------------------------------------------------*
 
-MANPAGES = spamilter.8 ipfwmtad.8 greydbd.8
+MANPAGES = spamilter.8 ipfwmtad.8 greydbd.8 dnsblupd.8
 
 MANMODE= 0644
 MANOWN= root
@@ -30,8 +30,7 @@ uninstall:
 	for i in ${MANPAGES}; do rm -f ${MANDIR}/$${i} ${MANDIR}/$${i}.gz; done
 
 clean:
-	for i in ipfwmtad.8 greydbd.8; do rm -f $${i}; done
-#	for i in ${MANPAGES}; do rm -f $${i}; done
+	for i in ${MANPAGES}; do rm -f $${i}; done
 
 .mm.8: Makefile m4man.m4
 	m4 m4man.m4 $< > $@

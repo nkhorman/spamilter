@@ -55,9 +55,6 @@
 	// The consumer doesn't care about the response content
 	int dns_query_rr(const res_state statp, int nsType, char *fmt, ...);
 
-	// Make an in-addr.arpa style ipv4 query, and return 1 if found
-	int dns_rdnsbl_has_rr_a(const res_state statp, unsigned long ip, char *domain);
-
 	// Query a hostname and find an ipv4 match
 	int dns_hostname_ip_match(const res_state statp, char *hostname, unsigned long hostip);
 

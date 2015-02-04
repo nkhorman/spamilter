@@ -52,22 +52,29 @@ static char const cvsid[] = "@(#)$Id: dnsblupd.c,v 1.13 2011/07/29 21:23:16 neal
 #include "config.h"
 #include "dnsupdate.h"
 #include "dns.h"
+#include "misc.h"
 
 void usage()
 {
-	printf("dnsblupd [-d 0|1] [-z RDNSBL zone name] [[-a xxx.xxx.xxx.xxx] [-i xxx.xxx.xxx.xxx]] [-r xxx.xxx.xxx.xxx] [-l xxxx.xxxx.xxxx]\n");
-	printf("\tWhere;\n");
-	printf("\t-d debug mode.\n");
-	printf("\t-z RDNSBL zone name. must preceed -i, -a, or -l.\n");
-	printf("\t-i inserts an ip address into the RDNSBL zone\n");
-	printf("\t-a is the A record address used on Insert, 127.0.0.1 otherwise\n");
-	printf("\t-r removes an ip address from the RDNSBL zone\n");
-	printf("\t-l lookup ip address in RDNSBL zone\n");
+	printf("dnsblupd [-d] [-z RDNSBL zone name] [[-a IP address] [-i IP address]] [-r IP address] [-l IP adress] [-?]\n"
+		"\tWhere;\n"
+		"\t-d - debug mode.\n"
+		"\t-z - RDNSBL zone name. must preceed -i, -a, or -l.\n"
+		"\t-i - inserts an ip address into the RDNSBL zone\n"
+		"\t-a - is the A or AAAA record address used on Insert, 127.0.0.1 or ::1 otherwise\n"
+		"\t-r - removes an ip address from the RDNSBL zone\n"
+		"\t-l - lookup ip address in RDNSBL zone\n"
+		"\t-? - man page\n"
+		);
 }
 
-void lookup(res_state statp, char *dname, long ip, char *zone)
+void lookup(res_state statp, char *pHost)
 {
-	printf("A record for %s %s\n",dname, dns_rdnsbl_has_rr_a(statp,ip, zone) ? "exists." : "was not found.");
+	int ra = dns_query_rr(statp, ns_t_a, "%s", pHost);
+	int raaaa = (ra == 0 ? dns_query_rr(statp, ns_t_aaaa, "%s", pHost) : 0);
+	int rr = ra + raaaa;
+
+	printf("%s record for %s %s\n", (ra ? "A" : (raaaa ? "AAAA" : "No")), pHost, (rr ? "exists." : "found."));
 }
 
 int main(int argc, char **argv)
@@ -77,8 +84,8 @@ int main(int argc, char **argv)
 	int		c, debug	= 0;
 	int		r_opcode	= -1;
 	u_int32_t	r_ttl		= 0ul;
-	int		ipa,ipb,ipc,ipd;
-	res_state	statp = RES_NALLOC(statp);
+	res_state	statp		= RES_NALLOC(statp);
+	int		aFamily		= AF_INET;
 
 	if(argc == 1)
 	{
@@ -88,50 +95,82 @@ int main(int argc, char **argv)
 
 	res_ninit(statp);
 
-	while ((c = getopt(argc, argv, "i:a:r:dz:l:")) != -1)
+	while ((c = getopt(argc, argv, "i:a:r:dz:l:?")) != -1)
 	{
 		switch (c)
 		{
 			case 'i':
-				if (optarg != NULL && *optarg && sscanf(optarg,"%u.%u.%u.%u",&ipa,&ipb,&ipc,&ipd) == 4)
+				if (optarg != NULL && *optarg)
 				{
-					asprintf(&r_dname,"%u.%u.%u.%u.%s",ipd,ipc,ipb,ipa,zone);
-					printf("Insert request for %s\n",r_dname);
-					r_opcode = 1;
-					r_ttl = 3600ul;
+					r_dname = dns_inet_ptoarpa(optarg, AF_INET, zone);
+					if(r_dname == NULL)
+						r_dname = dns_inet_ptoarpa(optarg, AF_INET6, zone);
+					if(r_dname != NULL)
+					{
+						aFamily = AF_INET6;
+						printf("Insert request for %s\n",r_dname);
+						r_opcode = 1;
+						r_ttl = 3600ul;
+					}
+					else
+						printf("Invalid IP address\n");
 				}
 				else
-					printf("Invalid ip address format\n");
+					printf("IP address missing\n");
 				break;
 			case 'r':
-				if (optarg != NULL && *optarg && sscanf(optarg,"%u.%u.%u.%u",&ipa,&ipb,&ipc,&ipd) == 4)
+				if (optarg != NULL && *optarg)
 				{
-					asprintf(&r_dname,"%u.%u.%u.%u.%s",ipd,ipc,ipb,ipa,zone);
-					printf("Remove request for %s\n",r_dname);
-					r_opcode = 0;
+					r_dname = dns_inet_ptoarpa(optarg, AF_INET, zone);
+					if(r_dname == NULL)
+						r_dname = dns_inet_ptoarpa(optarg, AF_INET6, zone);
+					if(r_dname != NULL)
+					{
+						aFamily = AF_INET6;
+						printf("Remove request for %s\n",r_dname);
+						r_opcode = 0;
+					}
+					else
+						printf("Invalid IP address\n");
 				}
 				else
-					printf("Invalid ip address format\n");
+					printf("IP address missing\n");
 				break;
 			case 'd':
 				debug = 1;
 				break;
 			case 'a':
 				if (optarg != NULL && *optarg)
+				{
 					r_addr = optarg;
+					aFamily = 0;
+				}
 				break;
 			case 'l':
-				if (optarg != NULL && *optarg && sscanf(optarg,"%u.%u.%u.%u",&ipa,&ipb,&ipc,&ipd) == 4)
+				if (optarg != NULL && *optarg)
 				{
-					asprintf(&r_dname,"%u.%u.%u.%u.%s",ipd,ipc,ipb,ipa,zone);
-					lookup(statp,r_dname,mkip(ipa,ipb,ipc,ipd),zone);
-					free(r_dname);
-					r_dname = NULL;
+					r_dname = dns_inet_ptoarpa(optarg, AF_INET, zone);
+					if(r_dname == NULL)
+						r_dname = dns_inet_ptoarpa(optarg, AF_INET6, zone);
+					if(r_dname != NULL)
+					{
+						aFamily = AF_INET6;
+						lookup(statp, r_dname);
+						free(r_dname);
+						r_dname = NULL;
+					}
 				}
 				break;
 			case 'z':
 				if (optarg != NULL && *optarg)
 					zone = optarg;
+				break;
+			case '?':
+				if(argc < 3) // show man page, if they arent' trying to figure out other cli params
+					mlfi_systemPrintf("%s", "man dnsblupd");
+				else
+					usage();
+				exit(0);
 				break;
 			default:
 				usage();
@@ -144,8 +183,13 @@ int main(int argc, char **argv)
 
 	if (argc == 0 && r_opcode != -1 && r_dname != NULL && r_addr != NULL && strlen(r_dname) && strlen(r_addr)) 
 	{
-		printf("Update request %scompleted\n",dns_update_rr_a(debug,r_opcode,r_dname,r_ttl,r_addr) == -1 ? "not " : "");
-		lookup(statp,r_dname,mkip(ipa,ipb,ipc,ipd),zone);
+		if(aFamily == AF_INET6)
+			r_addr = "::1";
+		printf("Update request %scompleted\n", dns_update_rr_a(debug, r_opcode, r_dname, r_ttl, r_addr) == -1 ? "not " : "");
+		lookup(statp, r_dname);
+		free(r_dname);
+		r_dname = NULL;
 	}
-	return(0);
+
+	return 0;
 }
