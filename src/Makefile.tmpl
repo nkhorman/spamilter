@@ -47,7 +47,8 @@
 <OFLAGS>OFLAGS =	<X>
 <ALL>LDFLAGS =	
 <ALL>
-<ALL>LIBS =		-lmilter <NOT_Linux -lmd> -lutil
+<ALL>LIBS =		-lmilter -lutil
+<BSD>LIBS +=	-lmd
 <Linux>LIBS +=		-lsmutil -lresolv -ldb
 <SunOS>LIBS +=		-lsmutil -lresolv -lsocket -lnsl -lxnet -lpthread
 <LIBS>LIBS +=		<X>
