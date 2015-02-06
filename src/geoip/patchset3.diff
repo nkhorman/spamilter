@@ -1,5 +1,5 @@
 --- ./apps/geoiplookup.c	2011-06-23 15:18:32.000000000 -0500
-+++ ../GeoIP-1.4.8.mod/apps/geoiplookup.c	2012-04-13 10:14:41.000000000 -0500
++++ ./apps/geoiplookup.c	2012-04-13 10:14:41.000000000 -0500
 @@ -40,6 +40,7 @@
  int main (int argc, char *argv[]) {
  	char * hostname = NULL;
@@ -32,7 +32,7 @@
  					printf("%s not available, skipping...\n", GeoIPDBDescription[i]);
  				} else {
 --- ./apps/geoiplookup6.c	2011-06-23 15:18:32.000000000 -0500
-+++ ../GeoIP-1.4.8.mod/apps/geoiplookup6.c	2012-05-20 00:00:55.000000000 -0500
++++ ./apps/geoiplookup6.c	2012-05-20 00:00:55.000000000 -0500
 @@ -30,6 +30,7 @@
  int main (int argc, char *argv[]) {
  	char * hostname = NULL;
@@ -84,7 +84,7 @@
  	geoipv6_t       ipnum;
  	ipnum = _GeoIP_lookupaddress_v6(hostname);
 --- ./apps/geoipupdate.c	2011-06-23 15:18:32.000000000 -0500
-+++ ../GeoIP-1.4.8.mod/apps/geoipupdate.c	2012-04-13 15:08:52.000000000 -0500
++++ ./apps/geoipupdate.c	2012-04-13 15:08:52.000000000 -0500
 @@ -86,6 +86,7 @@
  	int c;
  	int err = 0;
@@ -122,7 +122,7 @@
  	}
  
 --- ./ChangeLog	2011-06-24 08:44:56.000000000 -0500
-+++ ../GeoIP-1.4.8.mod/ChangeLog	2012-05-19 23:53:54.000000000 -0500
++++ ./ChangeLog	2012-05-19 23:53:54.000000000 -0500
 @@ -1,3 +1,18 @@
 +1.4.8 modified by Neal Horman 2012
 +	* Make it compile on FreeBSD by renaming locally provided MD5 implementation to MD5_local so as to not conflict with system provided MD5 implementation
@@ -142,9 +142,9 @@
  1.4.8
  	* Fix GEOIP_DOMAIN_EDITION_V6 ( Boris Zentner )
  	* Add new Datatypes GEOIP_NETSPEED_EDITION_REV1_V6 and
-Files ./data/GeoIP.dat and ../GeoIP-1.4.8.mod/data/GeoIP.dat differ
+Files ./data/GeoIP.dat and ./data/GeoIP.dat differ
 --- ./libGeoIP/GeoIP.c	2011-06-23 15:28:07.000000000 -0500
-+++ ../GeoIP-1.4.8.mod/libGeoIP/GeoIP.c	2012-04-13 15:26:06.000000000 -0500
++++ ./libGeoIP/GeoIP.c	2012-04-13 15:26:06.000000000 -0500
 @@ -19,6 +19,7 @@
   */
  
@@ -698,7 +698,7 @@ Files ./data/GeoIP.dat and ../GeoIP-1.4.8.mod/data/GeoIP.dat differ
  	}
  
 --- ./libGeoIP/GeoIP.h	2011-06-23 15:57:02.000000000 -0500
-+++ ../GeoIP-1.4.8.mod/libGeoIP/GeoIP.h	2012-04-13 13:31:26.000000000 -0500
++++ ./libGeoIP/GeoIP.h	2012-04-13 13:31:26.000000000 -0500
 @@ -76,6 +76,12 @@
          unsigned int ext_flags; /* bit 0 teredo support enabled */
  } GeoIP;
@@ -738,7 +738,7 @@ Files ./data/GeoIP.dat and ../GeoIP-1.4.8.mod/data/GeoIP.dat differ
  /* Returns the library version in use. Helpful if your loading dynamically. */
  GEOIP_API const char * GeoIP_lib_version(void);
 --- ./libGeoIP/GeoIP_internal.h	2011-03-27 16:00:36.000000000 -0500
-+++ ../GeoIP-1.4.8.mod/libGeoIP/GeoIP_internal.h	2012-04-13 10:30:26.000000000 -0500
++++ ./libGeoIP/GeoIP_internal.h	2012-04-13 10:30:26.000000000 -0500
 @@ -12,7 +12,6 @@
  GEOIP_API geoipv6_t _GeoIP_lookupaddress_v6 (const char *host);
  GEOIP_API int __GEOIP_V6_IS_NULL(geoipv6_t v6);
@@ -749,7 +749,7 @@ Files ./data/GeoIP.dat and ../GeoIP-1.4.8.mod/data/GeoIP.dat differ
  
  #endif
 --- ./libGeoIP/GeoIPUpdate.c	2011-06-23 15:28:17.000000000 -0500
-+++ ../GeoIP-1.4.8.mod/libGeoIP/GeoIPUpdate.c	2012-04-13 14:50:40.000000000 -0500
++++ ./libGeoIP/GeoIPUpdate.c	2012-04-13 14:50:40.000000000 -0500
 @@ -24,7 +24,7 @@
  #include "GeoIP_internal.h"
  
@@ -1030,7 +1030,7 @@ Files ./data/GeoIP.dat and ../GeoIP-1.4.8.mod/data/GeoIP.dat differ
  		free(f_str);
  	}
 --- ./libGeoIP/GeoIPUpdate.h	2011-03-27 16:00:36.000000000 -0500
-+++ ../GeoIP-1.4.8.mod/libGeoIP/GeoIPUpdate.h	2012-04-13 14:50:24.000000000 -0500
++++ ./libGeoIP/GeoIPUpdate.h	2012-04-13 14:50:24.000000000 -0500
 @@ -53,10 +53,10 @@
  const char * GeoIP_get_error_message(int i);
  
@@ -1045,7 +1045,7 @@ Files ./data/GeoIP.dat and ../GeoIP-1.4.8.mod/data/GeoIP.dat differ
  	/* experimental export */
  	int  GeoIP_fprintf(int (*f)(FILE *, char *),FILE *fp, const char *fmt, ...);
 --- ./libGeoIP/Makefile.am	2011-03-27 16:00:36.000000000 -0500
-+++ ../GeoIP-1.4.8.mod/libGeoIP/Makefile.am	2012-04-13 15:09:46.000000000 -0500
++++ ./libGeoIP/Makefile.am	2012-04-13 15:09:46.000000000 -0500
 @@ -1,13 +1,13 @@
  lib_LTLIBRARIES = libGeoIP.la libGeoIPUpdate.la
  
@@ -1072,7 +1072,7 @@ Files ./data/GeoIP.dat and ../GeoIP-1.4.8.mod/data/GeoIP.dat differ
  timeZone.lo timeZone.o: timeZone.c
  
 --- ./libGeoIP/Makefile.in	2011-03-27 16:26:05.000000000 -0500
-+++ ../GeoIP-1.4.8.mod/libGeoIP/Makefile.in	2012-05-19 23:34:16.510472000 -0500
++++ ./libGeoIP/Makefile.in	2012-05-19 23:34:16.510472000 -0500
 @@ -76,7 +76,7 @@
  	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
  	$(libGeoIP_la_LDFLAGS) $(LDFLAGS) -o $@
@@ -1114,8 +1114,8 @@ Files ./data/GeoIP.dat and ../GeoIP-1.4.8.mod/data/GeoIP.dat differ
  
  timeZone.lo timeZone.o: timeZone.c
  
---- libGeoIP/md5.c	2011-03-27 16:00:36.000000000 -0500
-+++ ../GeoIP-1.4.8.mod/libGeoIP/md5_local.c	2012-04-13 14:46:46.000000000 -0500
+--- ./libGeoIP/md5.c	2011-03-27 16:00:36.000000000 -0500
++++ ./libGeoIP/md5_local.c	2012-04-13 14:46:46.000000000 -0500
 @@ -47,7 +47,7 @@
  
  
@@ -1176,8 +1176,8 @@ Files ./data/GeoIP.dat and ../GeoIP-1.4.8.mod/data/GeoIP.dat differ
  {
    return hd->buf;
  }
---- libGeoIP/md5.h	2011-03-27 16:00:36.000000000 -0500
-+++ ../GeoIP-1.4.8.mod/libGeoIP/md5_local.h	2012-04-13 14:45:24.000000000 -0500
+--- ./libGeoIP/md5.h	2011-03-27 16:00:36.000000000 -0500
++++ ./libGeoIP/md5_local.h	2012-04-13 14:45:24.000000000 -0500
 @@ -34,7 +34,7 @@
    int  count;
  } MD5_CONTEXT;

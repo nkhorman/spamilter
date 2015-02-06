@@ -19,7 +19,7 @@ getfile()
 	else
 		curl="`which curl`" # everything else
 		if [ ! -z "$curl" ]; then
-			${curl} -L ${url} -o ${file}
+			${curl} -L ${url}/${file} -o ${file}
 		else
 			echo "Unable to find \'fetch\' or \'curl\'"
 		fi
@@ -45,7 +45,7 @@ fi
 #patch
 if [ -d ${distname}.mod -a ! -f ${distname}.mod/.patched ]; then
 	curdir="`pwd`"
-	cd ${distname}.mod && mv libGeoIP/md5.c libGeoIP/md5_local.c && mv libGeoIP/md5.h libGeoIP/md5_local.h && patch < ../${patchsetfile} && touch .patched || echo "Unable to patch"
+	cd ${distname}.mod && mv libGeoIP/md5.c libGeoIP/md5_local.c && mv libGeoIP/md5.h libGeoIP/md5_local.h && patch -p1 < ../${patchsetfile} && touch .patched || echo "Unable to patch"
 	cd ${curdir}
 fi
 
