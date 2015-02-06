@@ -830,7 +830,8 @@ int childMain(short port)
 
 		MtaInfoReadDb(gpMtaDbFname);
 #ifdef OS_Linux
-		mlfi_systemPrintf("iptables -F SPAMILTER; iptables -X SPAMILTER; iptables -A SPAMILTER; iptables -A SPAMILTER -j ACCEPT;\n");
+		mlfi_systemPrintf("iptables -F SPAMILTER; iptables -X SPAMILTER; iptables -D INPUT 1 -p tcp --dport 25 -j SPAMILTER\n");
+		mlfi_systemPrintf("iptables -N SPAMILTER; iptables -A SPAMILTER -j ACCEPT; iptables -I INPUT 1 -p tcp --dport 25 -j SPAMILTER\n");
 #endif
 		MtaInfoIpfwSync(1);
 
