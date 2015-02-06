@@ -1,4 +1,7 @@
 Changelog;
+	20150206
+	* mod - work on modern linux port
+
 	20150204
 	* mod - dnsblchk, dnsblupd to invoke man page for help
 	* add - man pages for dnsblchk and dnsblupd
