@@ -68,6 +68,8 @@ cat <<EOF
 	--with-libbind		- directory prefix of previously compiled bind source
 	--have-resn		- platform has support for res_n???? functions (--with-libbind defines this)
 	--need-libutil		- use local copy of libutil
+	--need-vasprintf	- use local implementation of v/asprintf
+	--need-nscompat		- use local name resolver compatibility layer
 EOF
 		;;
 	esac
@@ -280,6 +282,12 @@ while [ "$1" != "" ]; do
 		--need-libutil)
 			ConfigSwitch "NEED_LIBUTIL_LOCAL" "$1"
 			TagLine "NEED_LIBUTIL_LOCAL" ALL
+			;;
+		--need-vasprintf)
+			ConfigSwitch "WITH_VASPRINTF" "$1"
+			;;
+		--need-nscompat)
+			ConfigSwitch "WITH_NSCOMPAT" "$1"
 			;;
 		--disable-localnet-hosts)
 			ConfigSwitch "ALLOW_LOCALNET_HOSTS" "$1" "0"
