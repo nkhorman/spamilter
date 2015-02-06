@@ -100,7 +100,7 @@ enum { AL_NONE, AL_FULL };
 
 char *opcodes[] = {"None\t","Add\t","Inculpate","Del\t","Blocked\t","Inculpate Blocked","Exculpate"};
 
-enum { OPCODE_NONE, OPCODE_PENDING_ADD, OPCODE_PENDING_INCULPATE, OPCODE_PENDING_DEL, OPCODE_BLOCKED, OPCODE_INCULPATE_BLOCKED, OPCODE_PENDING_EXCULPATE };
+enum { OPCODE_NONE, OPCODE_PENDING_ADD, OPCODE_PENDING_INCULPATE, OPCODE_PENDING_DEL, OPCODE_BLOCKED, OPCODE_INCULPATE_BLOCKED, OPCODE_PENDING_EXCULPATE, OPCODE_PENDING_FWREMOVE, OPCODE_FWREMOVED, };
 
 int	gAction		= 0;	/* deny = 0, add = 1*/
 int	gPortNum	= 25;
@@ -119,36 +119,54 @@ CLIENT	gChildClients[FD_SETSIZE];
 
 void MtaInfoIpfwSync(int needDelete)
 {	PMTAINFO	pinfo = gpMtaInfo;
-#if defined(USEIPFWDIRECT) && defined(OS_FreeBSD)
+#if !defined(USEIPFWDIRECT) && defined(OS_FreeBSD)
 	ipfw_startup();
 #endif
 
 	if(debugmode>1)
 		printf("MtaInfoIpfwSync %s delete\n",needDelete ? "with" : "no");
 
+#if defined(OS_FreeBSD)
 	/* delete the mta rules */
 	if(needDelete)
-#if defined(USEIPFWDIRECT) && defined(OS_FreeBSD)
+#if defined(USEIPFWDIRECT)
 		ipfw_del(gRuleNum);
 #else
 		mlfi_systemPrintf("ipfw delete %u\n",gRuleNum);
 #endif
+#endif
 
-	/* re-create/add the mta rules */
+	/* add/remove the mta rules */
 	while(pinfo != NULL)
 	{
 		switch(pinfo->opcode)
 		{
+			case OPCODE_PENDING_FWREMOVE:
+#ifdef OS_Linux
+				mlfi_systemPrintf("iptables -D SPAMILTER -s %u.%u.%u.%u/32 -j DROP (or -j REJECT)\n"
+					((pinfo->ip&0xff000000)>>24),((pinfo->ip&0xff0000)>>16),((pinfo->ip&0xff00)>>8),(pinfo->ip&0xff)
+					);
+#endif
+				pinfo->opcode = OPCODE_FWREMOVED;
+				break;
+
 			case OPCODE_INCULPATE_BLOCKED:
 				/* deliberate fall thru to OPCODE_BLOCKED */
 			case OPCODE_BLOCKED:
 				if(pinfo->needAdd || needDelete)
 				{
-#if defined(USEIPFWDIRECT) && defined(OS_FreeBSD)
+#if defined(OS_FreeBSD)
+#if defined(USEIPFWDIRECT)
 					ipfw_add(gRuleNum,pinfo->ip,gPortNum,gAction);
 #else
 					mlfi_systemPrintf("ipfw -q add %u deny tcp from %u.%u.%u.%u to any %u\n",gRuleNum,
 						((pinfo->ip&0xff000000)>>24),((pinfo->ip&0xff0000)>>16),((pinfo->ip&0xff00)>>8),(pinfo->ip&0xff),gPortNum);
+#endif
+#endif
+#ifdef OS_Linux
+				mlfi_systemPrintf("iptables -I SPAMILTER -s %u.%u.%u.%u/32 -j DROP (or -j REJECT)\n"
+					((pinfo->ip&0xff000000)>>24),((pinfo->ip&0xff0000)>>16),((pinfo->ip&0xff00)>>8),(pinfo->ip&0xff)
+					);
 #endif
 					pinfo->needAdd = 0;
 				}
@@ -451,7 +469,10 @@ void MtaInfoStateMachineUpdate(char *fname)
 						printf("MtaInfoStateMachineUpdate: exculpate %u.%u.%u.%u\n",
 							(int)((pinfo->ip&0xff000000)>>24),(int)((pinfo->ip&0xff0000)>>16),(int)((pinfo->ip&0xff00)>>8),(int)(pinfo->ip&0xff));
 					if(pinfo->count == 0)
-						needDelete = MtaInfoDelete(pinfo);
+					{
+						needDelete = 1;
+						pinfo->opcode = OPCODE_PENDING_FWREMOVE;
+					}
 					else
 						pinfo->update = 0;
 					needUpdate = 1;
@@ -462,7 +483,8 @@ void MtaInfoStateMachineUpdate(char *fname)
 				if(debugmode > 0)
 					printf("MtaInfoStateMachineUpdate: delete %u.%u.%u.%u\n",
 						(int)((pinfo->ip&0xff000000)>>24),(int)((pinfo->ip&0xff0000)>>16),(int)((pinfo->ip&0xff00)>>8),(int)(pinfo->ip&0xff));
-				needDelete = MtaInfoDelete(pinfo);
+				needDelete = 1;
+				pinfo->opcode = OPCODE_PENDING_FWREMOVE;
 				break;
 
 			case OPCODE_INCULPATE_BLOCKED:
@@ -473,8 +495,13 @@ void MtaInfoStateMachineUpdate(char *fname)
 					if(debugmode > 0)
 						printf("MtaInfoStateMachineUpdate: expire %u.%u.%u.%u\n",
 							(int)((pinfo->ip&0xff000000)>>24),(int)((pinfo->ip&0xff0000)>>16),(int)((pinfo->ip&0xff00)>>8),(int)(pinfo->ip&0xff));
-					needDelete = MtaInfoDelete(pinfo);
+					needDelete = 1;
+					pinfo->opcode = OPCODE_PENDING_FWREMOVE;
 				}
+				break;
+
+			case OPCODE_FWREMOVED:
+				MtaInfoDelete(pinfo);
 				break;
 		}
 		pinfo = pinfo->next;
@@ -802,6 +829,9 @@ int childMain(short port)
 		FD_SET(gSdTcp,&gChildFds);
 
 		MtaInfoReadDb(gpMtaDbFname);
+#ifdef OS_Linux
+		mlfi_systemPrintf("iptables -F SPAMILTER; iptables -X SPAMILTER; iptables -A SPAMILTER; iptables -A SPAMILTER -j ACCEPT;\n");
+#endif
 		MtaInfoIpfwSync(1);
 
 		while(!quit)

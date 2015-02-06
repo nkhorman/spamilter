@@ -1,5 +1,7 @@
 Changelog;
 	20150206
+	* add - iptables support for ipfwmtad
+	* mod - make ipfwmtad compileable on linux
 	* mod - work on modern linux port
 
 	20150204
