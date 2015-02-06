@@ -87,14 +87,14 @@
 
 	#include <string.h>
 
-#if !defined(OS_FreeBSD) && !defined(__FreeBSD_version) && !defined(OS_Darwin)
+#include "config.defs"
+
+#ifdef NEED_NSTRING
 	#include "nstring.h"
 #endif
 
-#endif
-
-#include "config.defs"
-
 #ifdef NEED_GETPROGNAME
 	extern const char *getprogname(void);
+#endif
+
 #endif

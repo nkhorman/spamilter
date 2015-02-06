@@ -78,6 +78,8 @@ static char const cvsid[] = "@(#)$Id: key.c,v 1.4 2011/10/27 17:31:24 neal Exp $
 
 #include <openssl/rsa.h>
 #include <string.h>
+
+#include "config.h"
 #include "key.h"
 
 #ifndef min

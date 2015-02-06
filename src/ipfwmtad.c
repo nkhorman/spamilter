@@ -119,7 +119,7 @@ CLIENT	gChildClients[FD_SETSIZE];
 
 void MtaInfoIpfwSync(int needDelete)
 {	PMTAINFO	pinfo = gpMtaInfo;
-#ifdef USEIPFWDIRECT
+#if defined(USEIPFWDIRECT) && defined(OS_FreeBSD)
 	ipfw_startup();
 #endif
 
@@ -128,7 +128,7 @@ void MtaInfoIpfwSync(int needDelete)
 
 	/* delete the mta rules */
 	if(needDelete)
-#ifdef USEIPFWDIRECT
+#if defined(USEIPFWDIRECT) && defined(OS_FreeBSD)
 		ipfw_del(gRuleNum);
 #else
 		mlfi_systemPrintf("ipfw delete %u\n",gRuleNum);
@@ -144,7 +144,7 @@ void MtaInfoIpfwSync(int needDelete)
 			case OPCODE_BLOCKED:
 				if(pinfo->needAdd || needDelete)
 				{
-#ifdef USEIPFWDIRECT
+#if defined(USEIPFWDIRECT) && defined(OS_FreeBSD)
 					ipfw_add(gRuleNum,pinfo->ip,gPortNum,gAction);
 #else
 					mlfi_systemPrintf("ipfw -q add %u deny tcp from %u.%u.%u.%u to any %u\n",gRuleNum,
@@ -156,7 +156,7 @@ void MtaInfoIpfwSync(int needDelete)
 		}
 		pinfo = pinfo->next;
 	}
-#ifdef USEIPFWDIRECT
+#if defined(USEIPFWDIRECT) && defined(OS_FreeBSD)
 	ipfw_shutdown();
 #endif
 }

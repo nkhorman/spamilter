@@ -40,8 +40,13 @@
 
 static char const cvsid[] = "@(#)$Id: uam.c,v 1.3 2005/12/15 06:14:15 neal Exp $";
 
+#include "config.h"
+
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef OS_Linux
+#include <crypt.h>
+#endif
 #include <unistd.h>
 #include <pwd.h>
 #include <string.h>

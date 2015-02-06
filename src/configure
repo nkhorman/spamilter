@@ -41,7 +41,6 @@ Usage:
 	-f			- forceMakefile creation
 	--debug-timestamp	- add date/time and pid stamps to debug output
 	--disable-localnet-hosts	- prevent RFC1918 local network hosts from bypassing all filter rules
-	--disable-useipfwdirect	- use system() calls to ipfw instead of the ipfw api
 	--path-config		- path to spamilter.conf (default = /etc/spamilter.rc)
 	--sendmail-dir		- directory prefix of previously compiled sendmail source
 	--with-aliases		- compile in support for rejecting recpients not listed in aliases table
@@ -62,14 +61,17 @@ Usage:
 EOF
 	case "$os" in
 		FreeBSD)
+cat <<EOF
+	--disable-useipfwdirect	- use system() calls to ipfw instead of the ipfw api
+EOF
 		;;
 		*)
 cat <<EOF
 	--with-libbind		- directory prefix of previously compiled bind source
 	--have-resn		- platform has support for res_n???? functions (--with-libbind defines this)
 	--need-libutil		- use local copy of libutil
-	--need-vasprintf	- use local implementation of v/asprintf
 	--need-nscompat		- use local name resolver compatibility layer
+	--need-vasprintf	- use local implementation of v/asprintf
 EOF
 		;;
 	esac
@@ -285,6 +287,7 @@ while [ "$1" != "" ]; do
 			;;
 		--need-vasprintf)
 			ConfigSwitch "WITH_VASPRINTF" "$1"
+			CFlags "NEED_NSTRING" "1"
 			;;
 		--need-nscompat)
 			ConfigSwitch "WITH_NSCOMPAT" "$1"
@@ -359,6 +362,7 @@ else
 			Not "FreeBSD"
 			Not "BSD"
 			CFlags "NEED_GETPROGNAME" "1"
+			TagLine "CFLAGS" -D_GNU_SOURCE
 			;;
 		HP-UX)
 			smobj="$os.`uname -r`.`uname -m`"
