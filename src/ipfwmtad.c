@@ -143,7 +143,7 @@ void MtaInfoIpfwSync(int needDelete)
 		{
 			case OPCODE_PENDING_FWREMOVE:
 #ifdef OS_Linux
-				mlfi_systemPrintf("iptables -D SPAMILTER -s %u.%u.%u.%u/32 -j DROP (or -j REJECT)\n"
+				mlfi_systemPrintf("iptables -D SPAMILTER -s %u.%u.%u.%u/32 -j DROP (or -j REJECT)\n",
 					((pinfo->ip&0xff000000)>>24),((pinfo->ip&0xff0000)>>16),((pinfo->ip&0xff00)>>8),(pinfo->ip&0xff)
 					);
 #endif
@@ -164,7 +164,7 @@ void MtaInfoIpfwSync(int needDelete)
 #endif
 #endif
 #ifdef OS_Linux
-				mlfi_systemPrintf("iptables -I SPAMILTER -s %u.%u.%u.%u/32 -j DROP (or -j REJECT)\n"
+				mlfi_systemPrintf("iptables -I SPAMILTER -s %u.%u.%u.%u/32 -j DROP (or -j REJECT)\n",
 					((pinfo->ip&0xff000000)>>24),((pinfo->ip&0xff0000)>>16),((pinfo->ip&0xff00)>>8),(pinfo->ip&0xff)
 					);
 #endif
