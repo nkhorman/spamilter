@@ -94,3 +94,7 @@
 #endif
 
 #include "config.defs"
+
+#ifdef NEED_GETPROGNAME
+	extern const char *getprogname(void);
+#endif

@@ -52,13 +52,15 @@ static char const cvsid[] = "@(#)$Id: watcher.c,v 1.4 2013/07/20 06:50:54 neal E
 #include <fcntl.h>
 #include <paths.h>
 #include <sys/param.h>
+
+#include "config.h"
+
 #ifndef NEED_LIBUTIL_LOCAL
 #include <libutil.h>
 #else
 #include "libutil/pidfile.h"
 #endif
 
-#include "config.h"
 #include "watcher.h"
 
 pid_t g_WorkerPid	= 1;

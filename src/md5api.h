@@ -41,7 +41,11 @@
 #ifndef _MD5API_H_
 #define _MD5API_H_
 
+#ifdef OS_Linux
+ 	#include "md5c.h"
+#else
  	#include <md5.h>
+#endif
 
 	#ifndef MD5_BLOCK_LENGTH
 	#define MD5_BLOCK_LENGTH 64

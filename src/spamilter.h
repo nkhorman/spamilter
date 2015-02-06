@@ -52,7 +52,9 @@
 	#include <sys/types.h>
 	#include <sys/socket.h>
 	#include <netinet/in.h>
+#ifndef OS_Linux
 	#include <uuid.h>
+#endif
 	#include "dnsbl.h"
 
 #ifdef SUPPORT_GEOIP

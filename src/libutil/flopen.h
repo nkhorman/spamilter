@@ -41,7 +41,7 @@
 
 #ifndef flopen
 #include <sys/cdefs.h>
-#include <sys/_types.h>
+#include <sys/types.h>
 
 int	flopen(const char *_path, int _flags, ...);
 #endif

@@ -350,6 +350,7 @@ else
 			$echobin "s/<SMOBJDIR>/$smobj/g" >> $tmpsed
 			Not "FreeBSD"
 			Not "BSD"
+			CFlags "NEED_GETPROGNAME" "1"
 			;;
 		HP-UX)
 			smobj="$os.`uname -r`.`uname -m`"

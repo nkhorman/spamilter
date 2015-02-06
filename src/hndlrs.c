@@ -292,11 +292,14 @@ sfsistat mlfi_connect(SMFICTX *ctx, char *hostname, _SOCK_ADDR *hostaddr)
 
 	if(priv != NULL)
 	{
+#ifndef OS_Linux
 		struct uuid sessionUuid;
+#endif
 		char *pSessionUuidStr = NULL;
 
 		smfi_setpriv(ctx, priv);
 
+#ifndef OS_Linux
 		// session uuid
 		if(uuidgen(&sessionUuid,1) == 0)
 		{	uint32_t status = 0;
@@ -310,6 +313,7 @@ sfsistat mlfi_connect(SMFICTX *ctx, char *hostname, _SOCK_ADDR *hostaddr)
 		}
 
 		if(pSessionUuidStr == NULL)
+#endif
 			asprintf(&pSessionUuidStr,"%04X",(unsigned int)pthread_self());
 
 		if(pSessionUuidStr != NULL)

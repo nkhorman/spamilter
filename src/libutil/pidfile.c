@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libutil/pidfile.c,v 1.9.2.1.8.1 2012/03/03 06:15:13 kensmith Exp $");
+//__FBSDID("$FreeBSD: src/lib/libutil/pidfile.c,v 1.9.2.1.8.1 2012/03/03 06:15:13 kensmith Exp $");
 
 #include <sys/param.h>
 #include <sys/file.h>
@@ -39,9 +39,16 @@ __FBSDID("$FreeBSD: src/lib/libutil/pidfile.c,v 1.9.2.1.8.1 2012/03/03 06:15:13 
 #include <time.h>
 #include <err.h>
 #include <errno.h>
+
 #include "pidfile.h"
+#include "flopen.h"
+#include "config.h"
 
 static int _pidfile_remove(struct pidfh *pfh, int freeit);
+
+#ifndef EDOOFUS
+#define EDOOFUS -1
+#endif
 
 static int
 pidfile_verify(struct pidfh *pfh)

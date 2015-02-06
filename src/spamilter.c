@@ -105,6 +105,17 @@ char *gpGeoipDbPath		= NULL;
 int gGeoIpCcChk			= 0;
 #endif
 
+#ifdef NEED_GETPROGNAME
+static const char *__gpProgname = NULL;
+
+#include <libgen.h>
+
+const char *getprogname(void)
+{
+	return __gpProgname;
+}
+#endif
+
 struct smfiDesc mlfi =
 {
 	"Spamilter",	// filter name
@@ -224,6 +235,10 @@ int main(int argc, char *argv[])
 	struct passwd	*pw = NULL;
 	int		uid = getuid();
 	int		flags = 0;
+
+#ifdef NEED_GETPROGNAME
+	__gpProgname = basename(strdup(argv[0]));
+#endif
 
 	// Process command line options
 	while ((c = getopt(argc, argv, "fd:c:?")) != -1)

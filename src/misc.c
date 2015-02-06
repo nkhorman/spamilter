@@ -40,6 +40,7 @@
 
 static char const cvsid[] = "@(#)$Id: misc.c,v 1.24 2012/12/07 19:38:33 neal Exp $";
 
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>

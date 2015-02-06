@@ -13,6 +13,7 @@
 #<ALL>CC =		gcc
 <ALL>SRCS =		dns.c <WITH_DBL dbl.c> dnsbl.c hndlrs.c misc.c smisc.c mx.c smtp.c inet.c ifi.c bwlist.c badext.c dupe.c regexapi.c regexmisc.c md5api.c <WITH_ALIASES aliastable.c> <WITH_VIRTUSER virtusertable.c> <WITH_POPAUTH popauth.c><WITH_LIBSPF spfapi.c> <NOT_FreeBSD nstring.c> <WITH_FWDHOSTCHK fwdhostlist.c> <WITH_GEOIP geoip.c> list.c <WITH_TABLE_FLATFILE table.c tableDriverFlatFile.c> <WITH_TABLE_PGSQL pgsql.c tableDriverPsql.c>
 <NEED_LIBUTIL_LOCAL>SRCS +=		libutil/pidfile.c libutil/flopen.c
+<Linux>SRCS +=		md5c.c md5hl.c
 <ALL>OBJS =		${SRCS:.c=.o}
 <ALL>INCLUDES =	${SRCS:.c=.h} spamilter.h <INC_OpenBSD ns_compat.h>
 <ALL>
@@ -75,7 +76,7 @@
 <PKGLIBSPF>	rm -rf libspf/.built libspf/build
 <ALL>
 <ALL>clean:
-<ALL>	rm -f *.o *core spamilter dnsblchk <INC_FreeBSD dnsblupd> mxlookup iflookup <INC_FreeBSD ipfwmtad> <WITH_GREYLIST greydbd>
+<ALL>	rm -f ${OBJS} *core spamilter dnsblchk <INC_FreeBSD dnsblupd> mxlookup iflookup <INC_FreeBSD ipfwmtad> <WITH_GREYLIST greydbd>
 <ALL>	${MAKE} -C ../docs/man clean
 <ALL>
 <ALL>install: install-spamilter install-dnsblchk <INC_FreeBSD install-dnsblupd> install-mxlookup <INC_FreeBSD install-ipfwmtad install-startup> <WITH_GREYLIST install-greydbd> install-config install-man

@@ -52,6 +52,10 @@
 
 #include "dbl.h"
 
+#ifndef s6_addr32
+#define s6_addr32 __u6_addr.__u6_addr32
+#endif
+
 // double your insanity
 typedef struct _dbldns_t
 {
@@ -217,13 +221,13 @@ int dbl_callback_policy_std(dblcb_t *pDblcb)
 
 				// 0x0000_0000 0000_0000 0000_ffff 7f00_0002
 				if(
-					pIp6->__u6_addr.__u6_addr32[0] == 0
-					&& pIp6->__u6_addr.__u6_addr32[1] == 0
-					&& pIp6->__u6_addr.__u6_addr32[2] == 0x0000ffff
-					&& (pIp6->__u6_addr.__u6_addr32[3] & 0xffffff00) == 0x7f000100
+					pIp6->s6_addr32[0] == 0
+					&& pIp6->s6_addr32[1] == 0
+					&& pIp6->s6_addr32[2] == 0x0000ffff
+					&& (pIp6->s6_addr32[3] & 0xffffff00) == 0x7f000100
 					)
 				{
-					pDblcb->abused = ((pIp6->__u6_addr.__u6_addr32[3] & 0x000000ff) >= 100); // an abused domain
+					pDblcb->abused = ((pIp6->s6_addr32[3] & 0x000000ff) >= 100); // an abused domain
 
 					if(!pDblcb->abused)
 					{	char bufstr[INET6_ADDRSTRLEN+1];
