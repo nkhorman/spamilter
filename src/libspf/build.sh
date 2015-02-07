@@ -1,13 +1,14 @@
 #!/bin/sh
 
 distver="1.0.0-p3"
-#distver="1.0.0-p5"	# server autoconf bustage
+#distver="1.0.0-p5"	# servere autoconf bustage
 distname="libspf-${distver}"
 distfile="${distname}.tar.gz"
 disturl="http://wanlink.com/spamilter/download"
 builddir="build"
 
-#patchsetfile="patchset3.diff"
+# patches from http://cvs.schmorp.de/libspf/ and libspf-1.0.0-p3 > libspf-1.0.0-p5
+#patchsetfile="${distname}.patch"
 
 #fetch
 getfile()
@@ -44,24 +45,24 @@ if [ ! -d ${builddir} ]; then
 	mkdir ${builddir} && tar -C ${builddir} --strip-components 1 -xvzf ${distfile} || echo "Unable to extract ${distfile}"
 fi
 
-#patch
-if [ -e ${patchsetfile} -a -d ${builddir} -a ! -f ${builddir}/.patched ]; then
+if [ -d ${builddir} ]; then
 	curdir="`pwd`"
-	cd ${builddir} && patch < ../${patchsetfile} && touch .patched || echo "Unable to patch"
-	cd ${curdir}
-fi
+	cd ${builddir}
 
-#configure
-#if [ -d ${builddir} -a -f ${builddir}/.patched -a ! -f ${builddir}/.configured ]; then
-if [ -d ${builddir} -a ! -f ${builddir}/.configured ]; then
-	curdir="`pwd`"
-	cd ${builddir} && ./configure && touch .configured || echo "Unable to configure"
-	cd ${curdir}
-fi
+	#patch
+	if [ -e "${patchsetfile}" -a ! -f .patched ]; then
+		patch -p0 < ../${patchsetfile} && touch .patched || echo "Unable to patch"
+	fi
+echo `pwd`
+	#configure
+	if [ ! -f .configured ]; then
+		./configure && touch .configured || echo "Unable to configure"
+	fi
 
-#build
-if [ -d ${builddir} -a -f ${builddir}/.configured -a ! -f .built ]; then
-	curdir="`pwd`"
-	cd ${builddir} && make && touch ../.built || echo "unable to build"
+	#build
+	if [ -f .configured -a ! -f .built ]; then
+		make && touch .built || echo "unable to build"
+	fi
+
 	cd ${curdir}
 fi

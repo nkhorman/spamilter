@@ -1,0 +1,71 @@
+--- ./src/libspf2/spf_compile.c.orig	2015-02-07 13:41:30.000000000 -0600
++++ ./src/libspf2/spf_compile.c	2015-02-07 13:42:04.000000000 -0600
+@@ -577,7 +577,7 @@
+ 		switch (src[idx]) {
+ 		case '%':
+ 			if (spf_server->debug > 3)
+-				SPF_debugf("Adding literal %%");
++				SPF_debugf("%s","Adding literal %%");
+ 			SPF_ENSURE_STRING_AVAIL(1);
+ 			*dst++ = '%';
+ 			ds_len++;
+@@ -586,7 +586,7 @@
+ 			
+ 		case '_':
+ 			if (spf_server->debug > 3)
+-				SPF_debugf("Adding literal space");
++				SPF_debugf("%s","Adding literal space");
+ 			SPF_ENSURE_STRING_AVAIL(1);
+ 			*dst++ = ' ';
+ 			ds_len++;
+@@ -595,7 +595,7 @@
+ 
+ 		case '-':
+ 			if (spf_server->debug > 3)
+-				SPF_debugf("Adding escaped space");
++				SPF_debugf("%s","Adding escaped space");
+ 			SPF_ENSURE_STRING_AVAIL(3);
+ 			*dst++ = '%'; *dst++ = '2'; *dst++ = '0';
+ 			ds_len += 3;
+--- ./src/libspf2/spf_dns.c.orig	2015-02-07 13:42:14.000000000 -0600
++++ ./src/libspf2/spf_dns.c	2015-02-07 13:42:33.000000000 -0600
+@@ -105,7 +105,7 @@
+ 					break;
+ 
+ 				default:
+-					SPF_debugf("    - Unknown RR type");
++					SPF_debugf("%s","    - Unknown RR type");
+ 					break;
+ 			}
+ 		}
+--- ./src/libspf2/spf_dns_zone.c.orig	2015-02-07 13:42:51.000000000 -0600
++++ ./src/libspf2/spf_dns_zone.c	2015-02-07 13:43:14.000000000 -0600
+@@ -114,7 +114,7 @@
+ 				return spfhook->zone[i];
+ 		}
+ 		if (spf_dns_server->debug)
+-			SPF_debugf("zone: Exact not found");
++			SPF_debugf("%s","zone: Exact not found");
+     }
+ 	else {
+ 		/* We are looking up a record, so lookup-matching semantics apply. */
+@@ -152,7 +152,7 @@
+ 			}
+ 		}
+ 		if (spf_dns_server->debug)
+-			SPF_debugf("zone: Non-exact not found");
++			SPF_debugf("%s","zone: Non-exact not found");
+ 	}
+ 
+     return NULL;
+--- ./src/libspf2/spf_id2str.c.orig	2015-02-07 13:43:28.000000000 -0600
++++ ./src/libspf2/spf_id2str.c	2015-02-07 13:43:44.000000000 -0600
+@@ -52,7 +52,7 @@
+ 	SPF_data_t		*cidr_data;
+ 
+ 	if (debug)
+-		SPF_debugf(" string data: Building");
++		SPF_debugf("%s"," string data: Building");
+ 
+ 	if (p_end - p <= 0)
+ 		return SPF_E_INTERNAL_ERROR;

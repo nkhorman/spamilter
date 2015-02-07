@@ -1,0 +1,102 @@
+--- ./src/libspf/dns.c	2007/11/13 00:51:36	1.1
++++ ./src/libspf/dns.c	2008/10/30 02:39:37	1.2
+@@ -381,6 +381,7 @@
+      * before SPF ever came on the scene.  Hopefully this will change in the
+      * near future.
+     */
++    case T_SPF:
+     case T_TXT:
+     {
+       if ((rr_data = DNS_txt_answer(ancount, (u_char *)msg_ptr, (u_char *)eom_ptr,
+@@ -561,7 +562,7 @@
+ 
+     *ttl = rd_ttl;                /* TTL working pointer */
+ 
+-    if (rd_type != T_TXT)
++    if ((rd_type != T_TXT) && (rd_type != T_SPF))
+     {
+       xvprintf("Ignoring record not of T_TXT type. [%i]\n", rd_type);
+       rd_ptr += rd_len;
+@@ -589,7 +590,7 @@
+     }
+     else if (strstr(rd_ptr, "v=spf1") == NULL)
+     {
+-      xvprintf("Contents of T_TXT record not relevant: [%s]\n", rd_ptr);
++      xvprintf("Contents of SPF record not relevant: [%s]\n", rd_ptr);
+ 
+       rd_ptr += rd_len;
+ 
+--- ./src/libspf/dns.h	2007/11/13 00:51:36	1.1
++++ ./src/libspf/dns.h	2008/10/30 03:09:36	1.2
+@@ -64,6 +64,10 @@
+ #include <pthread.h>         /* pthread_mutex_t */
+ #endif /* HAVE_PTHREAD_H */
+ 
++#ifndef T_SPF
++# define T_SPF 99
++#endif
++
+ #ifdef HAVE__BEGIN_DECLS
+ __BEGIN_DECLS
+ #else
+--- ./src/libspf/main.c	2007/11/13 00:51:36	1.1
++++ ./src/libspf/main.c	2008/10/30 02:39:37	1.2
+@@ -545,14 +545,17 @@
+ 
+   if (record == NULL)
+   {
++    unsigned char t;
+     /* try to get a TXT record, as usual */
+-    if ((rr_data = DNS_query(p, p->current_domain, T_TXT, NULL)) != NULL)
++    if ((rr_data = DNS_query(p, p->current_domain, t = T_SPF, NULL)) == NULL)
++         rr_data = DNS_query(p, p->current_domain, t = T_TXT, NULL);
++    if (rr_data != NULL)
+     {
+-      xprintf("DNS_query returned with TXT answer: [%s]\n", rr_data);
++      xprintf("DNS_query returned with %s answer: [%s]\n", (t == T_SPF) ? "SPF" : "TXT", rr_data);
+ 
+       if (_SPF_pre_parse_policy(rr_data) == SPF_TRUE)
+       {
+-        xpprintf("TXT answer appears to be an SPF record\n");
++        xpprintf("DNS answer appears to be an SPF record\n");
+ 
+         SPF_parse_policy(p, rr_data);
+ 
+@@ -560,7 +563,7 @@
+       }
+       else
+       {
+-        xpprintf("TXT answer does not appear to be an SPF record\n");
++        xpprintf("DNS answer does not appear to be an SPF record\n");
+ 
+         UTIL_assoc_prefix(p, SPF_NONE, NULL);
+ 
+--- ./src/libspf/util.c.in	2005-04-28 15:41:46.000000000 -0500
++++ ./src/libspf/util.c.in	2006-05-08 17:04:20.000000000 -0500
+@@ -124,7 +124,7 @@
+     if (level == FL_D)          /* xpprintf */
+     {
+ #ifndef _SPF_DEBUG_LOGFILE
+-      fprintf(stdout, buf);
++      fprintf(stdout, "%s", buf);
+       fflush(stdout);
+ #else
+       if ((fp = fopen(DEBUG_LOG_FILE, "a")) != NULL)
+@@ -146,7 +146,7 @@
+ 
+   if (level == FL_F)           /* xepprintf */
+   { 
+-    fprintf(stderr, buf);
++    fprintf(stderr, "%s", buf);
+     fflush(stderr);
+   }
+ 
+@@ -211,7 +211,7 @@
+   /* xepprintf */
+   if (level == FL_E)
+   {
+-    fprintf(stderr, tbuf);
++    fprintf(stderr, "%s", tbuf);
+     fflush(stderr);
+   }
+   else
