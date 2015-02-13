@@ -53,6 +53,10 @@ static char const cvsid[] = "@(#)$Id: spfapi.c,v 1.9 2012/12/07 19:37:16 neal Ex
 
 #ifdef SUPPORT_LIBSPF2
 #include "libspf/build2/config.h"
+extern void (*SPF_error_handler)( const char *, int, const char * ) __attribute__ ((noreturn));
+extern void (*SPF_warning_handler)( const char *, int, const char * );
+extern void (*SPF_info_handler)( const char *, int, const char * );
+extern void (*SPF_debug_handler)( const char *, int, const char * );
 #endif
 #include "spf.h"
 
@@ -139,20 +143,18 @@ sfsistat mlfi_spf_reject(mlfiPriv *priv, sfsistat *rs)
 		}
 #endif
 #ifdef SUPPORT_LIBSPF2
-		SPF_server_t *spf_server = SPF_server_new(SPF_DNS_CACHE, 1);
+		SPF_server_t *spf_server = SPF_server_new(SPF_DNS_CACHE, gDebug != 0);
 		SPF_request_t *spf_request = (spf_server != NULL ? SPF_request_new(spf_server) : NULL);
 		SPF_response_t *spf_response = NULL;
 
 		// disable debug output routines from the libspf2 library
-		void (*SPF_error_handler)( const char *, int, const char * ) __attribute__ ((noreturn)) = NULL;
-		void (*SPF_warning_handler)( const char *, int, const char * ) = NULL;
-		void (*SPF_info_handler)( const char *, int, const char * ) = NULL;
-		void (*SPF_debug_handler)( const char *, int, const char * ) = NULL;
-
-		(void)SPF_error_handler; // stupid compiler warning
-		(void)SPF_warning_handler; // stupid compiler warning
-		(void)SPF_info_handler; // stupid compiler warning
-		(void)SPF_debug_handler; // stupid compiler warning
+		if(gDebug == 0)
+		{
+			SPF_error_handler = NULL;
+			SPF_warning_handler = NULL;
+			SPF_info_handler = NULL;
+			SPF_debug_handler = NULL;
+		}
 
 		if(spf_request != NULL)
 		{
@@ -181,13 +183,14 @@ sfsistat mlfi_spf_reject(mlfiPriv *priv, sfsistat *rs)
 						case SPF_RESULT_INVALID:	break;
 					}
 
+#define VALID_STR(x) (x ? x : "")
 					priv->spf_rs = strdup( SPF_strresult( SPF_response_result(spf_response)));
 					asprintf(&priv->spf_error
 						, "policy result: %s (%s)"
 						, priv->spf_rs
-						, SPF_response_get_header_comment(spf_response)
+						, VALID_STR(SPF_response_get_header_comment(spf_response))
 						);
-					priv->spf_explain = strdup( SPF_response_get_smtp_comment(spf_response));
+					priv->spf_explain = strdup( VALID_STR(SPF_response_get_smtp_comment(spf_response)));
 
 					SPF_response_free(spf_response);
 				}
