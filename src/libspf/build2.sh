@@ -19,13 +19,13 @@ getfile()
 	url="$1"; shift
 	file="$1"; shift
 
-	fetch="`which fetch`"
+	fetch="`which fetch 2>/dev/null`"
 	if [ ! -z "${fetch}" ]; then # freebsd
 		${fetch} ${url}/${file}
 	else
-		curl="`which curl`" # everything else
+		curl="`which curl 2>/dev/null`" # everything else
 		if [ ! -z "$curl" ]; then
-			${curl} -L ${url} -o ${file}
+			${curl} -L ${url}/${file} -o ${file}
 		else
 			echo "Unable to find \'fetch\' or \'curl\'"
 		fi
