@@ -52,7 +52,7 @@
 
 #define HAVE_SETPROCTITLE_REPLACEMENT 1
 
-int spt_init(int argc, char *arg0);
+void spt_init(int argc, char *arg0);
 void setproctitle(const char *fmt, ...);
 
 #endif
