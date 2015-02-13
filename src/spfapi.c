@@ -106,7 +106,7 @@ sfsistat mlfi_spf_reject(mlfiPriv *priv, sfsistat *rs)
 
 		peer_info_t *spf_info = SPF_init(gHostname, priv->ipstr, NULL, NULL, NULL, 0, 0);
 	
-		if(spf_info) != NULL)
+		if(spf_info != NULL)
 		{	char *pSpfRs = NULL;
 			char *pSpfEr = NULL;
 
