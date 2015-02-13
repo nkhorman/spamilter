@@ -148,7 +148,7 @@ void spt_init(int argc, char *arg0)
 	{
 		char **argv = spt_find_argv_from_env(argc, arg0);
 		char **envp = &SPT.env0;
-		char *base, *end, *nul, *tmp;
+		char *base, *end, *nul;
 		int i;
 
 		if (!(base = argv[0]))
