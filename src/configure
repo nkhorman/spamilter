@@ -49,8 +49,8 @@ Usage:
 	--with-greylist		- compile the greydbd grey listing daemon ( requires --with-postgresql )
 	--with-geoip		- compile in support for GeoIP CC checking
 	--with-libdb		- directory prefix of previously compiled db source - use this if your system doesn't include libdb
-	--with-libspf		- compile in support for libspf using specified libspf directory
 	--with-libspf-builtin	- compile in support for libspf using builtin libspf
+	--with-libspf2-builtin	- compile in support for libspf2 using builtin libspf
 	--with-localuser	- compile in support for rejecting recpients not listed in local user database
 	--with-pam		- compile in support for pam for ipfwmtad (for use on FreeBSD)
 	--with-popauth		- compile in support for pop after smtp
@@ -65,6 +65,8 @@ cat <<EOF
 	--disable-useipfwdirect	- use system() calls to ipfw instead of the ipfw api
 EOF
 		;;
+# depricated - we carry more patches, than are generally available in any installed version
+#	--with-libspf		- compile in support for libspf using specified libspf directory
 		*)
 cat <<EOF
 	--with-libbind		- directory prefix of previously compiled bind source
@@ -128,7 +130,7 @@ CFlags()
 	if [ -z "${theValue}" ]; then
 		theValue="1"
 	fi
-	$echobin -e "#ifdef ${theDefine}\n#undef ${theDefine}\n#endif" >> $tmpflags
+	$echobin "#undef ${theDefine}" >> $tmpflags
 
 	if [ "${theValue}" != "0" ]; then
 		$echobin "#define ${theDefine} ${theValue}" >> $tmpflags
@@ -194,21 +196,30 @@ while [ "$1" != "" ]; do
 		--with-localuser)
 			ConfigSwitchWith "LOCALUSER" "$1"
 			;;
-		--with-libspf)
-			libspfdir="$2"
-			CheckDir "$1" "$2/src/libspf"
-			CheckDir "$1" "$2/lib"
-			x="`SedifyDir ${libspfdir}`"
-			TagLine "LIBSPFDIR" $x
-			ConfigSwitchWith "LIBSPF" "$1 ${libspfdir}"
-			shift
-			;;
+# depricated - we carry more patches, than are generally available in any installed version
+#		--with-libspf)
+#			libspfdir="$2"
+#			CheckDir "$1" "$2/src/libspf"
+#			CheckDir "$1" "$2/lib"
+#			x="`SedifyDir ${libspfdir}`"
+#			TagLine "LIBSPFDIR" $x
+#			ConfigSwitchWith "LIBSPF" "$1 ${libspfdir}"
+#			shift
+#			;;
 		--with-libspf-builtin)
 			libspfdir="libspf/build"
 			TagLine "PKGLIBSPF" ALL
 			x="`SedifyDir ${libspfdir}`"
 			TagLine "LIBSPFDIR" $x
 			ConfigSwitchWith "LIBSPF" "$1"
+			;;
+		--with-libspf2-builtin)
+			$echobin "s/WITH_LIBSPF/WITH_LIBSPF2/g" >> $tmpsed
+			libspfdir="libspf/build2/src"
+			TagLine "PKGLIBSPF2" ALL
+			x="`SedifyDir ${libspfdir}`"
+			TagLine "LIBSPF2DIR" $x
+			ConfigSwitchWith "LIBSPF2" "$1"
 			;;
 		--with-pam)
 			ConfigSwitchWith "PAM" "$1"
@@ -363,6 +374,7 @@ else
 			Not "BSD"
 			CFlags "NEED_GETPROGNAME" "1"
 			TagLine "CFLAGS" -D_GNU_SOURCE
+			CFlags "HAVE_SETPROCTITLE"
 			;;
 		HP-UX)
 			smobj="$os.`uname -r`.`uname -m`"

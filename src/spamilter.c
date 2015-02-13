@@ -80,8 +80,9 @@ char	*gUserName		= "nobody";
 #ifdef SUPPORT_POPAUTH
 char	*gPopAuthChk		= NULL;
 #endif
-#ifdef SUPPORT_LIBSPF
+#if defined(SUPPORT_LIBSPF) || defined(SUPPORT_LIBSPF2)
 int	gMtaSpfChk		= 0;
+int	gMtaSpfChkSoftFailAsFail	= 0;		// Reject on SPF SoftFail conditions
 #endif
 #ifdef SUPPORT_VIRTUSER
 char	*gVirtUserTableChk	= NULL;
@@ -177,8 +178,9 @@ void getconf(char *confpath)
 				SetKeyValInt(key,val,"MtaHostIpfw",gMtaHostIpfw);
 				SetKeyValInt(key,val,"MtaHostIpfwNominate",gMtaHostIpfwNominate);
 				SetKeyValInt(key,val,"MtaHostIpChk",gMtaHostIpChk);
-#ifdef SUPPORT_LIBSPF
+#if defined(SUPPORT_LIBSPF) || defined(SUPPORT_LIBSPF2)
 				SetKeyValInt(key,val,"MtaSpfChk",gMtaSpfChk);
+				SetKeyValInt(key,val,"MtaSpfChkSoftFailAsFail", gMtaSpfChkSoftFailAsFail);
 #endif
 
 				SetKeyValInt(key,val,"MsExtChk",gMsExtChk);
@@ -238,6 +240,9 @@ int main(int argc, char *argv[])
 
 #ifdef NEED_GETPROGNAME
 	__gpProgname = basename(strdup(argv[0]));
+#endif
+#if defined(HAVE_SETPROCTITLE) && defined(OS_Linux)
+	spt_init(argc,argv[0]);
 #endif
 
 	// Process command line options
@@ -309,8 +314,9 @@ int main(int argc, char *argv[])
 	ShowKeyValInt("MtaHostIpfw",gMtaHostIpfw);
 	ShowKeyValInt("MtaHostIpfwNominate",gMtaHostIpfwNominate);
 	ShowKeyValInt("MtaHostIpChk",gMtaHostIpChk);
-#ifdef SUPPORT_LIBSPF
+#if defined(SUPPORT_LIBSPF) || defined(SUPPORT_LIBSPF2)
 	ShowKeyValInt("MtaSpfChk",gMtaSpfChk);
+	ShowKeyValInt("MtaSpfChkSoftFailAsFail", gMtaSpfChkSoftFailAsFail);
 #endif
 	ShowKeyValInt("MsExtChk",gMsExtChk);
 	ShowKeyValStr("MsExtChkAction",gMsExtChkAction);

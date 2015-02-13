@@ -92,7 +92,7 @@
 		int		islocalnethost;
 		int		isAuthEn;
 		res_state	presstate;
-#ifdef SUPPORT_LIBSPF
+#if defined(SUPPORT_LIBSPF) || defined(SUPPORT_LIBSPF2)
 		int		spf_rc;
 		char		*spf_rs;
 		char		*spf_error;
@@ -143,8 +143,9 @@
 #ifdef SUPPORT_POPAUTH
 	extern char *gPopAuthChk;		// path/filename of pop-before-smtp berkely db
 #endif
-#ifdef SUPPORT_LIBSPF
+#if defined(SUPPORT_LIBSPF) || defined(SUPPORT_LIBSPF2)
 	extern int gMtaSpfChk;			// do SPF MTA host checking using libspf
+	extern int gMtaSpfChkSoftFailAsFail;	// Reject on SPF SoftFail conditions
 #endif
 #ifdef SUPPORT_VIRTUSER
 	extern char *gVirtUserTableChk;		// do virtusertable reject checking

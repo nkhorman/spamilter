@@ -49,6 +49,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "setproctitle.h"
+
 #if (defined __linux || defined __APPLE__)
 
 #ifndef SPT_MAXTITLE

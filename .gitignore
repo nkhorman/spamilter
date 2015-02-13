@@ -27,3 +27,5 @@ test.*
 .built
 config.defs
 docs/man/*.8
+src/libspf/build
+src/libspf/build2

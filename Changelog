@@ -1,4 +1,12 @@
 Changelog;
+	20150212
+	* add - support for libspf2 - needs to be tested
+	* add - config option to treat SPF SoftFail as Fail (which equals Reject)
+	* mod - enable setproctitle() on linux
+
+	20150207
+	* add - setproctitle() support routines for linux / darwin
+
 	20150206
 	* add - iptables support for ipfwmtad
 	* mod - make ipfwmtad compileable on linux

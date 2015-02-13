@@ -68,7 +68,7 @@ static char const cvsid[] = "@(#)$Id: hndlrs.c,v 1.185 2015/01/21 04:41:19 neal 
 #ifdef SUPPORT_POPAUTH
 #include "popauth.h"
 #endif
-#ifdef SUPPORT_LIBSPF
+#if defined(SUPPORT_LIBSPF) || defined(SUPPORT_LIBSPF2)
 #include "spfapi.h"
 #endif
 #ifdef SUPPORT_VIRTUSER
@@ -1297,7 +1297,7 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 			free(reason);
 		}
 
-#ifdef SUPPORT_LIBSPF
+#if defined(SUPPORT_LIBSPF) || defined(SUPPORT_LIBSPF2)
 		// Policy enforcement
 		// The MTA should pass SPF tests
 		if(continue_checks
@@ -1305,10 +1305,10 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 			&& mlfi_spf_reject(priv,&rs) == SMFIS_REJECT
 			)
 		{
-			mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - SPF %s - %s",priv->spf_rs,priv->spf_explain);
-			asprintf(&reason,"SPF %s: '%s'",priv->spf_rs,priv->spf_error);
-			continue_checks = mlfi_status_debug(priv,&rs,LOG_REJECTED_STR,reason
-				,"mlfi_hndlrs: SPF %s: '%s'\n",priv->spf_rs,priv->spf_error);
+			mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - SPF %s - %s", priv->spf_rs, priv->spf_explain);
+			asprintf(&reason,"SPF %s: '%s'",priv->spf_rs, priv->spf_error);
+			continue_checks = mlfi_status_debug(priv, &rs, LOG_REJECTED_STR, reason
+				,"mlfi_hndlrs: SPF %s: '%s'\n", priv->spf_rs, priv->spf_error);
 			free(reason);
 		}
 #endif
@@ -1727,7 +1727,7 @@ sfsistat mlfi_eom(SMFICTX *ctx)
 					mlfi_status_debug(priv,NULL,"Spam",NULL,"mlfi_eom: Flagged - Spam\n");
 					tag++;
 				}
-#ifdef SUPPORT_LIBSPF
+#if defined(SUPPORT_LIBSPF) || defined(SUPPORT_LIBSPF2)
 				if(gMtaSpfChk && priv->spf_rs != NULL)
 				{
 					mlfi_addhdr_printf(ctx,"X-Milter", "%s DataSet=SPF; reciever=%s; client-ip=%s; envelope-from=%s; helo=%s; assesment=%s (%s);"
@@ -1902,7 +1902,7 @@ sfsistat mlfi_cleanup(SMFICTX *ctx)
 			listDestroy(priv->pListBodyHosts,&listCallbackDestroyBodyHosts,NULL);
 			priv->pListBodyHosts = NULL;
 		}
-#ifdef SUPPORT_LIBSPF
+#if defined(SUPPORT_LIBSPF) || defined(SUPPORT_LIBSPF2)
 		if(priv->spf_rs != NULL)
 		{
 			free(priv->spf_rs);

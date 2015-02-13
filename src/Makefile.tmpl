@@ -14,6 +14,7 @@
 <ALL>SRCS =		dns.c <WITH_DBL dbl.c> dnsbl.c hndlrs.c misc.c smisc.c mx.c smtp.c inet.c ifi.c bwlist.c badext.c dupe.c regexapi.c regexmisc.c md5api.c <WITH_ALIASES aliastable.c> <WITH_VIRTUSER virtusertable.c> <WITH_POPAUTH popauth.c><WITH_LIBSPF spfapi.c> <WITH_VASPRINTF nstring.c> <WITH_FWDHOSTCHK fwdhostlist.c> <WITH_GEOIP geoip.c> list.c <WITH_TABLE_FLATFILE table.c tableDriverFlatFile.c> <WITH_TABLE_PGSQL pgsql.c tableDriverPsql.c>
 <NEED_LIBUTIL_LOCAL>SRCS +=		libutil/pidfile.c libutil/flopen.c
 <Linux>SRCS +=		md5c.c md5hl.c
+<Linux>SRCS +=		setproctitle.c
 <ALL>OBJS =		${SRCS:.c=.o}
 <ALL>INCLUDES =	${SRCS:.c=.h} spamilter.h <INC_OpenBSD ns_compat.h>
 <ALL>
@@ -29,6 +30,10 @@
 <SMDIR>SMDIR =		<X>
 <LIBSPFDIR>LIBSPFDIR =	<X>/lib
 <LIBSPFDIR>LIBSPFINC =	<X>/src/libspf
+<PKGLIBSPF>LIBSPF =	libspf.a
+<LIBSPF2DIR>LIBSPFDIR =	<X>/libspf2/.libs
+<LIBSPF2DIR>LIBSPFINC =	<X>/include
+<PKGLIBSPF2>LIBSPF =	libspf2.a
 <GEOIPDIR>LIBGEOIPDIR =	geoip/GeoIP-<X>.mod/libGeoIP/.libs
 <GEOIPDIR>LIBGEOIPINC =	geoip/GeoIP-<X>.mod/libGeoIP
 <PGSQLDIR>LIBPGSQLDIR = <X>/lib
@@ -77,6 +82,7 @@
 <ALL>	rm -f Makefile
 <GEOIPDIR>	rm -rf geoip/.built geoip/GeoIP-<X>.mod
 <PKGLIBSPF>	rm -rf libspf/.built libspf/build
+<PKGLIBSPF2>	rm -rf libspf/.built libspf/build2
 <ALL>
 <ALL>clean:
 <ALL>	rm -f ${OBJS} *core spamilter dnsblchk <INC_FreeBSD dnsblupd> mxlookup iflookup ipfwmtad <WITH_GREYLIST greydbd>
@@ -130,11 +136,14 @@
 <PKGGEOIP>${LIBGEOIPDIR}/libGeoIP.a:
 <PKGGEOIP>	cd geoip && ./build.sh
 <PKGGEOIP>
-<PKGLIBSPF>${LIBSPFDIR}/libspf.a:
+<PKGLIBSPF>${LIBSPFDIR}/${LIBSPF}:
 <PKGLIBSPF>	cd libspf && ./build.sh
 <PKGLIBSPF>
-<ALL>spamilter: Makefile <WITH_GEOIP ${LIBGEOIPDIR}/libGeoIP.a> <WITH_LIBSPF ${LIBSPFDIR}/libspf.a> ${WATCHERSRCS} ${SRCS} <WITH_NSCOMPAT ${NRSRCS}> spamilter.o ${WATCHEROBJS} ${OBJS} <WITH_NSCOMPAT ${NROBJS}> ${INCLUDES} ${WATCHERINCS}
-<ALL>	${CC} ${CFLAGS} -o spamilter spamilter.o ${WATCHEROBJS} ${OBJS} <WITH_NSCOMPAT ${NROBJS}> <WITH_LIBSPF ${LIBSPFDIR}/libspf.a> <WITH_GEOIP ${LIBGEOIPDIR}/libGeoIP.a> ${LIBDIRS} ${LIBS} <WITH_TABLE_PGSQL ${LIBPGSQL}>
+<PKGLIBSPF2>${LIBSPFDIR}/${LIBSPF}:
+<PKGLIBSPF2>	cd libspf && ./build2.sh
+<PKGLIBSPF2>
+<ALL>spamilter: Makefile <WITH_GEOIP ${LIBGEOIPDIR}/libGeoIP.a> <WITH_LIBSPF ${LIBSPFDIR}/${LIBSPF}> ${WATCHERSRCS} ${SRCS} <WITH_NSCOMPAT ${NRSRCS}> spamilter.o ${WATCHEROBJS} ${OBJS} <WITH_NSCOMPAT ${NROBJS}> ${INCLUDES} ${WATCHERINCS}
+<ALL>	${CC} ${CFLAGS} -o spamilter spamilter.o ${WATCHEROBJS} ${OBJS} <WITH_NSCOMPAT ${NROBJS}> <WITH_LIBSPF ${LIBSPFDIR}/${LIBSPF}> <WITH_GEOIP ${LIBGEOIPDIR}/libGeoIP.a> ${LIBDIRS} ${LIBS} <WITH_TABLE_PGSQL ${LIBPGSQL}>
 <ALL>
 <ALL>dnsblchk: Makefile ${SRCS} <WITH_NSCOMPAT ${NRSRCS}> <WITH_VASPRINTF nstring.c> dnsblchk.o ${OBJS} <WITH_NSCOMPAT ${NROBJS}> <WITH_VASPRINTF nstring.o> ${INCLUDES} dnsblchk.c
 <ALL>	${CC} ${CFLAGS} -o dnsblchk dnsblchk.o dnsbl.o dns.o smisc.o misc.o mx.o smtp.o inet.o ifi.o <WITH_NSCOMPAT ${NROBJS}> <WITH_VASPRINTF nstring.o> ${LIBDIRS} ${LIBS}
