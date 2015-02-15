@@ -1,4 +1,8 @@
 Changelog;
+	20150214
+	* fix - ipfwmtad USEIPFWDIRECT regression - ipfw rules were not updating
+	* mod - ipv6 enable geoip lookups
+
 	20150212
 	* add - support for libspf2 - needs to be tested
 	* add - config option to treat SPF SoftFail as Fail (which equals Reject)
