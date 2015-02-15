@@ -624,7 +624,7 @@ sfsistat mlfi_replyto(SMFICTX *ctx)
 					break;
 				case BWL_A_ACCEPT:
 					// take no further action
-					//rs = SMFIS_ACCEPT;
+					rs = SMFIS_ACCEPT;
 					break;
 				case BWL_A_EXEC:
 					rs = mlfi_hndlr_exec(ctx,RBL_S_FROM);
