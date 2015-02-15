@@ -385,7 +385,7 @@ sfsistat mlfi_connect(SMFICTX *ctx, char *hostname, _SOCK_ADDR *hostaddr)
 			priv->pip = (struct sockaddr *)calloc(1,sa_len);
 			if(priv->pip != NULL)
 				memcpy(priv->pip, hostaddr, sa_len);
-			priv->ipstr = mlfi_sin2str(hostaddr);
+			priv->ipstr = mlfi_sin2strSA(hostaddr);
 		}
 
 		if(hostname != NULL)
@@ -402,7 +402,6 @@ sfsistat mlfi_connect(SMFICTX *ctx, char *hostname, _SOCK_ADDR *hostaddr)
 					priv->islocalnethost = ifi_islocalnet(ntohl(satosin(priv->pip)->sin_addr.s_addr));
 				break;
 			case AF_INET6:
-				// TODO - ipv6
 				{	struct in6_addr *pAddr = &((struct sockaddr_in6 *)priv->pip)->sin6_addr;
 
 					priv->islocalnethost = (
@@ -410,7 +409,7 @@ sfsistat mlfi_connect(SMFICTX *ctx, char *hostname, _SOCK_ADDR *hostaddr)
 						|| IN6_IS_ADDR_LINKLOCAL(pAddr) // fe80:xx
 						|| IN6_IS_ADDR_SITELOCAL(pAddr) // fec0::xx
 						);
-					// need ifi_islocalnet() style tests
+					// TODO - ipv6 - need ifi_islocalnet() style tests
 				}
 				break;
 		}
@@ -436,23 +435,8 @@ sfsistat mlfi_connect(SMFICTX *ctx, char *hostname, _SOCK_ADDR *hostaddr)
 			)
 		{	const char *pGeoipCC = NULL;
 
-			switch(priv->pip->sa_family)
-			{
-				case AF_INET:
-					{	unsigned long ip = ntohl(satosin(priv->pip)->sin_addr.s_addr);
-
-						if(ip != 0 && !mlfi_isNonRoutableIpV4(ip))
-							pGeoipCC = geoip_result_add(ctx, ip, geoip_LookupCCByIp(ctx, priv->pip));
-					}
-					break;
-
-				case AF_INET6:
-					// TODO - ipv6
-					if(!mlfi_isNonRoutableIp(priv->pip))
-					{//	struct in6_addr *pAddr = &((struct sockaddr_in6 *)priv->pip)->sin6_addr;
-					}
-					break;
-			}
+			if(!mlfi_isNonRoutableIpSA(priv->pip))
+				pGeoipCC = geoip_result_addSA(ctx, priv->pip, geoip_LookupCCBySA(ctx, priv->pip));
 
 			if(pGeoipCC != NULL)
 			{
@@ -903,7 +887,7 @@ sfsistat mlfi_header(SMFICTX *ctx, char *headerf, char *headerv)
 			const char *pGeoipCC = "--";
 			if(routeable)
 			{	
-				pGeoipCC = geoip_result_add(ctx,ip,geoip_LookupCCByIpv4(ctx,ip));
+				pGeoipCC = geoip_result_addIpv4(ctx,ip, geoip_LookupCCByIpv4(ctx,ip));
 				mlfi_debug(priv->pSessionUuidStr,"mlfi_header: geoip: %u.%u.%u.%u, CC: %s\n"
 					,(ip>>24)&0xff ,(ip>>16)&0xff ,(ip>>8)&0xff ,ip&0xff
 					,pGeoipCC
@@ -1005,9 +989,7 @@ int listCallbackGeoipReject(void *pData, void *pCallbackData)
 	SMFICTX *ctx = plcgr->cpr.ctx;
 	mlfiPriv *priv = MLFIPRIV;
 	int *pContinueChecks = plcgr->pContinueChecks;
-
-	// TODO - ipv6
-	int action = geoip_query_action(ctx, pResult->ip);
+	int action = geoip_query_action_cc(ctx, pResult->pCountryCode);
 
 	asprintf(plcgr->cpr.ppReason,"Blacklisted Country Code '%s'",pResult->pCountryCode);
 	mlfi_debug(priv->pSessionUuidStr,"mlfi_hndlrs: GeoIP action = %u/'%s'\n",action,gpBwlStrs[action]);
@@ -1597,21 +1579,20 @@ int listCallbackBodyHosts(void *pData, void *pCallbackData)
 #endif
 
 #ifdef SUPPORT_GEOIP
-			// TODO - ipv6
 			if(*pLcbh->cpr.pbContinueChecks) // if BL testing passes, GEOIP testing
 			{	struct hostent *phostent = gethostbyname(pStr);
-				unsigned long ip = (phostent != NULL ? ntohl(*(unsigned long *)phostent->h_addr) : 0);
 
-				if(ip != 0 && !mlfi_isNonRoutableIpV4(ip))
-				{
-					switch(geoip_query_action(ctx,ip))
+				if(phostent != NULL && mlfi_isNonRoutableIpHostEnt(phostent))
+				{	const char *pCC = geoip_LookupCCByHostEnt(ctx, phostent);
+
+					switch(geoip_query_action_cc(ctx, pCC))
 					{
 						case GEOIPLIST_A_REJECT:
 						case GEOIPLIST_A_TARPIT:
 						case GEOIPLIST_A_DISCARD:
-							mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Blacklisted body URL Country Code, Please see: %s#bodyurlcc",gPolicyUrl);
-							asprintf(pLcbh->cpr.ppReason,"Body URL Country Code '%s' for host '%s'",geoip_LookupCCByIpv4(ctx,ip),pStr);
-							mlfi_status_debug(priv,pLcbh->cpr.prs,LOG_REJECTED_STR,*pLcbh->cpr.ppReason,"mlfi_eom: Body URL host Country Code\n");
+							mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Blacklisted body URL Country Code, Please see: %s#bodyurlcc", gPolicyUrl);
+							asprintf(pLcbh->cpr.ppReason,"Body URL Country Code '%s' for host '%s'", pCC, pStr);
+							mlfi_status_debug(priv, pLcbh->cpr.prs, LOG_REJECTED_STR, *pLcbh->cpr.ppReason, "mlfi_eom: Body URL host Country Code\n");
 							free(*pLcbh->cpr.ppReason);
 							*pLcbh->cpr.prs = SMFIS_REJECT;
 							*pLcbh->cpr.pbContinueChecks = 0;
@@ -1633,14 +1614,14 @@ int listCallbackBodyHosts(void *pData, void *pCallbackData)
 }
 
 #ifdef SUPPORT_GEOIP
-// TODO - ipv6
 int listCallbackGeoipAddHdr(void *pData, void *pCallbackData)
 {	geoipResult *pResult = (geoipResult *)pData;
 	SMFICTX *ctx = (SMFICTX *)pCallbackData;
+	char *pIpStr = mlfi_sin2strAF(pResult->ip.afType, (pResult->ip.afType == AF_INET ? (char *)&pResult->ip.ipv4 : (char *)&pResult->ip.ipv6));
 
-	mlfi_addhdr_printf(ctx,"X-Milter", "%s DataSet=GeoIP; reciever=%s; ip=%u.%u.%u.%u; CC=%s;"
+	mlfi_addhdr_printf(ctx,"X-Milter", "%s DataSet=GeoIP; reciever=%s; ip=%s; CC=%s;"
 		,mlfi.xxfi_name ,gHostname
-		,(pResult->ip>>24)&0xff ,(pResult->ip>>16)&0xff ,(pResult->ip>>8)&0xff ,pResult->ip&0xff
+		,pIpStr
 		,(pResult->pCountryCity != NULL ? pResult->pCountryCity : pResult->pCountryCode)
 	);
 

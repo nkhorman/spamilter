@@ -231,7 +231,7 @@ int dnsbl_check_rbl(const char *pSessionId, const res_state statp, struct sockad
 
 	if(psa != NULL && domain != NULL && *domain)
 	{	u_char resp[NS_PACKETSZ];
-		char *pIpStr = mlfi_sin2str(psa);
+		char *pIpStr = mlfi_sin2strSA(psa);
 		char *pArpaIpStr = dns_inet_ptoarpa(pIpStr, psa->sa_family, domain);
 
 		switch(psa->sa_family)
@@ -276,9 +276,9 @@ RBLLISTMATCH *dnsbl_check(const char *pSessionId, int stage, RBLLISTHOSTS *prbls
 		&& prbls->plist != NULL
 		&& prbls->qty > 0
 		&& psa != NULL
-		&& !mlfi_isNonRoutableIp(psa) // don't bother testing non-routable ip addresses
+		&& !mlfi_isNonRoutableIpSA(psa) // don't bother testing non-routable ip addresses
 		)
-	{	char *pipstr = mlfi_sin2str(psa);
+	{	char *pipstr = mlfi_sin2strSA(psa);
 		RBLHOST *prblh;
 		RBLHOST **prbl;
 		int i;
@@ -319,7 +319,7 @@ void dnsbl_add_hdr(SMFICTX *ctx, RBLHOST *prbl)
 {	mlfiPriv	*priv = MLFIPRIV;
 
 	if(priv != NULL && prbl != NULL)
-	{	char *pipstr = (priv->pip != NULL ? mlfi_sin2str(priv->pip) : NULL);
+	{	char *pipstr = (priv->pip != NULL ? mlfi_sin2strSA(priv->pip) : NULL);
 	
 		//mlfi_addhdr_printf(ctx,"X-RDNSBL-Warning","Source IP tagged as spam source by %s",prbl->hostname);
 		mlfi_addhdr_printf(ctx,"X-Milter","%s DataSet=RDNSBL-Warning; receiver=%s; ip=%s; rbl=%s;"

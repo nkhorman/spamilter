@@ -183,64 +183,105 @@ char *mlfi_stradvtok(char **ppSrc, char delim)
 }
 
 int mlfi_isNonRoutableIpV4(unsigned long ip)
-{	int rc = 0;
-
-	/* always allow localhost */
-	rc |= ((ip&0xff000000l) == 0x7f000000l);	/* ip = 127.0.0.0/8 */
-
-	/* rfc1918 networks */
-	rc |= ((ip&0xff000000l) == 0x0a000000l);	/* ip = 10.0.0.0/8 */
-	rc |= ((ip&0xfff00000l) == 0xac100000l);	/* ip = 172.16.0.0/12 */
-	rc |= ((ip&0xffff0000l) == 0xc0a80000l);	/* ip = 192.168.0.0/16 */
-
-	// Link-Local Address - rfc3927
-	rc |= ((ip&0xffff0000l) == 0xa9fe0000l);	/* ip = 169.254.0.0/16 */
-
-	return rc;
+{
+	return mlfi_isNonRoutableIpAF(AF_INET, (const char *)&ip);
 }
 
-int mlfi_isNonRoutableIp(const struct sockaddr *psa)
+int mlfi_isNonRoutableIpAF(int af, const char *in)
 {	int nonRoutable = 1;
 
-	if(psa != NULL)
+	switch(af)
 	{
-		switch(psa->sa_family)
-		{
-			case AF_INET:
-				nonRoutable = mlfi_isNonRoutableIpV4(ntohl(((struct sockaddr_in *)psa)->sin_addr.s_addr));
-				break;
-			// TODO - ipv6 - is this enough ?
-			case AF_INET6:
-				{	struct in6_addr *pAddr = &((struct sockaddr_in6 *)psa)->sin6_addr;
+		case AF_INET:
+			{	int rc = 0;
+				unsigned long ip = ntohl(*(unsigned long*)in);
 
-					nonRoutable = (
-						IN6_ARE_ADDR_EQUAL(pAddr, &in6addr_loopback)
-						|| IN6_IS_ADDR_LINKLOCAL(pAddr) // fe80:xx
-						|| IN6_IS_ADDR_SITELOCAL(pAddr) // fec0::xx
-						);
+				if(ip != 0)
+				{
+					/* always allow localhost */
+					rc |= ((ip&0xff000000l) == 0x7f000000l);	/* ip = 127.0.0.0/8 */
+
+					/* rfc1918 networks */
+					rc |= ((ip&0xff000000l) == 0x0a000000l);	/* ip = 10.0.0.0/8 */
+					rc |= ((ip&0xfff00000l) == 0xac100000l);	/* ip = 172.16.0.0/12 */
+					rc |= ((ip&0xffff0000l) == 0xc0a80000l);	/* ip = 192.168.0.0/16 */
+
+					// Link-Local Address - rfc3927
+					rc |= ((ip&0xffff0000l) == 0xa9fe0000l);	/* ip = 169.254.0.0/16 */
+
+					nonRoutable = rc;
 				}
-				break;
-		}
+			}
+			break;
+		// TODO - ipv6 - is this enough ?
+		case AF_INET6:
+			{	struct in6_addr *pAddr = (struct in6_addr *)in;
+
+				nonRoutable = (
+					IN6_ARE_ADDR_EQUAL(pAddr, &in6addr_loopback)
+					|| IN6_IS_ADDR_LINKLOCAL(pAddr) // fe80:xx
+					|| IN6_IS_ADDR_SITELOCAL(pAddr) // fec0::xx
+					);
+			}
+			break;
 	}
 
 	return nonRoutable;
 }
 
-char *mlfi_sin2str(const struct sockaddr *psa)
+int mlfi_isNonRoutableIpHostEnt(const struct hostent *pHostEnt)
+{
+	return(pHostEnt != NULL ? mlfi_isNonRoutableIpAF(pHostEnt->h_addrtype, pHostEnt->h_addr ) : 1);
+}
+
+int mlfi_isNonRoutableIpSA(const struct sockaddr *psa)
+{	int nonRoutable = 1;
+
+	switch(psa->sa_family)
+	{
+		case AF_INET:
+			nonRoutable = mlfi_isNonRoutableIpAF(psa->sa_family, (const char *)&((struct sockaddr_in *)psa)->sin_addr.s_addr);
+			break;
+		case AF_INET6:
+			nonRoutable = mlfi_isNonRoutableIpAF(psa->sa_family, (const char *)&((struct sockaddr_in6 *)psa)->sin6_addr);
+			break;
+	}
+
+	return nonRoutable;
+}
+
+char *mlfi_sin2strAF(int afType, const char *in)
 {	char *pstr = NULL;
 
-	if(psa != NULL)
+	if(in != NULL)
 	{	size_t s = 0;
 
-		switch(psa->sa_family)
+		switch(afType)
 		{
 			case AF_INET: s = INET_ADDRSTRLEN; break;
 			case AF_INET6: s = INET6_ADDRSTRLEN; break;
-			default: break;
 		}
 
 		if(s > 0 && (pstr = calloc(1,s)) != NULL)
-			pstr = (char *)inet_ntop(psa->sa_family, &((struct sockaddr_in *)psa)->sin_addr, pstr, s);
+			pstr = (char *)inet_ntop(afType, in, pstr, s);
+	}
+
+	return pstr;
+}
+
+char *mlfi_sin2strSA(const struct sockaddr *psa)
+{	char *pstr = NULL;
+
+	if(psa != NULL)
+	{	const char *in = NULL;
+
+		switch(psa->sa_family)
+		{
+			case AF_INET: in = (char *) &((struct sockaddr_in *)psa)->sin_addr; break;
+			case AF_INET6: in = (const char *)&((struct sockaddr_in6 *)psa)->sin6_addr; break;
+		}
+
+		pstr = mlfi_sin2strAF(psa->sa_family, in);
 	}
 
 	return pstr;

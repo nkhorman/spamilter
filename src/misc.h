@@ -61,10 +61,14 @@
 	char *mlfi_stradvtok(char **ppSrc, char delim);
 
 	int mlfi_isNonRoutableIpV4(unsigned long ip);
-	int mlfi_isNonRoutableIp(const struct sockaddr *psa);
+	int mlfi_isNonRoutableIpAF(int af, const char *in);
+	int mlfi_isNonRoutableIpHostEnt(const struct hostent *pHostEnt);
+	int mlfi_isNonRoutableIpSA(const struct sockaddr *psa);
 
 	unsigned long mlfi_regex_ipv4(const char *pstr);
-	char *mlfi_sin2str(const struct sockaddr *psa);
+
+	char *mlfi_sin2strAF(int afType, const char *in);
+	char *mlfi_sin2strSA(const struct sockaddr *psa);
 
 	int mlfi_systemPrintf(char *fmt, ...);
 #endif

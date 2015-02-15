@@ -142,29 +142,23 @@ void geoip_close(SMFICTX *ctx)
 
 // TODO - ipv6 - to be removed
 const char *geoip_LookupCCByIpv4(SMFICTX *ctx, unsigned long ip)
-{	mlfiPriv *priv = MLFIPRIV;
-	const char *pCC = NULL;
-
-	if(priv != NULL && priv->pGeoipCC != NULL)
-		pCC = GeoIP_country_code_by_ipnum(priv->pGeoipCC, ip);
-
-	return (pCC != NULL ? pCC : "--");
+{
+	return geoip_LookupCCByAF(ctx,  AF_INET, (const char *)&ip);
 }
 
-const char *geoip_LookupCCByIp(SMFICTX *ctx, const struct sockaddr *pip)
+const char *geoip_LookupCCByAF(SMFICTX *ctx, int af, const char *in)
 {	mlfiPriv *priv = MLFIPRIV;
 	const char *pCC = NULL;
 
 	if(priv != NULL && priv->pGeoipCC != NULL)
 	{
-		switch(pip->sa_family)
+		switch(af)
 		{
 			case AF_INET:
-				pCC = GeoIP_country_code_by_ipnum(priv->pGeoipCC, ntohl(((struct sockaddr_in *)pip)->sin_addr.s_addr));
+				pCC = GeoIP_country_code_by_ipnum(priv->pGeoipCC, ntohl(*(unsigned long *)in));
 				break;
 			case AF_INET6:
-				// TODO - ipv6 - finish
-				//pCC = GeoIP_country_code_by_ipnum_v6(priv->pGeoipCC, ipNum);
+				pCC = GeoIP_country_code_by_ipnum_v6(priv->pGeoipCC, *(struct in6_addr *)in);
 				break;
 		}
 	}
@@ -172,10 +166,37 @@ const char *geoip_LookupCCByIp(SMFICTX *ctx, const struct sockaddr *pip)
 	return (pCC != NULL ? pCC : "--");
 }
 
-const char *geoip_LookupCCByHost(SMFICTX *ctx, const char *pHostName)
-{	
-	// TODO - ipv6
-	return geoip_LookupCCByIpv4(ctx, (pHostName != NULL && *pHostName ? _GeoIP_lookupaddress(pHostName) : 0) );
+const char *geoip_LookupCCByHostEnt(SMFICTX *ctx, const struct hostent *pHostEnt)
+{	const char *pCC = NULL;
+
+	if(pHostEnt != NULL)
+		pCC = geoip_LookupCCByAF(ctx, pHostEnt->h_addrtype, pHostEnt->h_addr);
+
+	return (pCC != NULL ? pCC : "--");
+}
+
+const char *geoip_LookupCCByHostName(SMFICTX *ctx, const char *pHostName)
+{
+	return geoip_LookupCCByHostEnt(ctx, gethostbyname(pHostName));
+}
+
+const char *geoip_LookupCCBySA(SMFICTX *ctx, const struct sockaddr *psa)
+{	const char *pCC = NULL;
+
+	if(psa != NULL)
+	{
+		switch(psa->sa_family)
+		{
+			case AF_INET:
+				pCC = geoip_LookupCCByAF(ctx, psa->sa_family, (const char *)&((struct sockaddr_in *)psa)->sin_addr.s_addr);
+				break;
+			case AF_INET6:
+				pCC = geoip_LookupCCByAF(ctx, psa->sa_family, (const char *)&((struct sockaddr_in6 *)psa)->sin6_addr);
+				break;
+		}
+	}
+
+	return (pCC != NULL ? pCC : "--");
 }
 
 static char *gpStrsBwlA[] =
@@ -192,70 +213,84 @@ static char *gpStrsBwlA[] =
 // This will return the action for the last match, not the first
 // Note: The list should be in least to most specific match order
 // otherwise, you might not get the results that you expect!
-static int geoip_get_action(mlfiPriv *priv, const char *pCC)
-{	int	rc = GEOIPLIST_A_NULL;
-	char	buf[8192];
-	char	acc[256],aaction[50];
-	int	action;
-	char	*str =NULL;
-	int	fd = priv->fdGeoipBWL;
-
-	if(fd != -1)
-	{
-		lseek(fd,0l,SEEK_SET);
-		while(mlfi_fdgets(fd,buf,sizeof(buf)) >= 0)
-		{
-			// strip trailing comments and then white space
-			str = strchr(buf,'#');
-			if(str != NULL)
-			{
-				*(str--) = '\0';
-				while(str >= buf && (*str ==' ' || *str == '\t'))
-					*(str--) = '\0';
-			}
-
-			if(strlen(buf))
-			{
-				memset(acc,0,sizeof(acc));
-				memset(aaction,0,sizeof(aaction));
-			
-				str = mlfi_strcpyadv(acc,sizeof(acc),buf,'|');
-				str = mlfi_strcpyadv(aaction,sizeof(aaction),str,'|');
-
-				action = (strcasecmp(aaction,"accept") == 0	? GEOIPLIST_A_ACCEPT :
-					strcasecmp(aaction,"reject") == 0	? GEOIPLIST_A_REJECT :
-					strcasecmp(aaction,"discard") == 0	? GEOIPLIST_A_DISCARD :
-					strcasecmp(aaction,"fail") == 0		? GEOIPLIST_A_TEMPFAIL :
-					strcasecmp(aaction,"tarpit") == 0	? GEOIPLIST_A_TARPIT :
-					//strcasecmp(aaction,"ipfw") == 0		? GEOIPLIST_A_IPFW :
-					GEOIPLIST_A_NULL);
-
-				// use regex to do matching instead of strcasecmp
-				if(regexapi(pCC,acc,REGEX_DEFAULT_CFLAGS))
-					rc = action;
-			}
-		}
-	}
-
-	mlfi_debug(priv->pSessionUuidStr,"geoip_get_action: CC: %s - action %s\n",pCC,gpStrsBwlA[rc]);
-
-	return rc;
-}
-
-// TODO - ipv6
-int geoip_query_action(SMFICTX *ctx, unsigned long ip)
+int geoip_query_action_cc(SMFICTX *ctx, const char *pCC)
 {	mlfiPriv *priv = MLFIPRIV;
 	int	rc = GEOIPLIST_A_NULL;
 
 	if(priv != NULL)
-		rc = geoip_get_action(priv,geoip_LookupCCByIpv4(ctx,ip));
+	{	char	buf[8192];
+		char	acc[256],aaction[50];
+		int	action;
+		char	*str =NULL;
+		int	fd = priv->fdGeoipBWL;
 
-	return(rc);
+		if(fd != -1)
+		{
+			lseek(fd,0l,SEEK_SET);
+			while(mlfi_fdgets(fd,buf,sizeof(buf)) >= 0)
+			{
+				// strip trailing comments and then white space
+				str = strchr(buf,'#');
+				if(str != NULL)
+				{
+					*(str--) = '\0';
+					while(str >= buf && (*str ==' ' || *str == '\t'))
+						*(str--) = '\0';
+				}
+
+				if(strlen(buf))
+				{
+					memset(acc,0,sizeof(acc));
+					memset(aaction,0,sizeof(aaction));
+
+					str = mlfi_strcpyadv(acc,sizeof(acc),buf,'|');
+					str = mlfi_strcpyadv(aaction,sizeof(aaction),str,'|');
+
+					action = (strcasecmp(aaction,"accept") == 0	? GEOIPLIST_A_ACCEPT :
+						strcasecmp(aaction,"reject") == 0	? GEOIPLIST_A_REJECT :
+						strcasecmp(aaction,"discard") == 0	? GEOIPLIST_A_DISCARD :
+						strcasecmp(aaction,"fail") == 0		? GEOIPLIST_A_TEMPFAIL :
+						strcasecmp(aaction,"tarpit") == 0	? GEOIPLIST_A_TARPIT :
+						//strcasecmp(aaction,"ipfw") == 0		? GEOIPLIST_A_IPFW :
+						GEOIPLIST_A_NULL);
+
+					// use regex to do matching instead of strcasecmp
+					if(regexapi(pCC,acc,REGEX_DEFAULT_CFLAGS))
+						rc = action;
+				}
+			}
+		}
+
+		mlfi_debug(priv->pSessionUuidStr,"geoip_get_action: CC: %s - action %s\n",pCC,gpStrsBwlA[rc]);
+	}
+
+	return rc;
 }
 
 static const char * _mk_NA( const char * p ) { return p ? p : "N/A"; }
 
-const char *geoip_result_add(SMFICTX *ctx, unsigned long ip, const char *pCountryCode)
+const char *geoip_result_addIpv4(SMFICTX *ctx, unsigned long ip, const char *pCountryCode)
+{
+	return geoip_result_addAF(ctx, AF_INET, (const char *)&ip, pCountryCode);
+}
+
+const char *geoip_result_addSA(SMFICTX *ctx, struct sockaddr *psa, const char *pCountryCode)
+{	const char *pStr = NULL;
+
+	switch(psa->sa_family)
+	{
+		case AF_INET:
+			pStr = geoip_result_addAF(ctx, psa->sa_family, (const char *)&((struct sockaddr_in *)psa)->sin_addr.s_addr, pCountryCode);
+			break;
+		case AF_INET6:
+			pStr = geoip_result_addAF(ctx, psa->sa_family, (const char *)&((struct sockaddr_in6 *)psa)->sin6_addr, pCountryCode);
+			break;
+	}
+
+	return pStr;
+}
+
+const char *geoip_result_addAF(SMFICTX *ctx, int afType, const char *in, const char *pCountryCode)
 {	mlfiPriv *priv = MLFIPRIV;
 	const char *pStr = NULL;
 
@@ -264,9 +299,22 @@ const char *geoip_result_add(SMFICTX *ctx, unsigned long ip, const char *pCountr
 
 		if(pResult != NULL)
 		{
-			pResult->ip = ip;
+			pResult->ip.afType = afType;
+			switch(afType)
+			{
+				case AF_INET:
+					pResult->ip.ipv4 = ntohl(*(unsigned long*)in);
+					pResult->pGeoIPRecord = (*pCountryCode != '-'
+						&& priv->pGeoipCity != NULL ? GeoIP_record_by_ipnum(priv->pGeoipCity, pResult->ip.ipv4) : NULL);
+					break;
+				case AF_INET6:
+					pResult->ip.ipv6 = *(struct in6_addr *)in;
+					pResult->pGeoIPRecord = (*pCountryCode != '-'
+						&& priv->pGeoipCity != NULL ? GeoIP_record_by_ipnum_v6(priv->pGeoipCity, pResult->ip.ipv6) : NULL);
+					break;
+			}
+
 			pResult->pCountryCode = pCountryCode;
-			pResult->pGeoIPRecord = (*pCountryCode != '-' && priv->pGeoipCity != NULL ? GeoIP_record_by_ipnum(priv->pGeoipCity, ip) : NULL);
 			pResult->pCountryCity = NULL;
 			if(pResult->pGeoIPRecord != NULL
 				// matching CC ?

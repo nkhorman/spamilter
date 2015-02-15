@@ -53,7 +53,12 @@
 
 	typedef struct _geoipresult_t
 	{
-		unsigned long ip;
+		struct _ip_t
+		{
+			int afType;
+			unsigned long ipv4;
+			struct in6_addr ipv6;
+		} ip;
 		const char *pCountryCode;
 		char *pCountryCity;
 		GeoIPRecord *pGeoIPRecord;
@@ -62,11 +67,16 @@
 	void geoip_init(SMFICTX *ctx);
 	int geoip_open(SMFICTX *ctx, const char *dbpath, const char *pGeoipdbPath);
 	void geoip_close(SMFICTX *ctx);
-	int geoip_query_action(SMFICTX *ctx, unsigned long ip);
+
+	int geoip_query_action_cc(SMFICTX *ctx, const char *pCC);
 
 	const char *geoip_LookupCCByIpv4(SMFICTX *ctx, unsigned long ip);
-	const char *geoip_LookupCCByIp(SMFICTX *ctx, const struct sockaddr *pip);
-	const char *geoip_LookupCCByHost(SMFICTX *ctx, const char *pHostName);
+	const char *geoip_LookupCCByAF(SMFICTX *ctx, int af, const char *in);
+	const char *geoip_LookupCCByHostEnt(SMFICTX *ctx, const struct hostent *pHostEnt);
+	const char *geoip_LookupCCByHostName(SMFICTX *ctx, const char *pHostName);
+	const char *geoip_LookupCCBySA(SMFICTX *ctx, const struct sockaddr *pip);
 
-	const char *geoip_result_add(SMFICTX *ctx, unsigned long ip, const char *pCountryCode);
+	const char *geoip_result_addIpv4(SMFICTX *ctx, unsigned long ip, const char *pCountryCode);
+	const char *geoip_result_addSA(SMFICTX *ctx, struct sockaddr *psa, const char *pCountryCode);
+	const char *geoip_result_addAF(SMFICTX *ctx, int afType, const char *in, const char *pCountryCode);
 #endif
