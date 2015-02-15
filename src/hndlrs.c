@@ -676,6 +676,12 @@ int mlfi_envrcpt_islocaluser(mlfiPriv *priv, const char *user)
 #endif
 
 #ifdef SUPPORT_GREYLIST
+
+// For greylisting, do ip address globing, under the premise that a given sender might be
+// using more than one MTA in close proximity to others as it relates to the ip address space.
+//
+// We glob ipv4 to /24, and ipv6 to /64
+//
 int mlfi_greylist(SMFICTX *ctx)
 {	mlfiPriv	*priv = MLFIPRIV;
 	int rc = 0;
@@ -685,49 +691,58 @@ int mlfi_greylist(SMFICTX *ctx)
 
 		if(sd != INVALID_SOCKET)
 		{
+			int inAfType = priv->pip->sa_family;
+			char *pInAddr = NULL;
+			unsigned long in4_addr;
+			struct in6_addr in6_addr;
 			char *pipstr = priv->ipstr;
-			char ipstr[INET6_ADDRSTRLEN+1];
 
-			memset(ipstr,0,sizeof(ipstr));
-
-			switch(priv->pip->sa_family)
+			switch(inAfType)
 			{
 				case AF_INET:
-					{	unsigned int ipoctets[4];
+					in4_addr = ntohl(*(unsigned long *)((struct sockaddr_in *)priv->pip)->sin_addr.s_addr);
+					in4_addr &= 0xFFFFFF00; // mask of for /24
+					in4_addr = htonl(in4_addr);
+					pInAddr = (char *)&in4_addr;
 
-						// this is about using only the first three octects of the ip address
-						// ie x.x.x.x/24 for host qualification instead of x.x.x.x/32
-
-						if(sscanf(priv->ipstr,"%u.%u.%u.%u",&ipoctets[0],&ipoctets[1],&ipoctets[2],&ipoctets[3]) == 4)
-						{
-							sprintf(ipstr,"%u.%u.%u",ipoctets[0],ipoctets[1],ipoctets[2]);
-							pipstr = ipstr;
-						}
-					}
 				case AF_INET6:
-					// TODO - ipv6
+					{
+#ifdef OS_FreeBSD
+						size_t i;
+
+						memset(&in6_addr, 0, sizeof(in6_addr));
+						for(i=0; i<4; i++)
+							in6_addr.__u6_addr.__u6_addr16[i] = ((struct sockaddr_in6 *)priv->pip)->sin6_addr.__u6_addr.__u6_addr16[i];
+						pInAddr = (char *)&in6_addr;
+#endif
+					}
 					break;
 			}
 
-			// TODO - add greylist host and port to config options
-			if(NetSockPrintfTo(sd,0x7f000001,7892,"<%s> %s %s",pipstr,priv->sndr,priv->rcpt) != SOCKET_ERROR
-				&& NetSockSelectOne(sd,30000)
-			)
-			{	unsigned long ip;
-				unsigned short port;
-				char buf[128];
-				int len = NetSockRecvFrom(sd,buf,sizeof(buf),&ip,&port,NULL);
-				
-				if(len != SOCKET_ERROR)
-				{
-					mlfi_debug(priv->pSessionUuidStr,"mlfi_greylist: query result '%*.*s'\n",len,len,buf);
-					rc = (strncmp(buf,"<ok>",len) != 0 ? 1 : 2); // 1 = grey, 2 = white
-				}
-			}
-			else
+			if(pInAddr != NULL && (pipstr = mlfi_sin2strAF(inAfType, pInAddr)) != NULL)
 			{
-				mlfi_debug(priv->pSessionUuidStr,"mlfi_greylist: query timeout\n");
-				rc = -1;
+				// TODO - add greylist host and port to config options
+				if(NetSockPrintfTo(sd, 0x7f000001, 7892, "<%s> %s %s", pipstr, priv->sndr, priv->rcpt) != SOCKET_ERROR
+					&& NetSockSelectOne(sd, 30000)
+				)
+				{	unsigned long ip;
+					unsigned short port;
+					char buf[128];
+					int len = NetSockRecvFrom(sd,buf,sizeof(buf),&ip,&port,NULL);
+
+					if(len != SOCKET_ERROR)
+					{
+						mlfi_debug(priv->pSessionUuidStr,"mlfi_greylist: query result '%*.*s'\n",len,len,buf);
+						rc = (strncmp(buf,"<ok>",len) != 0 ? 1 : 2); // 1 = grey, 2 = white
+					}
+				}
+				else
+				{
+					mlfi_debug(priv->pSessionUuidStr,"mlfi_greylist: query timeout\n");
+					rc = -1;
+				}
+
+				free(pipstr);
 			}
 			NetSockClose(&sd);
 		}
