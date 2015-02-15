@@ -119,7 +119,7 @@ CLIENT	gChildClients[FD_SETSIZE];
 
 void MtaInfoIpfwSync(int needDelete)
 {	PMTAINFO	pinfo = gpMtaInfo;
-#if !defined(USEIPFWDIRECT) && defined(OS_FreeBSD)
+#if defined(USEIPFWDIRECT) && defined(OS_FreeBSD)
 	ipfw_startup();
 #endif
 
