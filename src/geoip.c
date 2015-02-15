@@ -142,8 +142,9 @@ void geoip_close(SMFICTX *ctx)
 
 // TODO - ipv6 - to be removed
 const char *geoip_LookupCCByIpv4(SMFICTX *ctx, unsigned long ip)
-{
-	return geoip_LookupCCByAF(ctx,  AF_INET, (const char *)&ip);
+{	unsigned long nip = htonl(ip);
+
+	return geoip_LookupCCByAF(ctx,  AF_INET, (const char *)&nip);
 }
 
 const char *geoip_LookupCCByAF(SMFICTX *ctx, int af, const char *in)
@@ -270,8 +271,9 @@ int geoip_query_action_cc(SMFICTX *ctx, const char *pCC)
 static const char * _mk_NA( const char * p ) { return p ? p : "N/A"; }
 
 const char *geoip_result_addIpv4(SMFICTX *ctx, unsigned long ip, const char *pCountryCode)
-{
-	return geoip_result_addAF(ctx, AF_INET, (const char *)&ip, pCountryCode);
+{	unsigned long nip = htonl(ip);
+
+	return geoip_result_addAF(ctx, AF_INET, (const char *)&nip, pCountryCode);
 }
 
 const char *geoip_result_addSA(SMFICTX *ctx, struct sockaddr *psa, const char *pCountryCode)
@@ -303,9 +305,9 @@ const char *geoip_result_addAF(SMFICTX *ctx, int afType, const char *in, const c
 			switch(afType)
 			{
 				case AF_INET:
-					pResult->ip.ipv4 = ntohl(*(unsigned long*)in);
+					pResult->ip.ipv4 = *(unsigned long*)in;
 					pResult->pGeoIPRecord = (*pCountryCode != '-'
-						&& priv->pGeoipCity != NULL ? GeoIP_record_by_ipnum(priv->pGeoipCity, pResult->ip.ipv4) : NULL);
+						&& priv->pGeoipCity != NULL ? GeoIP_record_by_ipnum(priv->pGeoipCity, ntohl(pResult->ip.ipv4)) : NULL);
 					break;
 				case AF_INET6:
 					pResult->ip.ipv6 = *(struct in6_addr *)in;
