@@ -218,7 +218,8 @@ int geoip_query_action_cc(SMFICTX *ctx, const char *pCC)
 {	mlfiPriv *priv = MLFIPRIV;
 	int	rc = GEOIPLIST_A_NULL;
 
-	if(priv != NULL)
+	// `--' is not a CC, but a place holder, don't check against it
+	if(priv != NULL && pCC != NULL && pCC[0] != '-' && pCC[1] != '-')
 	{	char	buf[8192];
 		char	acc[256],aaction[50];
 		int	action;
