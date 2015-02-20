@@ -1,4 +1,7 @@
 Changelog;
+	20150220
+	* fix - geoip reject regresion, the test for non-routable geoip CC was inverted
+
 	20150214
 	* fix - ipfwmtad USEIPFWDIRECT regression - ipfw rules were not updating
 	* mod - ipv6 enable geoip lookups
