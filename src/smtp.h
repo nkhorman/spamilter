@@ -41,6 +41,7 @@
 #ifndef _SPAMILTER_SMTP_H_
 #define _SPAMILTER_SMTP_H_
 
+	// TODO - ipv6
 	int smtp_host_is_deliverable(const char *pSessionId, const char *mbox, const char *dom, long hostip, int *smtprc);
 	int smtp_email_address_is_deliverable(const char *pSessionId, const res_state statp, const char *mbox, const char *dom, int *smtprc);
 #endif

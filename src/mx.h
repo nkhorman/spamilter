@@ -49,6 +49,8 @@
 	#include <resolv.h>
 	#include <netdb.h>
 
+	// TODO - ipv6 - everywhere
+
 	typedef struct _mx_host
 	{
 		long	ip;

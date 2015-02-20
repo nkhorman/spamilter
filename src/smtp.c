@@ -114,6 +114,7 @@ int smtp_host_test_mailfrom_rcptto(const char *pSessionId, int sd, int timeout, 
 	return(rc);
 }
 
+// TODO - ipv6
 int smtp_host_is_deliverable(const char *pSessionId, const char *mbox, const char *dom, long hostip, int *smtprc)
 {	int	rc = -1;	/* 1 = success, 0 = failure, -1 = unreachable */
 	int	sd = NetSockOpenTcpPeer(hostip,25);
@@ -154,6 +155,7 @@ int smtp_mx_is_deliverable(const char *pSessionId, mx_rr *rr, const char *mbox, 
 	rr->visited = 1;
 	for(j=0; tst==-1 && j<rr->qty; j++)
 	{
+// TODO - ipv6
 		mlfi_debug(pSessionId,"\t\tA %s\n",ip2str(rr->host[j].ip));
 		if(ifi_islocalip(rr->host[j].ip))
 		{

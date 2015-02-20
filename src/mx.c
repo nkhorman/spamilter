@@ -46,6 +46,8 @@ static char const cvsid[] = "@(#)$Id: mx.c,v 1.15 2012/12/09 18:19:42 neal Exp $
 #include "config.h"
 #include "mx.h"
 
+// TODO - ipv6 - everywhere
+
 static int mx_res_search(const res_state statp, const char *name, int class, int type, u_char **answer, ns_msg *phandle)
 {	u_char	*resp = *answer = (u_char *)malloc(NS_PACKETSZ);
 	int	i,respsize = NS_PACKETSZ;
