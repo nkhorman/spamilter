@@ -1597,7 +1597,7 @@ int listCallbackBodyHosts(void *pData, void *pCallbackData)
 			if(*pLcbh->cpr.pbContinueChecks) // if BL testing passes, GEOIP testing
 			{	struct hostent *phostent = gethostbyname(pStr);
 
-				if(phostent != NULL && mlfi_isNonRoutableIpHostEnt(phostent))
+				if(phostent != NULL && !mlfi_isNonRoutableIpHostEnt(phostent))
 				{	const char *pCC = geoip_LookupCCByHostEnt(ctx, phostent);
 
 					switch(geoip_query_action_cc(ctx, pCC))
