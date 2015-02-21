@@ -49,6 +49,22 @@ static char const cvsid[] = "@(#)$Id: regexmisc.c,v 1.14 2012/12/12 02:38:35 nea
 #include "regexapi.h"
 #include "list.h"
 
+
+/*
+http://regexlib.com/Search.aspx?k=ipv4&AspxAutoDetectCookieSupport=1
+http://regexlib.com/REDetails.aspx?regexp_id=2690
+	(^ \d{20} $)
+	| (^ ((:[a-fA-F0-9]{1,4}){6}|::) ffff:(25[0-5] | 2[0-4][0-9] | 1[0-9][0-9] | [0-9]{1,2})(\.(25[0-5] | 2[0-4][0-9] | 1[0-9][0-9] | [0-9]{1,2})){3} $)
+	| (^ ((:[a-fA-F0-9]{1,4}){6} | ::) ffff (:[a-fA-F0-9]{1,4}){2} $)
+	| (^ ([a-fA-F0-9]{1,4}) (:[a-fA-F0-9]{1,4}){7} $)
+	| (^ :(:[a-fA-F0-9]{1,4}(::)?){1,6} $)
+	| (^ ((::)?[a-fA-F0-9]{1,4}:){1,6}: $)
+	| (^ :: $)
+
+http://stackoverflow.com/questions/53497/regular-expression-that-matches-valid-ipv6-addresses
+
+*/
+
 unsigned long mlfi_regex_ipv4(const char *pstr)
 {	unsigned long ip = 0;
 
@@ -137,9 +153,8 @@ static char *mboxRegexPrintf(const char *pFmt, int *pMboxIndex, int *pDomainInde
 	if(pStr != NULL)
 	{	char *pTmp = pStr;
 
-		#define PAT_MBOX "[a-zA-Z0-9][a-zA-Z0-9._=-]{0,}"
-		// A9uIrZhY3SzSuyQ6qJcnOiQ==_1101506954731_ibMa8DdzEeOTMNSuUpzd0w==@in.constantcontact.com
-		#define PAT_DOMAIN "[a-zA-Z0-9][a-zA-Z0-9._-]{0,}[.][a-zA-Z]{2,4}"
+		#define PAT_MBOX "[a-zA-Z0-9][a-zA-Z0-9!#$%&'*+-/=?^_`{|}~.]"
+		#define PAT_DOMAIN "[a-zA-Z0-9][a-zA-Z0-9._-]{0,}[.][a-zA-Z]{2,}"
 
 		const char *pPatMbox = PAT_MBOX;
 		const char *pPatDomain = PAT_DOMAIN;
