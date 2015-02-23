@@ -160,15 +160,15 @@ static unsigned long fwdhostlist_dom_ip(int fd, char *dom, char *pFwdHostBuf)
 int fwdhostlist_is_deliverable(mlfiPriv *priv, char *rcpt, char *dom, int *pSmtprc)
 {	int rc = 0;
 
-	if(priv != NULL && dom != NULL && pSmtprc)
+	if(priv != NULL && dom != NULL && pSmtprc != NULL)
 	{	char fwdHostStr[512];
 		unsigned ip;
 		
 		memset(fwdHostStr,0,sizeof(fwdHostStr));
 		ip = fwdhostlist_dom_ip(priv->fwdhostlistfd,dom,fwdHostStr);
 		rc = (ip == 0 || (ip != 0 && smtp_host_is_deliverable(priv->pSessionUuidStr,rcpt,dom,ip,pSmtprc) > 0 && *pSmtprc == 250));
-//		syslog(LOG_DEBUG,"fwdhostlist: '%s@%s' fwdhost: '%s'/%08lX = %d",rcpt,dom,fwdHostStr,ip,*pSmtprc);
+		mlfi_debug(priv->pSessionUuidStr,"%s: '%s@%s' fwdhost: '%s'/%08lX = %d",rcpt,dom,fwdHostStr,ip,*pSmtprc);
 	}
 
-	return(rc);
+	return rc;
 }
