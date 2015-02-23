@@ -108,9 +108,8 @@ char *str2lo(char *src)
 
 void log_status(mlfiPriv *priv, const char *status, const char *reason)
 {
-	if(priv != NULL && satosin(priv->pip)->sin_addr.s_addr != INADDR_ANY)
-	{	char *sndr = (priv->replyto != NULL && strlen(priv->replyto) ? priv->replyto : priv->sndr);
-		//char *pf1 = priv->ipstr;
+	if(priv != NULL)
+	{	char *sndr = (priv->replyto != NULL && *priv->replyto ? priv->replyto : priv->sndr);
 		char *pf1 = priv->pSessionUuidStr;
 
 		if(reason != NULL && priv->rcpt != NULL && sndr != NULL)
