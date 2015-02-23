@@ -1283,7 +1283,8 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 		if(continue_checks
 			&& gMtaHostIpChk
 			&& strcmp(priv->helo,priv->iphostname) != 0
-			&& !dns_hostname_ip_match(priv->presstate,priv->helo,ntohl(satosin(priv->pip)->sin_addr.s_addr))
+			// TODO - ipv6
+			&& priv->pip->sa_family == AF_INET && !dns_hostname_ip_match(priv->presstate,priv->helo,ntohl(satosin(priv->pip)->sin_addr.s_addr))
 			)
 		{
 			mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Helo hostname/ip mismatch, Please see: %s#hostnameipmismatch",gPolicyUrl);
@@ -1321,21 +1322,31 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 
 		// Policy enforcement
 		// Validate the sndr return path
-		if(continue_checks
-			&& gSmtpSndrChk
-			&& ntohl(satosin(priv->pip)->sin_addr.s_addr) != INADDR_LOOPBACK
-			&& strcasecmp("<>",priv->sndr) != 0
-			)
-		{
-			char *mbox = NULL;
-			char *dom = NULL;
+		if(continue_checks && gSmtpSndrChk)
+		{	int isLoopBack = 0;
 
-			mlfi_regex_mboxsplit(priv->sndr,&mbox,&dom);
+			switch(priv->pip->sa_family)
+			{
+				case AF_INET:
+					isLoopBack = (ntohl(satosin(priv->pip)->sin_addr.s_addr) == INADDR_LOOPBACK);
+					break;
+				case AF_INET6:
+					isLoopBack = IN6_ARE_ADDR_EQUAL( &((struct sockaddr_in6 *)priv->pip)->sin6_addr, &in6addr_loopback);
+					break;
+			}
 
-			rs = mlfi_sndrchk(ctx,mbox,dom);
-			continue_checks = (rs == SMFIS_CONTINUE);
-			free(mbox);
-			free(dom);
+			if(!isLoopBack && strcasecmp("<>",priv->sndr) != 0)
+			{
+				char *mbox = NULL;
+				char *dom = NULL;
+
+				mlfi_regex_mboxsplit(priv->sndr,&mbox,&dom);
+
+				rs = mlfi_sndrchk(ctx,mbox,dom);
+				continue_checks = (rs == SMFIS_CONTINUE);
+				free(mbox);
+				free(dom);
+			}
 		}
 
 #ifdef SUPPORT_GEOIP
