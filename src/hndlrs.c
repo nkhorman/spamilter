@@ -699,7 +699,7 @@ int mlfi_greylist(SMFICTX *ctx)
 			switch(inAfType)
 			{
 				case AF_INET:
-					in4_addr = ntohl(*(unsigned long *)((struct sockaddr_in *)priv->pip)->sin_addr.s_addr);
+					in4_addr = ntohl(satosin(priv->pip)->sin_addr.s_addr);
 					in4_addr &= 0xFFFFFF00; // mask of for /24
 					in4_addr = htonl(in4_addr);
 					pInAddr = (char *)&in4_addr;
