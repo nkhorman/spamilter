@@ -250,7 +250,7 @@ int mlfi_isNonRoutableIpSA(const struct sockaddr *psa)
 	return nonRoutable;
 }
 
-char *mlfi_sin2strAF(int afType, const char *in)
+char *mlfi_inet_ntopAF(int afType, const char *in)
 {	char *pstr = NULL;
 
 	if(in != NULL)
@@ -269,7 +269,7 @@ char *mlfi_sin2strAF(int afType, const char *in)
 	return pstr;
 }
 
-char *mlfi_sin2strSA(const struct sockaddr *psa)
+char *mlfi_inet_ntopSA(const struct sockaddr *psa)
 {	char *pstr = NULL;
 
 	if(psa != NULL)
@@ -281,7 +281,7 @@ char *mlfi_sin2strSA(const struct sockaddr *psa)
 			case AF_INET6: in = (const char *)&((struct sockaddr_in6 *)psa)->sin6_addr; break;
 		}
 
-		pstr = mlfi_sin2strAF(psa->sa_family, in);
+		pstr = mlfi_inet_ntopAF(psa->sa_family, in);
 	}
 
 	return pstr;

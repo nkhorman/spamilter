@@ -51,6 +51,7 @@
 #include <netdb.h>
 
 #include "dbl.h"
+#include "misc.h"
 
 #ifndef s6_addr32
 #define s6_addr32 __u6_addr.__u6_addr32
@@ -201,12 +202,7 @@ int dbl_callback_policy_std(dblcb_t *pDblcb)
 					pDblcb->abused = ((ip & 0x000000ff) >= 100); // an abused domain
 
 					if(!pDblcb->abused)
-					{	char bufstr[INET_ADDRSTRLEN+1];
-
-						memset(bufstr, 0, sizeof(bufstr));
-						if(inet_ntop(AF_INET, ns_rr_rdata(pNsrr->rr), bufstr, sizeof(bufstr)-1) != NULL)
-							pDblcb->pDblResult = strdup(bufstr);
-					}
+						pDblcb->pDblResult = mlfi_inet_ntopAF(AF_INET, (char *)ns_rr_rdata(pNsrr->rr));
 
 					bCallbackProceed = !pDblcb->abused;
 				}
@@ -230,12 +226,7 @@ int dbl_callback_policy_std(dblcb_t *pDblcb)
 					pDblcb->abused = ((pIp6->s6_addr32[3] & 0x000000ff) >= 100); // an abused domain
 
 					if(!pDblcb->abused)
-					{	char bufstr[INET6_ADDRSTRLEN+1];
-
-						memset(bufstr, 0, sizeof(bufstr));
-						if(inet_ntop(AF_INET6, pIp6, bufstr, sizeof(bufstr)-1) != NULL)
-						pDblcb->pDblResult = strdup(bufstr);
-					}
+						pDblcb->pDblResult = mlfi_inet_ntopAF(AF_INET6, (char *)pIp6);
 				}
 			}
 			break;

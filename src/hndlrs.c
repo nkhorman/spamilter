@@ -384,7 +384,7 @@ sfsistat mlfi_connect(SMFICTX *ctx, char *hostname, _SOCK_ADDR *hostaddr)
 			priv->pip = (struct sockaddr *)calloc(1,sa_len);
 			if(priv->pip != NULL)
 				memcpy(priv->pip, hostaddr, sa_len);
-			priv->ipstr = mlfi_sin2strSA(hostaddr);
+			priv->ipstr = mlfi_inet_ntopSA(hostaddr);
 		}
 
 		if(hostname != NULL)
@@ -718,7 +718,7 @@ int mlfi_greylist(SMFICTX *ctx)
 					break;
 			}
 
-			if(pInAddr != NULL && (pipstr = mlfi_sin2strAF(inAfType, pInAddr)) != NULL)
+			if(pInAddr != NULL && (pipstr = mlfi_inet_ntopAF(inAfType, pInAddr)) != NULL)
 			{
 				// TODO - add greylist host and port to config options
 				if(NetSockPrintfTo(sd, 0x7f000001, 7892, "<%s> %s %s", pipstr, priv->sndr, priv->rcpt) != SOCKET_ERROR
@@ -1642,7 +1642,7 @@ int listCallbackBodyHosts(void *pData, void *pCallbackData)
 int listCallbackGeoipAddHdr(void *pData, void *pCallbackData)
 {	geoipResult *pResult = (geoipResult *)pData;
 	SMFICTX *ctx = (SMFICTX *)pCallbackData;
-	char *pIpStr = mlfi_sin2strAF(pResult->ip.afType, (pResult->ip.afType == AF_INET ? (char *)&pResult->ip.ipv4 : (char *)&pResult->ip.ipv6));
+	char *pIpStr = mlfi_inet_ntopAF(pResult->ip.afType, (pResult->ip.afType == AF_INET ? (char *)&pResult->ip.ipv4 : (char *)&pResult->ip.ipv6));
 
 	mlfi_addhdr_printf(ctx,"X-Milter", "%s DataSet=GeoIP; reciever=%s; ip=%s; CC=%s;"
 		,mlfi.xxfi_name ,gHostname

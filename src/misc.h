@@ -67,8 +67,8 @@
 
 	unsigned long mlfi_regex_ipv4(const char *pstr);
 
-	char *mlfi_sin2strAF(int afType, const char *in);
-	char *mlfi_sin2strSA(const struct sockaddr *psa);
+	char *mlfi_inet_ntopAF(int afType, const char *in);
+	char *mlfi_inet_ntopSA(const struct sockaddr *psa);
 
 	int mlfi_systemPrintf(char *fmt, ...);
 #endif

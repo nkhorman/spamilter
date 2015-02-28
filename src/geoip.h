@@ -56,8 +56,11 @@
 		struct _ip_t
 		{
 			int afType;
-			unsigned long ipv4;
-			struct in6_addr ipv6;
+			union
+			{
+				unsigned long ipv4;
+				struct in6_addr ipv6;
+			};
 		} ip;
 		const char *pCountryCode;
 		char *pCountryCity;
