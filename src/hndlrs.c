@@ -692,17 +692,18 @@ int mlfi_greylist(SMFICTX *ctx)
 		{
 			int inAfType = priv->pip->sa_family;
 			char *pInAddr = NULL;
-			unsigned long in4_addr;
+			struct in_addr in4_addr;
 			struct in6_addr in6_addr;
 			char *pipstr = priv->ipstr;
 
 			switch(inAfType)
 			{
 				case AF_INET:
-					in4_addr = ntohl(satosin(priv->pip)->sin_addr.s_addr);
-					in4_addr &= 0xFFFFFF00; // mask of for /24
-					in4_addr = htonl(in4_addr);
+					in4_addr.s_addr = ntohl(((struct sockaddr_in *)priv->pip)->sin_addr.s_addr);
+					in4_addr.s_addr &= 0xFFFFFF00; // mask for /24
+					in4_addr.s_addr = htonl(in4_addr.s_addr);
 					pInAddr = (char *)&in4_addr;
+					break;
 
 				case AF_INET6:
 					{
