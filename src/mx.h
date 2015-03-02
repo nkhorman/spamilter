@@ -49,11 +49,16 @@
 	#include <resolv.h>
 	#include <netdb.h>
 
-	// TODO - ipv6 - everywhere
+	#define  MAX_MXHOSTS 50
 
 	typedef struct _mx_host
 	{
-		long	ip;
+		int	nsType;
+		union
+		{
+			unsigned long ipv4;
+			struct in6_addr ipv6;
+		};
 	} mx_host;
 
 	typedef struct _mx_rr
@@ -61,36 +66,25 @@
 		char	name[MAXDNAME];
 		int	pref;
 		int	visited;
-		mx_host	host[50];
+		mx_host	host[MAX_MXHOSTS];
 		int	qty;
 	} mx_rr;
 
 	typedef struct _mx_rr_list
 	{
-		long	ip;
+		int nsType;
+		union
+		{
+			unsigned long ipv4;
+			struct in6_addr ipv6;
+		};
 		char	domain[MAXDNAME];
 		int	match;
-		mx_rr	mx[50];
+		mx_rr	mx[MAX_MXHOSTS];
 		int	qty;
 	} mx_rr_list;
 
-	void mx_parse_host_query(mx_rr *mxrr, ns_msg handle, ns_sect section);
-	void mx_parse_rr_query(const res_state statp, mx_rr_list *rrl, ns_msg handle, ns_sect section);
-
 	mx_rr *mx_get_rr_hosts(const res_state statp, mx_rr *mxrr);
-	char *mx_get_host_ptr(const res_state statp, const char *ipstr, char *hostname, int hostnamelen);
-
-	mx_rr_list *mx_get_rr_byipstr(const res_state statp, const char *ipstr, mx_rr_list *rrl);
-
 	mx_rr_list *mx_get_rr_bydomain(const res_state statp, mx_rr_list *rrl, const char *name);
-	mx_rr_list *mx_get_rr_byip(const res_state statp, mx_rr_list *rrl, long ip);
 
-	mx_rr_list *mx_show_rr(mx_rr_list *rrl);
-
-	int mx_get_rr_match(mx_rr_list *rrl);
-	void mx_get_rr_recurse_host(const res_state statp, mx_rr_list *rrl);
-
-	mx_rr_list *mx_get_rr(const res_state statp, mx_rr_list *rrl, long ip, const char *name, int collect);
-
-	char *ip2str(long ip);
 #endif

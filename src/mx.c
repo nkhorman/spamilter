@@ -44,118 +44,136 @@ static char const cvsid[] = "@(#)$Id: mx.c,v 1.15 2012/12/09 18:19:42 neal Exp $
 #include <string.h>
 #include <stdlib.h>
 #include "config.h"
+
+#include "dns.h"
 #include "mx.h"
+#include "misc.h"
 
-// TODO - ipv6 - everywhere
+// collect A and AAAA record info
+static int mx_get_rr_hosts_Callback(dqrr_t *pDqrr, void *pdata)
+{	mx_rr *mxrr = (mx_rr *)pdata;
+	int nsType = ns_rr_type(pDqrr->rr);
 
-static int mx_res_search(const res_state statp, const char *name, int class, int type, u_char **answer, ns_msg *phandle)
-{	u_char	*resp = *answer = (u_char *)malloc(NS_PACKETSZ);
-	int	i,respsize = NS_PACKETSZ;
-	int	rc,rc_nip = -1;
-
-	/* try hard to have a big enough buffer for the response */
-	for(i=0; i<5 && resp != NULL && rc_nip < 0; i++)
+	switch(nsType)
 	{
-		rc = res_nsearch(statp, name, class, type, resp, respsize);
-		if(rc > 0 && rc > respsize)
-		{
-			respsize += rc;
-			resp = *answer = (u_char *)realloc(resp,respsize);
-		}
-		else if(rc > 0 && rc <= respsize)
-		{
-			rc_nip = ns_initparse(resp,rc,phandle);
-			i = 0;
-		}
-	}
+		case ns_t_a:
+			if(ns_rr_rdlen(pDqrr->rr) == NS_INADDRSZ)
+			{	int i, isDuplicate;
+				unsigned long ip = ns_get32(ns_rr_rdata(pDqrr->rr));
 
-	return(rc_nip);
-}
+				for(i=0,isDuplicate=0; i<mxrr->qty && !isDuplicate; i++)
+					isDuplicate = (ip == mxrr->host[i].ipv4);
 
-void mx_parse_host_query(mx_rr *mxrr, ns_msg handle, ns_sect section)
-{	int	rrnum;
-	ns_rr	rr;
-	int	count = ns_msg_count(handle,section);
-
-	for(rrnum=0; rrnum<count && rrnum<50; rrnum++)
-	{
-		if(ns_parserr(&handle, section, rrnum, &rr) == 0 && ns_rr_type(rr) == ns_t_a)
-		{	int	i,dup;
-			long	ip = ns_get32(ns_rr_rdata(rr));
-
-			for(i=0,dup=0; i<mxrr->qty && !dup; i++)
-				dup = (ip == mxrr->host[i].ip);
-
-			if(!dup)
-			{
-				mxrr->host[mxrr->qty].ip = ip;
-				mxrr->qty++;
-			}
-		}
-	}
-}
-
-mx_rr *mx_get_rr_hosts(const res_state statp, mx_rr *mxrr)
-{	ns_msg	handle;
-	u_char	*resp;
-
-	if(mx_res_search(statp, mxrr->name, ns_c_in, ns_t_a, &resp, &handle) > -1)
-		mx_parse_host_query(mxrr,handle,ns_s_an);
-
-	if(resp != NULL)
-		free(resp);
-
-	return(mxrr);
-}
-
-void mx_parse_rr_query(const res_state statp, mx_rr_list *rrl, ns_msg handle, ns_sect section)
-{	int	rrnum;
-	ns_rr	rr;
-	char	hn[MAXDNAME];
-	int	hp;
-	u_char	*cp;
-
-	for(rrnum=0; rrnum<ns_msg_count(handle,section) && rrnum<50; rrnum++)
-	{
-		if(ns_parserr(&handle, section, rrnum, &rr) == 0 && ns_rr_type(rr) == ns_t_mx)
-		{
-			cp = (u_char *)ns_rr_rdata(rr);
-			NS_GET16(hp,cp);
-			memset(hn,0,sizeof(hn));
-			if(ns_name_uncompress(ns_msg_base(handle),ns_msg_end(handle),cp,hn,sizeof(hn)) != -1)
-			{	int	i,dup;
-
-				for(i=0,dup=0; i < rrl->qty && !dup; i++)
-					dup = !strcasecmp(rrl->mx[i].name,hn);
-				if(!dup)
+				if(!isDuplicate)
 				{
-					strcpy(rrl->mx[rrl->qty].name,hn);
-					rrl->mx[rrl->qty].pref = hp;
-					mx_get_rr_hosts(statp, &rrl->mx[rrl->qty]);
-					rrl->qty++;
+					mxrr->host[mxrr->qty].ipv4 = ip;
+					mxrr->host[mxrr->qty].nsType = nsType;
+					mxrr->qty++;
 				}
 			}
-		}
+			break;
+
+		case ns_t_aaaa:
+			if(ns_rr_rdlen(pDqrr->rr) == NS_IN6ADDRSZ)
+			{
+				int i, isDuplicate;
+				struct in6_addr *pIp6 = (struct in6_addr *)ns_rr_rdata(pDqrr->rr);
+
+				for(i=0,isDuplicate=0; i<mxrr->qty && !isDuplicate; i++)
+					isDuplicate = (memcmp(pIp6, &mxrr->host[i].ipv6, sizeof(mxrr->host[i].ipv6)) == 0);
+
+				if(!isDuplicate)
+				{
+					mxrr->host[mxrr->qty].ipv6 = *pIp6;
+					mxrr->host[mxrr->qty].nsType = nsType;
+					mxrr->qty++;
+				}
+			}
+			break;
 	}
+
+	return (mxrr->qty < MAX_MXHOSTS); // again
 }
 
-mx_rr_list *mx_get_rr_bydomain(const res_state statp, mx_rr_list *rrl, const char *name)
-{	int	i;
-	ns_msg	handle;
-	u_char	*resp = NULL;
+// find A and AAAA host records
+mx_rr *mx_get_rr_hosts(const res_state statp, mx_rr *mxrr)
+{
+	dqrr_t *pDqrr = dns_query_rr_init(statp, ns_t_a);
 
-	for(i=0; i<2 && rrl->qty == 0; i++)
+	// search for A records
+	if(dns_query_rr_resp(pDqrr, mxrr->name) > -1)
+		dns_parse_response_answer(pDqrr, &mx_get_rr_hosts_Callback, mxrr);
+
+	// search for AAAA records
+	if(mxrr->qty < MAX_MXHOSTS && dns_query_rr_resp(dns_query_rr_reinit(pDqrr, ns_t_aaaa), mxrr->name) > -1)
+		dns_parse_response_answer(pDqrr, &mx_get_rr_hosts_Callback, mxrr);
+
+	dns_query_rr_free(pDqrr);
+
+	return mxrr;
+}
+
+// collect the mx record info
+static int mx_get_rr_bydomainCallback(dqrr_t *pDqrr, void *pdata)
+{	mx_rr_list *rrl = (mx_rr_list *)pdata;
+	int nsType = ns_rr_type(pDqrr->rr);
+
+	switch(nsType)
 	{
-		if(mx_res_search(statp, name, ns_c_in, ns_t_mx, &resp, &handle) > -1)
+		case ns_t_mx:
+			{	char hostName[NS_MAXDNAME];
+				int rc;
+				const u_char *rrData = ns_rr_rdata(pDqrr->rr);
+				unsigned short hostPreference = 0;
+
+				memset(hostName, 0, sizeof(hostName));
+				NS_GET16(hostPreference, rrData);
+
+				rc = ns_name_uncompress(ns_msg_base(pDqrr->rrMsg), ns_msg_end(pDqrr->rrMsg), rrData, hostName, sizeof(hostName));
+				if(rc != -1)
+				{	int i,isDuplicate;
+
+					// search for duplicate mx records
+					for(i=0,isDuplicate=0; i < rrl->qty && !isDuplicate; i++)
+						isDuplicate = !strcasecmp(rrl->mx[i].name, hostName);
+
+					// if not duplicate
+					if(!isDuplicate)
+					{
+						// save the mx record info
+						strcpy(rrl->mx[rrl->qty].name, hostName);
+						rrl->mx[rrl->qty].pref = hostPreference;
+
+						// find all the hosts for the listed mx
+						mx_get_rr_hosts(pDqrr->statp, &rrl->mx[rrl->qty]);
+						rrl->qty++;
+					}
+				}
+			}
+			break;
+	}
+
+	return 1; // find all mx records
+}
+
+// find mx records and coresponding A and AAAA records per host for a given domain
+mx_rr_list *mx_get_rr_bydomain(const res_state statp, mx_rr_list *rrl, const char *name)
+{	dqrr_t *pDqrr = dns_query_rr_init(statp, ns_t_mx);
+
+	// find mx records
+	if(pDqrr != NULL)
+	{	int rc = dns_query_rr_resp(pDqrr, name);
+
+		if(rc > 0)
 		{
-			mx_parse_rr_query(statp,rrl,handle,ns_s_an);
-			strcpy(rrl->domain,name);
+			dns_parse_response_answer(pDqrr, &mx_get_rr_bydomainCallback, rrl);
+			if(rrl->qty)
+				strcpy(rrl->domain,name);
 		}
+		dns_query_rr_free(pDqrr);
 	} 
 
-	if(resp != NULL) 
-		{free(resp); resp=NULL;}
-
+	// no mx records found, build an entry to satisfy rfc2821
 	if(rrl->qty == 0)
 	{
 		strcpy(rrl->domain,name);
@@ -170,141 +188,15 @@ mx_rr_list *mx_get_rr_bydomain(const res_state statp, mx_rr_list *rrl, const cha
 			MX).  In addition, the mailer should do no further processing on the
 			list, but should attempt to deliver the message to REMOTE.  ... "
 		*/
-		strcpy(rrl->mx[rrl->qty].name,name);	/* mx hostname */
-		rrl->mx[rrl->qty].pref = 0;		/* mx host preference */
-		mx_get_rr_hosts(statp, &rrl->mx[rrl->qty++]);	/* find A RRs for hosts */
-		if(rrl->mx[0].qty == 0)	/* if no A RRs, */
-			rrl->qty = 0;	/* then no MX RRs either */
+		strcpy(rrl->mx[rrl->qty].name,name);	// mx hostname
+		rrl->mx[rrl->qty].pref = 0;		// mx host preference
+
+		// find all the hosts for the listed mx
+		mx_get_rr_hosts(statp, &rrl->mx[rrl->qty++]);
+
+		if(rrl->mx[0].qty == 0)	// if no A or AAAA RRs,
+			rrl->qty = 0;	// then no MX RRs either
 	}
 
-	return(rrl);
-}
-
-char *mx_get_host_ptr(const res_state statp, const char *ipstr, char *hostname, int hostnamelen)
-{	ns_msg	handle;
-	u_char	*resp = NULL;
-	ns_rr	rr;
-	char	hn[MAXDNAME];
-
-	memset(hostname,0,hostnamelen);
-	if(mx_res_search(statp, ipstr, ns_c_in, ns_t_ptr, &resp, &handle) > -1 &&
-		ns_msg_count(handle,ns_s_an) == 1 &&
-		ns_parserr(&handle,ns_s_an,0,&rr) == 0 &&
-		ns_rr_type(rr) == ns_t_ptr &&
-		ns_name_uncompress(ns_msg_base(handle),ns_msg_end(handle),ns_rr_rdata(rr),hn,sizeof(hn)) != -1
-		)
-		strncpy(hostname,hn,hostnamelen);
-
-	if(resp != NULL)
-		free(resp);
-
-	return(strlen(hostname) ? hostname : NULL);
-}
-
-mx_rr_list *mx_get_rr_byipstr(const res_state statp, const char *ipstr, mx_rr_list *rrl)
-{	char	buf[1024];
-	int	buflen=sizeof(buf);
-
-	if(mx_get_host_ptr(statp, ipstr,buf,buflen) != NULL)
-	{
-		strcpy(rrl->domain,buf);
-		mx_get_rr_bydomain(statp,rrl,buf);
-	}
-
-	return(rrl);
-}
-
-mx_rr_list *mx_get_rr_byip(const res_state statp, mx_rr_list *rrl, long ip)
-{	char	ipstr[1024];
-
-	rrl->ip = ip;
-	sprintf(ipstr,"%u.%u.%u.%u.in-addr.arpa",
-		(int)((ip&0x000000ff)),(int)((ip&0x0000ff00)>>8),
-		(int)((ip&0x00ff0000)>>16),(int)((ip&0xff000000)>>24));
-
-	return(mx_get_rr_byipstr(statp,ipstr,rrl));
-}
-
-char ipbuf[50];
-char *ip2str(long ip)
-{
-	sprintf(ipbuf,"%u.%u.%u.%u",
-		(int)((ip&0xff000000)>>24),(int)((ip&0x00ff0000)>>16),
-		(int)((ip&0x0000ff00)>>8),(int)((ip&0x000000ff)));
-
-	return(ipbuf);
-}
-
-mx_rr_list *mx_show_rr(mx_rr_list *rrl)
-{	int	i,j;
-	mx_rr	*rr;
-
-	if(rrl->qty == 0)
-		printf("no mx records\n");
-	else
-	{
-		for(i=0; i<rrl->qty; i++)
-		{
-			rr = &rrl->mx[i];
-			printf("\tMX %u %s\n",rr->pref,rr->name);
-			for(j=0; j<rr->qty; j++)
-				printf("\t\tA %s\n",ip2str(rr->host[j].ip));
-		}
-	}
-
-	return(rrl);
-}
-
-int mx_get_rr_match(mx_rr_list *rrl)
-{	int	i,j;
-
-	for(i=0; i<rrl->qty && !rrl->match; i++)
-	{
-		for(j=0; j<rrl->mx[i].qty && !rrl->match; j++)
-			rrl->match = (rrl->mx[i].host[j].ip == rrl->ip);
-	}
-
-	return(rrl->match);
-}
-
-void mx_get_rr_recurse_host(const res_state statp, mx_rr_list *rrl)
-{	char	*s,*d;
-
-	while(!mx_get_rr_match(rrl) && strlen(rrl->domain))
-	{
-		d = rrl->domain;
-		if(strlen(d))
-		{
-			s = strchr(d,'.');
-			if(s != NULL)
-			{
-				s++;
-				while(*s)
-					*(d++) = *(s++);
-			}
-			*d = '\0';
-			if(strlen(rrl->domain))
-				mx_get_rr_bydomain(statp, rrl,rrl->domain);
-		}
-	}
-}
-
-mx_rr_list *mx_get_rr(const res_state statp, mx_rr_list *rrl, long ip, const char *name, int collect)
-{
-
-	memset(rrl,0,sizeof(mx_rr_list));
-	if(ip)
-		mx_get_rr_recurse_host(statp,mx_get_rr_byip(statp,rrl,ip));
-
-	if(!rrl->match && name != NULL && strlen(name))
-	{
-		if(!collect)
-		{
-			memset(rrl,0,sizeof(mx_rr_list));
-			rrl->ip = ip;
-		}
-		mx_get_rr_recurse_host(statp,mx_get_rr_bydomain(statp,rrl,name));
-	}
-
-	return(rrl);
+	return rrl;
 }
