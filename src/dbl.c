@@ -175,6 +175,7 @@ void dbl_check_all(const res_state statp, const dblq_t *pDblq)
 int dbl_callback_policy_std(dblcb_t *pDblcb)
 {	int bCallbackProceed = 0;
 	dqrr_t *pDqrr = pDblcb->pDqrr;
+	int nsType = ns_rr_type(pDqrr->rr);
 
 	// http://www.spamhaus.org/faq/section/Spamhaus%20DBL#277
 	// http://www.rfc-editor.org/rfc/rfc5782.txt
@@ -193,7 +194,7 @@ int dbl_callback_policy_std(dblcb_t *pDblcb)
 	// 127.0.0.106	abused legit botnet C&C
 	// 127.0.0.255	IP queries prohibited!
 
-	switch(ns_rr_type(pDqrr->rr))
+	switch(nsType)
 	{
 		case ns_t_a: // 0x7f0000xx
 			if(ns_rr_rdlen(pDqrr->rr) == NS_INADDRSZ)
