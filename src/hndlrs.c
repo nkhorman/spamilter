@@ -710,7 +710,7 @@ int mlfi_greylist(SMFICTX *ctx)
 						size_t i;
 
 						memset(&in6_addr, 0, sizeof(in6_addr));
-						for(i=0; i<4; i++)
+						for(i=0; i<4; i++) // mask for /64, by only coping the top 64 bits
 							in6_addr.__u6_addr.__u6_addr16[i] = ((struct sockaddr_in6 *)priv->pip)->sin6_addr.__u6_addr.__u6_addr16[i];
 						pInAddr = (char *)&in6_addr;
 #endif
@@ -1202,8 +1202,8 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 		// The HLO MTA hostname should resolve to an ip address
 		if(continue_checks
 			&& gMtaHostChk
-			&& !dns_query_rr(priv->presstate, ns_t_a, "%s", priv->helo)
-			&& !dns_query_rr(priv->presstate, ns_t_aaaa, "%s", priv->helo)
+			&& !dns_query_rr(priv->presstate, ns_t_a, priv->helo)
+			&& !dns_query_rr(priv->presstate, ns_t_aaaa, priv->helo)
 			)
 		{
 			mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Invalid hostname '%s', Please see: %s#invalidhostname",priv->helo,gPolicyUrl);
@@ -1283,8 +1283,7 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 		if(continue_checks
 			&& gMtaHostIpChk
 			&& strcmp(priv->helo,priv->iphostname) != 0
-			// TODO - ipv6
-			&& priv->pip->sa_family == AF_INET && !dns_hostname_ip_match(priv->presstate,priv->helo,ntohl(satosin(priv->pip)->sin_addr.s_addr))
+			&& !dns_hostname_ip_match_sa(priv->presstate, priv->helo, priv->pip)
 			)
 		{
 			mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Helo hostname/ip mismatch, Please see: %s#hostnameipmismatch",gPolicyUrl);
