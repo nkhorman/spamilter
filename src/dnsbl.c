@@ -197,22 +197,22 @@ typedef struct _dcrc_t
 	const char *pArpaIpStr;
 } dcrc_t; // Dnsbl_Check_Rbl_Callback
 
-static int dnsbl_check_rbl_callback(nsrr_t *pNsrr, void *pdata)
+static int dnsbl_check_rbl_callback(dqrr_t *pDqrr, void *pdata)
 {	dcrc_t *pDcrc = (dcrc_t *)pdata;
-	int nsType = ns_rr_type(pNsrr->rr);
+	int nsType = ns_rr_type(pDqrr->rr);
 	char buf[INET6_ADDRSTRLEN+1];
 
 	memset(buf,0,sizeof(buf));
 	switch(nsType)
 	{
 		case ns_t_a:
-			if(ns_rr_rdlen(pNsrr->rr) == NS_INADDRSZ)
-				inet_ntop(AF_INET, ns_rr_rdata(pNsrr->rr), buf, sizeof(buf)-1);
+			if(ns_rr_rdlen(pDqrr->rr) == NS_INADDRSZ)
+				inet_ntop(AF_INET, ns_rr_rdata(pDqrr->rr), buf, sizeof(buf)-1);
 			break;
 
 		case ns_t_aaaa:
-			if(ns_rr_rdlen(pNsrr->rr) == NS_IN6ADDRSZ)
-				inet_ntop(AF_INET6, ns_rr_rdata(pNsrr->rr), buf, sizeof(buf)-1);
+			if(ns_rr_rdlen(pDqrr->rr) == NS_IN6ADDRSZ)
+				inet_ntop(AF_INET6, ns_rr_rdata(pDqrr->rr), buf, sizeof(buf)-1);
 			break;
 	}
 
@@ -225,25 +225,24 @@ static int dnsbl_check_rbl_callback(nsrr_t *pNsrr, void *pdata)
 	return 1; // again
 }
 
-int dnsbl_check_rbl(const char *pSessionId, const res_state statp, struct sockaddr *psa, char *domain)
-{	int rc = -1;
-	int flagged = 0;
+int dnsbl_check_rbl_af(const char *pSessionId, const res_state statp, int afType, const char *in, char *domain)
+{	int flagged = 0;
 
-	if(psa != NULL && domain != NULL && *domain)
-	{	u_char resp[NS_PACKETSZ];
-		char *pIpStr = mlfi_inet_ntopSA(psa);
-		char *pArpaIpStr = dns_inet_ptoarpa(pIpStr, psa->sa_family, domain);
+	if(domain != NULL && *domain)
+	{	dqrr_t *pDqrr = NULL;
+		char *pIpStr = mlfi_inet_ntopAF(afType, in);
+		char *pArpaIpStr = dns_inet_ptoarpa(pIpStr, afType, domain);
+		int nsType = 0;
+		int rc = -1;
 
-		switch(psa->sa_family)
+		switch(afType)
 		{
-			case AF_INET:
-				rc = dns_query_rr_resp(statp, resp, sizeof(resp), ns_t_a, "%s", pArpaIpStr);
-				break;
-
-			case AF_INET6:
-				rc = dns_query_rr_resp(statp, resp, sizeof(resp), ns_t_aaaa, "%s", pArpaIpStr);
-				break;
+			case AF_INET:	nsType = ns_t_a;	break;
+			case AF_INET6:	nsType = ns_t_aaaa;	break;
 		}
+
+		pDqrr = dns_query_rr_init(statp, nsType);
+		rc = dns_query_rr_resp(pDqrr, pArpaIpStr);
 
 		if(rc > 0)
 		{
@@ -253,17 +252,36 @@ int dnsbl_check_rbl(const char *pSessionId, const res_state statp, struct sockad
 			dcrc.pSessionId = pSessionId;
 			dcrc.pArpaIpStr = pArpaIpStr;
 
-			dns_parse_response_answer(resp, rc, &dnsbl_check_rbl_callback, &dcrc);
+			dns_parse_response_answer(pDqrr, &dnsbl_check_rbl_callback, &dcrc);
 			flagged = dcrc.flagged;
 		}
 		else
 			mlfi_debug(pSessionId, "dnsbl_check_rbl '%s' - not listed\n", pArpaIpStr);
+		dns_query_rr_free(pDqrr);
 
 		if(pIpStr != NULL)
 			free(pIpStr);
 
 		if(pArpaIpStr != NULL)
 			free(pArpaIpStr);
+	}
+
+	return flagged;
+}
+
+int dnsbl_check_rbl_sa(const char *pSessionId, const res_state statp, struct sockaddr *psa, char *domain)
+{	int flagged = 0;
+
+	if(psa != NULL)
+	{	const char *in = NULL;
+
+		switch(psa->sa_family)
+		{
+			case AF_INET: in = (char *) &((struct sockaddr_in *)psa)->sin_addr; break;
+			case AF_INET6: in = (const char *)&((struct sockaddr_in6 *)psa)->sin6_addr; break;
+		}
+
+		flagged = dnsbl_check_rbl_af(pSessionId, statp, psa->sa_family, in, domain);
 	}
 
 	return flagged;
@@ -291,7 +309,7 @@ RBLLISTMATCH *dnsbl_check(const char *pSessionId, int stage, RBLLISTHOSTS *prbls
 		for(i=0; i<prbls->qty; i++)
 		{
 			prblh = prbls->plist + i;
-			if(prblh->stage == stage && dnsbl_check_rbl(pSessionId, presstate, psa, prblh->hostname) > 0)
+			if(prblh->stage == stage && dnsbl_check_rbl_sa(pSessionId, presstate, psa, prblh->hostname) > 0)
 			{
 				mlfi_debug(pSessionId,"dnsbl_check '%s.%s' - Blacklisted\n", pipstr, prblh->hostname);
 				*prbl = prblh;

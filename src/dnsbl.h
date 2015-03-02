@@ -65,7 +65,9 @@
 		RBLHOST **ppmatch;
 	}RBLLISTMATCH;
 
-	int dnsbl_check_rbl(const char *pSessionId, const res_state statp, struct sockaddr *psa, char *domain);
+	int dnsbl_check_rbl_af(const char *pSessionId, const res_state statp, int afType, const char *in, char *domain);
+	int dnsbl_check_rbl_sa(const char *pSessionId, const res_state statp, struct sockaddr *psa, char *domain);
+
 	RBLLISTMATCH *dnsbl_check(const char *pSessionId, int stage, RBLLISTHOSTS *prbls, struct sockaddr *psa, res_state presstate);
 	RBLHOST *dnsbl_action(const char *pSessionId, RBLHOST **prbls, int stage);
 
