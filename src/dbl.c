@@ -74,16 +74,16 @@ typedef struct _dbldns_t
 // functions that only care about when the DBL failed the queried
 // Domain.
 // (That is one long runon sentence...)
-static int dbl_check_callback(nsrr_t *pNsrr, void *pData)
+static int dbl_check_callback(dqrr_t *pDqrr, void *pData)
 {	dbldns_t *pDbldns = (dbldns_t *)pData;
 
 	// convience pointers
 	dblcb_t *pDblcb = &pDbldns->dblcb;
 	const dblq_t *pDblq = pDblcb->pDblq;
 
-	pDblcb->pNsrr = pNsrr;
+	pDblcb->pDqrr = pDqrr;
 
-	switch(ns_rr_type(pDblcb->pNsrr->rr))
+	switch(ns_rr_type(pDblcb->pDqrr->rr))
 	{
 		// valid DBL answer types
 		case ns_t_a: // 0x7f0001xx
@@ -124,8 +124,8 @@ static int dbl_check_callback(nsrr_t *pNsrr, void *pData)
 // a context struct, to pass through the iterator to use when calling the consumer's callback.
 // Double your pleasure, double your fun... :)
 int dbl_check(const res_state statp, const char *pDbl, const dblq_t *pDblq)
-{	u_char resp[NS_PACKETSZ];
-	int rc = dns_query_rr_resp(statp, &resp[0], sizeof(resp), ns_t_a, "%s.%s", pDblq->pDomain, pDbl);
+{	dqrr_t *pDqrr = dns_query_rr_init(statp, ns_t_a);
+	int rc = dns_query_rr_resp_printf(pDqrr, "%s.%s", pDblq->pDomain, pDbl);
 	int again = 1;
 
 	if(rc > 0)
@@ -137,10 +137,12 @@ int dbl_check(const res_state statp, const char *pDbl, const dblq_t *pDblq)
 		dbldns.dblcb.pDbl = pDbl;
 		dbldns.again = 1;
 
-		dns_parse_response_answer(resp, rc, &dbl_check_callback, &dbldns);
+		dns_parse_response_answer(pDqrr, &dbl_check_callback, &dbldns);
 
 		again = dbldns.again;
 	}
+
+	dns_query_rr_free(pDqrr);
 
 	return again;
 }
@@ -172,37 +174,37 @@ void dbl_check_all(const res_state statp, const dblq_t *pDblq)
 
 int dbl_callback_policy_std(dblcb_t *pDblcb)
 {	int bCallbackProceed = 0;
-	nsrr_t *pNsrr = pDblcb->pNsrr;
+	dqrr_t *pDqrr = pDblcb->pDqrr;
 
 	// http://www.spamhaus.org/faq/section/Spamhaus%20DBL#277
 	// http://www.rfc-editor.org/rfc/rfc5782.txt
 	//
 	// http://www.spamhaus.org/faq/section/Spamhaus%20DBL#291
 	// Return Codes	Data Source
-	// 127.0.1.2	spam domain
-	// 127.0.1.4	phish domain
-	// 127.0.1.5	malware domain
-	// 127.0.1.6	botnet C&C domain
+	// 127.0.0.2	spam domain
+	// 127.0.0.4	phish domain
+	// 127.0.0.5	malware domain
+	// 127.0.0.6	botnet C&C domain
 	// http://www.spamhaus.org/faq/section/Spamhaus%20DBL#411
-	// 127.0.1.102	abused legit spam
-	// 127.0.1.103	abused spammed redirector domain
-	// 127.0.1.104	abused legit phish
-	// 127.0.1.105	abused legit malware
-	// 127.0.1.106	abused legit botnet C&C
-	// 127.0.1.255	IP queries prohibited!
+	// 127.0.0.102	abused legit spam
+	// 127.0.0.103	abused spammed redirector domain
+	// 127.0.0.104	abused legit phish
+	// 127.0.0.105	abused legit malware
+	// 127.0.0.106	abused legit botnet C&C
+	// 127.0.0.255	IP queries prohibited!
 
-	switch(ns_rr_type(pNsrr->rr))
+	switch(ns_rr_type(pDqrr->rr))
 	{
-		case ns_t_a: // 0x7f0001xx
-			if(ns_rr_rdlen(pNsrr->rr) == NS_INADDRSZ)
-			{	unsigned long ip = ns_get32(ns_rr_rdata(pNsrr->rr));
+		case ns_t_a: // 0x7f0000xx
+			if(ns_rr_rdlen(pDqrr->rr) == NS_INADDRSZ)
+			{	unsigned long ip = ns_get32(ns_rr_rdata(pDqrr->rr));
 
-				if((ip&0xffffff00) == 0x7f000100)
+				if((ip&0xffffff00) == 0x7f000000)
 				{
 					pDblcb->abused = ((ip & 0x000000ff) >= 100); // an abused domain
 
 					if(!pDblcb->abused)
-						pDblcb->pDblResult = mlfi_inet_ntopAF(AF_INET, (char *)ns_rr_rdata(pNsrr->rr));
+						pDblcb->pDblResult = mlfi_inet_ntopAF(AF_INET, (char *)ns_rr_rdata(pDqrr->rr));
 
 					bCallbackProceed = !pDblcb->abused;
 				}
@@ -211,16 +213,16 @@ int dbl_callback_policy_std(dblcb_t *pDblcb)
 
 		case ns_t_aaaa: // ::FFFF:7F00:2
 			// TODO - none of this logic is validated
-			if(ns_rr_rdlen(pNsrr->rr) == NS_IN6ADDRSZ)
+			if(ns_rr_rdlen(pDqrr->rr) == NS_IN6ADDRSZ)
 			{
-				struct in6_addr *pIp6 = (struct in6_addr *)ns_rr_rdata(pNsrr->rr);
+				struct in6_addr *pIp6 = (struct in6_addr *)ns_rr_rdata(pDqrr->rr);
 
 				// 0x0000_0000 0000_0000 0000_ffff 7f00_0002
 				if(
 					pIp6->s6_addr32[0] == 0
 					&& pIp6->s6_addr32[1] == 0
 					&& pIp6->s6_addr32[2] == 0x0000ffff
-					&& (pIp6->s6_addr32[3] & 0xffffff00) == 0x7f000100
+					&& (pIp6->s6_addr32[3] & 0xffffff00) == 0x7f000000
 					)
 				{
 					pDblcb->abused = ((pIp6->s6_addr32[3] & 0x000000ff) >= 100); // an abused domain
@@ -229,12 +231,6 @@ int dbl_callback_policy_std(dblcb_t *pDblcb)
 						pDblcb->pDblResult = mlfi_inet_ntopAF(AF_INET6, (char *)pIp6);
 				}
 			}
-			break;
-
-		//case ns_t_txt: // TODO
-		//	break;
-
-		default:
 			break;
 	}
 

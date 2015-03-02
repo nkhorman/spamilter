@@ -63,7 +63,7 @@
 	{
 		const dblq_t *pDblq;
 		const char *pDbl;
-		nsrr_t *pNsrr;
+		dqrr_t *pDqrr;
 
 		// NB. It's the callback policy function's reponsibility
 		// to fill this out for the callback function's use.
