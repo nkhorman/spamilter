@@ -67,7 +67,8 @@ int gDebug = 0;
 
 res_state	gStatp = NULL;
 
-int testip(char *ipstr, unsigned long ip, char *dbpath)
+// Test if a host is RBL'd
+int testip_af(int afType, const char *in, const char *dbpath)
 {	char		*str;
 	char		buf[8192];
 	char		hostbuf[1024];
@@ -77,7 +78,7 @@ int testip(char *ipstr, unsigned long ip, char *dbpath)
 
 	sprintf(sessionId,"%04X",(unsigned int)pthread_self());
 
-	asprintf(&str,"%s/db.rdnsbl",dbpath);
+	asprintf(&str, "%s/db.rdnsbl", dbpath);
 	fd = open(str,O_RDONLY);
 	if(fd == -1)
 		mlfi_debug(sessionId,"hostListOpen: unable to open RDNSBL host file '%s'\n",str);
@@ -99,14 +100,10 @@ int testip(char *ipstr, unsigned long ip, char *dbpath)
 			}
 
 			if(strlen(buf))
-			{	struct sockaddr_in s;
-
-				s.sin_addr.s_addr = htonl(ip);
-				s.sin_family = AF_INET;
-
+			{
 				mlfi_strcpyadv(hostbuf,sizeof(hostbuf),buf,'|');
 				//mlfi_debug(sessinId,"checking - %s %s\n",hostbuf,buf);
-				if(strlen(hostbuf) && dnsbl_check_rbl(sessionId, gStatp, (struct sockaddr *)&s, hostbuf))
+				if(strlen(hostbuf) && dnsbl_check_rbl_af(sessionId, gStatp, afType, in, hostbuf))
 				{
 					/*
 					mlfi_debug(sessinId,"\t\t'%u.%u.%u.%u.%s' - Blacklisted\n",
@@ -126,43 +123,128 @@ int testip(char *ipstr, unsigned long ip, char *dbpath)
 	return(count);
 }
 
-int testipstr(char *argv, char *path)
-{	int	a,b,c,d;
-	int	rc = -1;
+// Test a single hostname to see if it is RBL'd
+int testipstr(const char *pIpStr, const char *path)
+{	int	rc = -1;
 
-	if(argv != NULL && *argv && sscanf(argv,"%u.%u.%u.%u",&a,&b,&c,&d) == 4)
-		 rc = testip(argv,mkip(a,b,c,d),path);
-	else
-		printf("testipstr: bogus ip address %s\n",argv);
+	if(pIpStr != NULL && path != NULL)
+	{
+		char bufnet[sizeof(struct in6_addr)];
+		struct in_addr *pIp4 = (struct in_addr *)bufnet;
+		struct in6_addr *pIp6 = (struct in6_addr *)bufnet;
+
+		memset(bufnet,0,sizeof(bufnet));
+
+		// Test an ipv4 host
+		if(inet_pton(AF_INET, pIpStr, pIp4))
+			rc = testip_af(AF_INET, (char *)pIp4, path);
+		// Test an ipv6 host
+		else if(inet_pton(AF_INET6, pIpStr, pIp6))
+			rc = testip_af(AF_INET6, (char *)pIp6, path);
+	}
 
 	return rc;
 }
 
+int mx_get_rr_match(mx_rr_list *rrl)
+{	int	i,j;
+
+	for(i=0; i<rrl->qty && !rrl->match; i++)
+	{
+		for(j=0; j<rrl->mx[i].qty && !rrl->match; j++)
+		{
+			switch(rrl->mx[i].host[j].nsType)
+			{
+				case ns_t_a:
+					rrl->match = (rrl->mx[i].host[j].nsType == rrl->nsType && rrl->mx[i].host[j].ipv4 == rrl->ipv4);
+					break;
+
+				case ns_t_aaaa:
+					rrl->match = (rrl->mx[i].host[j].nsType == rrl->nsType
+						&& memcmp(&rrl->mx[i].host[j].ipv6, &rrl->ipv6, sizeof(rrl->ipv6)) == 0
+						);
+					break;
+			}
+		}
+	}
+
+	return(rrl->match);
+}
+
+void mx_get_rr_recurse_host(const res_state statp, mx_rr_list *rrl)
+{	char	*s,*d;
+
+	while(!mx_get_rr_match(rrl) && strlen(rrl->domain))
+	{
+		d = rrl->domain;
+		if(strlen(d))
+		{
+			s = strchr(d,'.');
+			if(s != NULL)
+			{
+				s++;
+				while(*s)
+					*(d++) = *(s++);
+			}
+			*d = '\0';
+			if(strlen(rrl->domain))
+				mx_get_rr_bydomain(statp, rrl,rrl->domain);
+		}
+	}
+}
+
+// test if mx hosts for a given domain are RBL'd
 void testdomainmx(char *domain, char *path)
 {	mx_rr_list	mxrrl;
 	mx_rr_list	*rrl = &mxrrl;
 	int	i,j;
 	mx_rr	*rr;
 
-	memset(rrl,0,sizeof(mx_rr_list));
-	mx_get_rr_recurse_host(gStatp,mx_get_rr_bydomain(gStatp,rrl,domain));
+	memset(rrl, 0, sizeof(mx_rr_list));
+	mx_get_rr_recurse_host(gStatp, mx_get_rr_bydomain(gStatp, rrl, domain));
 	
 	if(rrl->qty == 0)
 		printf("no mx records\n");
 	else
 	{
 		printf("Domain: %s\n",domain);
+		// for each of the mx records
 		for(i=0; i<rrl->qty; i++)
 		{
 			rr = &rrl->mx[i];
 			printf("\tMX %u %s\n",rr->pref,rr->name);
+			// for each of the hosts of the mx records
 			for(j=0; j<rr->qty; j++)
-			{	char ipstr[50];
-			
-				strcpy(ipstr,ip2str(rr->host[j].ip));
-				printf("\t\tA %s\n",ip2str(rr->host[j].ip));
-				if(testip(ipstr,rr->host[j].ip,path) == 0)
-					printf("\t\tPassed\n");
+			{
+				switch(rr->host[j].nsType)
+				{
+					case ns_t_a:
+						{	struct in_addr ip;
+							char *pStr = NULL;
+
+							ip.s_addr = htonl(rr->host[j].ipv4);
+							pStr = mlfi_inet_ntopAF(AF_INET, (char *)&ip);
+
+							// test if the host is RBL'd
+							printf("\t\tA %s\n", pStr);
+							if(testip_af(AF_INET, (char *)&ip, path) == 0)
+								printf("\t\tPassed\n");
+							free(pStr);
+						}
+						break;
+
+					case ns_t_aaaa:
+						{
+							char *pStr = mlfi_inet_ntopAF(AF_INET6, (char *)&rr->host[j].ipv6);
+
+							// test if the host is RBL'd
+							printf("\t\tAAAA %s\n", pStr);
+							if(testip_af(AF_INET6, (char *)&rr->host[j].ipv6, path) == 0)
+								printf("\t\tPassed\n");
+							free(pStr);
+						}
+						break;
+				}
 			}
 		}
 	}
@@ -226,7 +308,6 @@ int main(int argc, char **argv)
 	gDebug = 0;
 	gStatp = RES_NALLOC(gStatp);
 	res_ninit(gStatp);
-
 
 	gethostname(gHostnameBuf,sizeof(gHostnameBuf)-1);
 	printf("Hostname: '%s'\n",gHostnameBuf);
