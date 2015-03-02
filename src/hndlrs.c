@@ -396,9 +396,9 @@ sfsistat mlfi_connect(SMFICTX *ctx, char *hostname, _SOCK_ADDR *hostaddr)
 		switch(priv->pip->sa_family)
 		{
 			case AF_INET:
-				priv->islocalnethost = ( ntohl(satosin(priv->pip)->sin_addr.s_addr) == INADDR_LOOPBACK );
+				priv->islocalnethost = ( ntohl(((struct sockaddr_in *)priv->pip)->sin_addr.s_addr) == INADDR_LOOPBACK );
 				if(!priv->islocalnethost)
-					priv->islocalnethost = ifi_islocalnet(ntohl(satosin(priv->pip)->sin_addr.s_addr));
+					priv->islocalnethost = ifi_islocalnet(ntohl(((struct sockaddr_in *)priv->pip)->sin_addr.s_addr));
 				break;
 			case AF_INET6:
 				{	struct in6_addr *pAddr = &((struct sockaddr_in6 *)priv->pip)->sin6_addr;
@@ -923,7 +923,7 @@ sfsistat mlfi_header(SMFICTX *ctx, char *headerf, char *headerv)
 				);
 
 			// RBL check the ip in the "Recevied by/from:" header if it is routable
-			if(routeable && ip != ntohl(satosin(priv->pip)->sin_addr.s_addr))
+			if(routeable && ip != ntohl(((struct sockaddr_in *)priv->pip)->sin_addr.s_addr))
 			{	struct sockaddr_in s;
 				RBLLISTMATCH *prblmatch = NULL;
 
@@ -1328,7 +1328,7 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 			switch(priv->pip->sa_family)
 			{
 				case AF_INET:
-					isLoopBack = (ntohl(satosin(priv->pip)->sin_addr.s_addr) == INADDR_LOOPBACK);
+					isLoopBack = (ntohl(((struct sockaddr_in *)priv->pip)->sin_addr.s_addr) == INADDR_LOOPBACK);
 					break;
 				case AF_INET6:
 					isLoopBack = IN6_ARE_ADDR_EQUAL( &((struct sockaddr_in6 *)priv->pip)->sin6_addr, &in6addr_loopback);
