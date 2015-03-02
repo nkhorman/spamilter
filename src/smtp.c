@@ -148,22 +148,41 @@ int smtp_host_is_deliverable(const char *pSessionId, const char *mbox, const cha
 }
 
 int smtp_mx_is_deliverable(const char *pSessionId, mx_rr *rr, const char *mbox, const char *dom, int *smtprc)
-{	int	tst = -1;
-	int	j;
+{	int j,tst = -1;
 
 	mlfi_debug(pSessionId,"\tMX %u %s\n",rr->pref,rr->name);
 	rr->visited = 1;
-	for(j=0; tst==-1 && j<rr->qty; j++)
+
+	for(j=0; tst == -1 && j < rr->qty; j++)
 	{
-// TODO - ipv6
-		mlfi_debug(pSessionId,"\t\tA %s\n",ip2str(rr->host[j].ip));
-		if(ifi_islocalip(rr->host[j].ip))
+		switch(rr->host[j].nsType)
 		{
-			tst = 2;
-			*smtprc = 250;
+			case ns_t_a:
+				{	struct in_addr ip;
+					char *pStr = NULL;
+
+					ip.s_addr = htonl(rr->host[j].ipv4);
+					pStr = mlfi_inet_ntopAF(AF_INET, (char *)&ip);
+
+					mlfi_debug(pSessionId,"\t\tA %s\n", pStr);
+					if(ifi_islocalip(rr->host[j].ipv4))
+					{
+						tst = 2;
+						*smtprc = 250;
+					}
+					else
+						tst = smtp_host_is_deliverable(pSessionId, mbox, dom, rr->host[j].ipv4, smtprc);
+					free(pStr);
+				}
+				break;
+
+			case ns_t_aaaa:
+				// TODO - ipv6
+				printf("%s:%s:%d - TODO - ipv6\n", __FILE__, __func__, __LINE__);
+				break;
 		}
-		else
-			tst = smtp_host_is_deliverable(pSessionId,mbox,dom,rr->host[j].ip,smtprc);
+
+
 		switch(tst)
 		{
 			case 2:
