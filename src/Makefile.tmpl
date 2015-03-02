@@ -155,8 +155,8 @@
 <ALL>ipfwmtad: Makefile ipfwmtad.c <INC_FreeBSD ipfw_direct.c> inet.c misc.c <WITH_PAM pam.o> uam.o ipfwmtad.o <INC_FreeBSD ipfw_direct.o> inet.o misc.o <WITH_PAM pam.o> uam.o key.o inet.h misc.h <WITH_PAM pam.h> uam.h key.h config.h
 <ALL>	${CC} ${CFLAGS} -o ipfwmtad ipfwmtad.o <INC_FreeBSD ipfw_direct.o> inet.o misc.o <WITH_PAM pam.o> uam.o key.o <WITH_PAM -lpam> -lcrypto -lcrypt
 <ALL>
-<ALL>mxlookup: Makefile mxlookup.c mx.c <WITH_NSCOMPAT ${NRSRCS}> mxlookup.o mx.o <WITH_NSCOMPAT ${NROBJS}> mx.h
-<ALL>	${CC} ${CFLAGS} -o mxlookup mxlookup.o mx.o ${LIBDIRS} ${LIBS} <WITH_NSCOMPAT ${NROBJS}> <NOT_BSD -lresolv>
+<ALL>mxlookup: Makefile mxlookup.c mx.c <WITH_NSCOMPAT ${NRSRCS}> mxlookup.o mx.o mx.h dns.o dns.h misc.o misc.h <WITH_NSCOMPAT ${NROBJS}>
+<ALL>	${CC} ${CFLAGS} -o mxlookup mxlookup.o mx.o dns.o misc.o ${LIBDIRS} ${LIBS} <WITH_NSCOMPAT ${NROBJS}> <NOT_BSD -lresolv>
 <ALL>	
 <ALL>iflookup: Makefile iflookup.c ifi.c iflookup.o ifi.o ifi.h
 <ALL>	${CC} ${CFLAGS} -o iflookup iflookup.o ifi.o ${LIBDIRS} ${LIBS}
