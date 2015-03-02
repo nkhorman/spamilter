@@ -70,8 +70,8 @@ void usage()
 
 void lookup(res_state statp, char *pHost)
 {
-	int ra = dns_query_rr(statp, ns_t_a, "%s", pHost);
-	int raaaa = (ra == 0 ? dns_query_rr(statp, ns_t_aaaa, "%s", pHost) : 0);
+	int ra = dns_query_rr(statp, ns_t_a, pHost);
+	int raaaa = (ra == 0 ? dns_query_rr(statp, ns_t_aaaa, pHost) : 0);
 	int rr = ra + raaaa;
 
 	printf("%s record for %s %s\n", (ra ? "A" : (raaaa ? "AAAA" : "No")), pHost, (rr ? "exists." : "found."));
