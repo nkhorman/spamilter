@@ -47,30 +47,50 @@
 
 	#define mkip(a,b,c,d) ((((a)&0xff)<<24)|(((b)&0xff)<<16)|(((c)&0xff)<<8)|((d)&0xff))
 
-	// primatives
-	// The consumer provides the response buffer
-	int dns_query_rr_resp_v(const res_state statp, u_char *presp, size_t respLen, int nsType, char *fmt, va_list vl);
-	// The consumer provides the response buffer, because they want to parse it
-	int dns_query_rr_resp(const res_state statp, u_char *presp, size_t respLen, int nsType, char *fmt, ...);
-	// The consumer doesn't care about the response content
-	int dns_query_rr(const res_state statp, int nsType, char *fmt, ...);
-
-	// Query a hostname and find an ipv4 match
-	int dns_hostname_ip_match(const res_state statp, char *hostname, unsigned long hostip);
-
-	typedef struct _nsrrr_t
+	typedef struct _dqrr_t
 	{
+		res_state statp;
+		int nsType;
+
+		// the response buffer
 		u_char *pResp;
 		size_t respLen;
+
+		// the ns parser
 		ns_rr rr;
-	} nsrr_t;
+		int rrNum;
+		ns_msg rrMsg;
+		int rrCount;
+	} dqrr_t; // Dns Query Rr Response Type
+
+	// Create a query structure, and init with a specified type
+	dqrr_t *dns_query_rr_init(const res_state statp, int nsType);
+	// Reinitialize the query structure with a speciied type
+	dqrr_t * dns_query_rr_reinit(dqrr_t *pDqrr, int nsType);
+	// Free a query structure
+	void dns_query_rr_free(dqrr_t *pDqrr);
+
+	// Execute a query with a specified type
+	int dns_query_rr_resp(dqrr_t *pDqrr, const char *pQuery);
+	// Execute a vprintf style query with a specified type
+	int dns_query_rr_resp_vprintf(dqrr_t *pDqrr, const char *pFmt, va_list vl);
+	// Execute a printf style query with a specified type
+	int dns_query_rr_resp_printf(dqrr_t *pDqrr, const char *pFmt, ...);
+
+	// Do a query of a specified type, returning 1 if there was at least one result
+	int dns_query_rr(const res_state statp, int nsType, const char *pQuery);
 
 	// Iterate a given section of a response
-	void dns_parse_response(u_char *presp, size_t respLen, ns_sect nsSection, int (*pCallbackFn)(nsrr_t *, void *), void *pCallbackData);
+	void dns_parse_response(dqrr_t *pDqrr, ns_sect nsSect, int (*pCallbackFn)(dqrr_t *, void *), void *pCallbackData);
 	// Iterate the Answer Section of a response
-	void dns_parse_response_answer(u_char *presp, size_t respLen, int (*pCallbackFn)(nsrr_t *, void *), void *pCallbackData);
+	void dns_parse_response_answer(dqrr_t *pDqrr, int (*pCallbackFn)(dqrr_t *, void *), void *pCallbackData);
 
-	// Build an arpa request for an ipv4 or ipv6 address
+	// Query a hostname of a specified type and find a match
+	int dns_hostname_ip_match_af(const res_state statp, const char *hostname, int afType, const char *in);
+	int dns_hostname_ip_match_sa(const res_state statp, const char *hostname, struct sockaddr *psa);
+
+	// Build an arpa request for an ipv4 or ipv6 address.
 	// The consumer must free() the return value.
-	char *dns_inet_ptoarpa(const char *pHost, int afNet, const char *pDomainRoot);
+	char *dns_inet_ptoarpa(const char *pHost, int afType, const char *pDomainRoot);
+
 #endif

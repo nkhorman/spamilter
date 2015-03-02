@@ -55,40 +55,128 @@ static char const cvsid[] = "@(#)$Id: dns.c,v 1.18 2012/06/26 01:04:29 neal Exp 
 #include <resolv.h>
 #include <netdb.h>
 
-#include "spamilter.h"
 #include "dns.h"
 
-// Do a query of a specified type, return the result in the presp buffer
-// The consumer provides the response buffer
-int dns_query_rr_resp_v(const res_state statp, u_char *presp, size_t respLen, int nsType, char *fmt, va_list vl)
-{	int	rc = 0;
+// Create a query structure, and init with a specified type
+dqrr_t *dns_query_rr_init(const res_state statp, int nsType)
+{	dqrr_t *pDqrr = calloc(1, sizeof(dqrr_t));
 
-	if(fmt != NULL && *fmt)
-	{	char *hostName = NULL;
-		int x = vasprintf(&hostName,fmt,vl);
+	if(pDqrr != NULL)
+	{
+		pDqrr->statp = statp;
+		pDqrr->nsType = nsType;
+		pDqrr->respLen = NS_PACKETSZ;
+		pDqrr->pResp = calloc(1, pDqrr->respLen);
+	}
 
-		if(hostName != NULL && x > 0)
+	return pDqrr;
+}
+
+// Reinitialize the query structure with a speciied type
+dqrr_t * dns_query_rr_reinit(dqrr_t *pDqrr, int nsType)
+{
+	if(pDqrr != NULL)
+	{
+		if(pDqrr->pResp != NULL)
+			free(pDqrr->pResp);
+		pDqrr->nsType = nsType;
+		pDqrr->respLen = NS_PACKETSZ;
+		pDqrr->pResp = calloc(1, pDqrr->respLen);
+	}
+
+	return pDqrr;
+}
+
+// Free a query structure
+void dns_query_rr_free(dqrr_t *pDqrr)
+{
+	if(pDqrr != NULL)
+	{
+		if(pDqrr->pResp != NULL)
+			free(pDqrr->pResp);
+
+		free(pDqrr);
+	}
+}
+
+// Execute a query with a specified type
+int dns_query_rr_resp(dqrr_t *pDqrr, const char *pQuery)
+{	int rc = -1;
+
+	if(pDqrr != NULL && pQuery != NULL && *pQuery)
+	{	int i,queryRetries = 1;
+
+		// try hard to have a big enough buffer for the response
+		for(i=0; i<5 && pDqrr->pResp != NULL && rc < 0 && queryRetries; i++)
 		{
-			rc = res_nquery(statp, hostName, ns_c_in, nsType, presp, respLen);
-			if(rc == -1 && h_errno == NETDB_SUCCESS)
-				rc = 0;
-		}
+			rc = res_nquery(pDqrr->statp, pQuery, ns_c_in, pDqrr->nsType, pDqrr->pResp, pDqrr->respLen);
 
-		if(hostName != NULL)
-			free(hostName);
+			if(rc > 0)
+			{
+				if(rc > pDqrr->respLen)
+				{
+					pDqrr->respLen += rc;
+					pDqrr->pResp = realloc(pDqrr->pResp, pDqrr->respLen);
+				}
+				else
+					pDqrr->respLen = rc;
+			}
+			else if(rc == -1)
+			{
+				switch(h_errno)
+				{
+					case HOST_NOT_FOUND: // athorative answer
+					case NO_RECOVERY: // Non recoverable errors, FORMERR, REFUSED, NOTIMP
+					case NO_DATA: // valid name, no data record of requested type
+						// deliberate fall thru
+					case NETDB_SUCCESS: // no problem - this is NXDOMAIN
+						rc = 0;
+						break;
+
+					// attempt to query again
+					case TRY_AGAIN: // Non-Authoritative Host not found, or SERVERFAIL
+						if(queryRetries)
+						{
+							queryRetries--;
+							// cause another query
+							i = 0;
+							rc = -1;
+						}
+						break;
+				}
+			}
+		}
+		//printf("%s:%s:%d query '%s' rc %d\n", __FILE__, __func__, __LINE__, pQuery, rc);
 	}
 
 	return rc;
 }
 
-// Do a query of a specified type, returning the result in the presp buffer
-// The consumer provides the response buffer, because they want to parse it
-int dns_query_rr_resp(const res_state statp, u_char *presp, size_t respLen, int nsType, char *fmt, ...)
+// Execute a vprintf style query with a specified type
+int dns_query_rr_resp_vprintf(dqrr_t *pDqrr, const char *pFmt, va_list vl)
+{	int	rc = 0;
+
+	if(pFmt != NULL && *pFmt)
+	{	char *pQuery = NULL;
+		int x = vasprintf(&pQuery, pFmt, vl);
+
+		if(pQuery != NULL && x > 0)
+			rc = dns_query_rr_resp(pDqrr, pQuery);
+
+		if(pQuery != NULL)
+			free(pQuery);
+	}
+
+	return rc;
+}
+
+// Execute a printf style query with a specified type
+int dns_query_rr_resp_printf(dqrr_t *pDqrr, const char *pFmt, ...)
 {	va_list	vl;
 	int rc;
 
-	va_start(vl,fmt);
-	rc = dns_query_rr_resp_v(statp, presp, respLen, nsType, fmt, vl);
+	va_start(vl, pFmt);
+	rc = dns_query_rr_resp_vprintf(pDqrr, pFmt, vl);
 	va_end(vl);
 
 	return rc;
@@ -96,81 +184,116 @@ int dns_query_rr_resp(const res_state statp, u_char *presp, size_t respLen, int 
 
 // Do a query of a specified type, returning 1 if there was at least one result
 // The consumer doesn't care about the response content
-int dns_query_rr(const res_state statp, int nsType, char *fmt, ...)
-{	va_list	vl;
-	int rc;
-	u_char resp[NS_PACKETSZ];
+int dns_query_rr(const res_state statp, int nsType, const char *pQuery)
+{	int rc = -1;
+	dqrr_t *pDqrr = dns_query_rr_init(statp, nsType);
 
-	va_start(vl,fmt);
-	rc = dns_query_rr_resp_v(statp, &resp[0], sizeof(resp), nsType, fmt, vl);
-	va_end(vl);
+	if(pDqrr != NULL)
+	{
+		rc = dns_query_rr_resp(pDqrr, pQuery);
+		dns_query_rr_free(pDqrr);
+	}
 
 	return (rc > 0);
 }
 
 // Iterate a given section of a response
-void dns_parse_response(u_char *presp, size_t respLen, ns_sect nsSect, int (*pCallbackFn)(nsrr_t *, void *), void *pCallbackData)
-{	ns_msg	handle;
+void dns_parse_response(dqrr_t *pDqrr, ns_sect nsSect, int (*pCallbackFn)(dqrr_t *, void *), void *pCallbackData)
+{
+	if(pDqrr != NULL && pDqrr->respLen && ns_initparse(pDqrr->pResp, pDqrr->respLen, &pDqrr->rrMsg) > -1)
+	{	int again = 1;
 
-	if(respLen && ns_initparse(presp, respLen, &handle) > -1)
-	{	int rrnum;
-		int count = ns_msg_count(handle, nsSect);
-		int again = 1;
-		nsrr_t nsrr;
+		pDqrr->rrCount = ns_msg_count(pDqrr->rrMsg, nsSect);
 
-		nsrr.pResp = presp;
-		nsrr.respLen = respLen;
-		for(rrnum=0; rrnum<count && again; rrnum++)
+		for(pDqrr->rrNum=0; pDqrr->rrNum<pDqrr->rrCount && again; pDqrr->rrNum++)
 		{
-			if(ns_parserr(&handle, nsSect, rrnum, &nsrr.rr) == 0)
-				again = pCallbackFn(&nsrr, pCallbackData);
+			if(ns_parserr(&pDqrr->rrMsg, nsSect, pDqrr->rrNum, &pDqrr->rr) == 0)
+				again = pCallbackFn(pDqrr, pCallbackData);
 		}
 	}
 }
 
 // Iterate the Answer Section of a response
-void dns_parse_response_answer(u_char *presp, size_t respLen, int (*pCallbackFn)(nsrr_t *, void *), void *pCallbackData)
+void dns_parse_response_answer(dqrr_t *pDqrr, int (*pCallbackFn)(dqrr_t *, void *), void *pCallbackData)
 {
-	dns_parse_response(presp, respLen, ns_s_an, pCallbackFn, pCallbackData);
+	dns_parse_response(pDqrr, ns_s_an, pCallbackFn, pCallbackData);
 }
 
 typedef struct _dmi_t
 {
-	unsigned long ip;
+	int nsType;
+	union
+	{
+		struct in_addr *pIpv4;
+		struct in6_addr *pIpv6;
+	};
 	int match;
-}dmi_t;
+}dmi_t; // Dns Match Ip Type
 
-static int dnsMatchIpCallback(nsrr_t *pNsrr, void *pdata)
-{
-	dmi_t *pDmi = (dmi_t *)pdata;
+static int dnsMatchIpCallback(dqrr_t *pDqrr, void *pdata)
+{	dmi_t *pDmi = (dmi_t *)pdata;
 
-	pDmi->match = (ns_rr_type(pNsrr->rr) == ns_t_a && ns_get32(ns_rr_rdata(pNsrr->rr)) == pDmi->ip);
+	if(ns_rr_type(pDqrr->rr) == pDmi->nsType)
+	{
+		switch(pDmi->nsType)
+		{
+			case ns_t_a:
+				if(ns_rr_rdlen(pDqrr->rr) == NS_INADDRSZ)
+					pDmi->match = (ns_get32(ns_rr_rdata(pDqrr->rr)) == ntohl(pDmi->pIpv4->s_addr));
+				break;
+			case ns_t_aaaa:
+				if(ns_rr_rdlen(pDqrr->rr) == NS_IN6ADDRSZ)
+				{	struct in6_addr *pIp6 = (struct in6_addr *)ns_rr_rdata(pDqrr->rr);
+
+					pDmi->match = (memcmp(pIp6, pDmi->pIpv6, sizeof(struct in6_addr)) == 0);
+				}
+				break;
+		}
+	}
 
 	return (pDmi->match == 0); // again ?
 }
 
-// Query a hostname and find an ipv4 match
-int dns_hostname_ip_match(const res_state statp, char *hostname, unsigned long hostip)
+// Query a hostname of a specified type and find a match
+int dns_hostname_ip_match_af(const res_state statp, const char *hostname, int afType, const char *in)
 {	dmi_t dmi;
 
-	dmi.ip = hostip;
-	dmi.match = 0;
-
-	if(hostname != NULL && hostip != 0)
+	memset(&dmi, 0, sizeof(dmi));
+	switch(afType)
 	{
-		u_char	resp[NS_PACKETSZ];
-		int	rc = dns_query_rr_resp(statp, &resp[0], sizeof(resp), ns_t_a, "%s",hostname);
+		case AF_INET:	dmi.nsType = ns_t_a;	dmi.pIpv4 = (struct in_addr *)in;	break;
+		case AF_INET6:	dmi.nsType = ns_t_aaaa;	dmi.pIpv6 = (struct in6_addr *)in;	break;
+	}
+
+	if(hostname != NULL)
+	{	dqrr_t *pDqrr = dns_query_rr_init(statp, dmi.nsType);
+		int rc = dns_query_rr_resp(pDqrr, hostname);
 
 		if(rc > 0)
-			dns_parse_response_answer(resp, rc, &dnsMatchIpCallback, &dmi);
+			dns_parse_response_answer(pDqrr, &dnsMatchIpCallback, &dmi);
+
+		dns_query_rr_free(pDqrr);
 	}
 
 	return dmi.match;
 }
 
+// Query a hostname of a specified type and find a match
+int dns_hostname_ip_match_sa(const res_state statp, const char *hostname, struct sockaddr *psa)
+{	const char *in = NULL;
+
+	switch(psa->sa_family)
+	{
+		case AF_INET: in = (char *) &((struct sockaddr_in *)psa)->sin_addr; break;
+		case AF_INET6: in = (const char *)&((struct sockaddr_in6 *)psa)->sin6_addr; break;
+	}
+
+	return (in != NULL ? dns_hostname_ip_match_af(statp, hostname, psa->sa_family, in) : 0);
+}
+
 // Build an arpa request for an ipv4 or ipv6 address.
 // The consumer must free() the return value.
-char *dns_inet_ptoarpa(const char *pHost, int afNet, const char *pDomainRoot)
+char *dns_inet_ptoarpa(const char *pHost, int afType, const char *pDomainRoot)
 {	char *pArpa = NULL;
 
 	if(pHost != NULL)
@@ -184,7 +307,7 @@ char *dns_inet_ptoarpa(const char *pHost, int afNet, const char *pDomainRoot)
 		memset(bufstr,0,sizeof(bufstr));
 		memset(bufnet,0,sizeof(bufnet));
 
-		switch(afNet)
+		switch(afType)
 		{
 			case AF_INET:
 				if(inet_pton(AF_INET, pHost, pIp4))
@@ -223,28 +346,29 @@ char *dns_inet_ptoarpa(const char *pHost, int afNet, const char *pDomainRoot)
 
 #ifdef UNIT_TEST
 // Show the text version of a given  RR
-int dnsParseResponseCallback(nsrr_t *pNsrr, void *pdata)
+int dnsParseResponseCallback(dqrr_t *pDqrr, void *pdata)
 {
 	(void)pdata;
-	int nsType = ns_rr_type(pNsrr->rr);
+	int nsType = ns_rr_type(pDqrr->rr);
+
 	switch(nsType)
 	{
 		case ns_t_a:
-			if(ns_rr_rdlen(pNsrr->rr) == NS_INADDRSZ)
+			if(ns_rr_rdlen(pDqrr->rr) == NS_INADDRSZ)
 			{
 				char buf[INET6_ADDRSTRLEN+1];
 				memset(buf,0,sizeof(buf));
-				inet_ntop(AF_INET, ns_rr_rdata(pNsrr->rr), buf, sizeof(buf)-1);
+				inet_ntop(AF_INET, ns_rr_rdata(pDqrr->rr), buf, sizeof(buf)-1);
 				printf("\tA %s\n",buf);
 			}
 			break;
 
 		case ns_t_aaaa:
-			if(ns_rr_rdlen(pNsrr->rr) == NS_IN6ADDRSZ)
+			if(ns_rr_rdlen(pDqrr->rr) == NS_IN6ADDRSZ)
 			{
 				char buf[INET6_ADDRSTRLEN+1];
 				memset(buf,0,sizeof(buf));
-				inet_ntop(AF_INET6, ns_rr_rdata(pNsrr->rr), buf, sizeof(buf)-1);
+				inet_ntop(AF_INET6, ns_rr_rdata(pDqrr->rr), buf, sizeof(buf)-1);
 
 				printf("\tAAAA %s\n",buf);
 			}
@@ -261,7 +385,7 @@ int dnsParseResponseCallback(nsrr_t *pNsrr, void *pdata)
 				// for ns_name_uncompress documentation
 				// and http://www.libspf2.org/docs/html/spf__dns__resolv_8c-source.html
 				// they've alread gone through this.
-				rc = ns_name_uncompress(pNsrr->pResp, pNsrr->pResp + pNsrr->respLen, ns_rr_rdata(pNsrr->rr), namebuf, sizeof(namebuf));
+				rc = ns_name_uncompress(pDqrr->pResp, pDqrr->pResp + pDqrr->respLen, ns_rr_rdata(pDqrr->rr), namebuf, sizeof(namebuf));
 				if(rc != -1)
 					printf("\tPTR %s\n", namebuf);
 			}
@@ -277,65 +401,56 @@ int dnsParseResponseCallback(nsrr_t *pNsrr, void *pdata)
 
 res_state gpRes = NULL;
 
-void test1(int argc, char **argv)
+typedef struct _nsType_t
 {
-	int i, rc_a, rc_aaaa, rc_ptr, rc_cn;
-	u_char respA[NS_PACKETSZ];
-	u_char respAAAA[NS_PACKETSZ];
-	u_char respPTR[NS_PACKETSZ];
-	u_char respCN[NS_PACKETSZ];
+	int type;
+	const char *name;
+} nsType_t;
+
+int testType(nsType_t *pType, const char *pQuery)
+{	int rc = 0;
+	dqrr_t *pDqrr = dns_query_rr_init(gpRes, pType->type);
+
+	if(pDqrr != NULL)
+	{
+		rc = dns_query_rr_resp(pDqrr, pQuery);
+		if(rc > 0)
+			dns_parse_response_answer(pDqrr, &dnsParseResponseCallback, NULL);
+		else if(rc == -1)
+			herror(pType->name);
+		dns_query_rr_free(pDqrr);
+	}
+
+	return (rc > 0);
+}
+
+void test1(int argc, char **argv)
+{	int i,j,rc;
+	nsType_t nsTypes[] = { {ns_t_a, "a"}, {ns_t_aaaa, "aaaa"}, {ns_t_ptr, "ptr"}, {ns_t_cname, "cname"} };
 
 	// Query some common types of a given record name
 	for(i=1; i<argc; i++)
 	{
-		rc_a = dns_query_rr_resp(gpRes, respA, sizeof(respA), ns_t_a, "%s", argv[i]);
-		if(rc_a == -1)
-			herror("a");
+		printf("%s\n", argv[i]);
 
-		rc_aaaa = dns_query_rr_resp(gpRes, respAAAA, sizeof(respAAAA), ns_t_aaaa, "%s", argv[i]);
-		if(rc_aaaa == -1)
-			herror("aaaa");
+		for(j=0,rc=0; j<sizeof(nsTypes)/sizeof(nsTypes[0]); j++)
+			rc += testType(&nsTypes[j], argv[i]);
 
-		rc_ptr = dns_query_rr_resp(gpRes, respPTR, sizeof(respPTR), ns_t_ptr, "%s", argv[i]);
-		if(rc_ptr == -1)
-			herror("ptr");
-
-		rc_cn = dns_query_rr_resp(gpRes, respCN, sizeof(respCN), ns_t_cname, "%s", argv[i]);
-		if(rc_cn == -1)
-			herror("cn");
-
-		if(rc_a == 0 && rc_aaaa == 0 && rc_ptr == 0 && rc_cn == 0)
-		{	char *pstr = dns_inet_ptoarpa(argv[i], AF_INET);
+		//if(rc == 0)
+		{	char *pstr = dns_inet_ptoarpa(argv[i], AF_INET, NULL);
 
 			if(pstr == NULL)
-				pstr = dns_inet_ptoarpa(argv[i], AF_INET6);
+				pstr = dns_inet_ptoarpa(argv[i], AF_INET6, NULL);
 
 			if(pstr != NULL)
 			{
-				rc_ptr = dns_query_rr_resp(gpRes, respPTR, sizeof(respPTR), ns_t_ptr, "%s", pstr);
-				if(rc_ptr == -1)
-					herror("ptr");
+				rc += testType(&nsTypes[2], pstr);
 				free(pstr);
 			}
 		}
 
-		if(rc_a == 0 && rc_aaaa == 0 && rc_ptr == 0 && rc_cn == 0)
+		if(rc == 0)
 			printf("%s - no A, AAAA, PTR, or CNAME record\n", argv[i]);
-		else
-		{
-			printf("%s\n", argv[i]);
-			if(rc_a)
-				dns_parse_response_answer(respA, rc_a, &dnsParseResponseCallback, NULL);
-
-			if(rc_aaaa)
-				dns_parse_response_answer(respAAAA, rc_aaaa, &dnsParseResponseCallback, NULL);
-
-			if(rc_ptr)
-				dns_parse_response_answer(respPTR, rc_ptr, &dnsParseResponseCallback, NULL);
-
-			if(rc_cn)
-				dns_parse_response_answer(respCN, rc_cn, &dnsParseResponseCallback, NULL);
-		}
 	}
 }
 
