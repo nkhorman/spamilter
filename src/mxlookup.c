@@ -46,6 +46,7 @@ static char const cvsid[] = "@(#)$Id: mxlookup.c,v 1.4 2011/07/29 21:23:17 neal 
 #include <string.h>
 
 #include "mx.h"
+#include "misc.h"
 
 #define mkip(a,b,c,d) ((((a)&0xff)<<24)|(((b)&0xff)<<16)|(((c)&0xff)<<8)|((d)&0xff))
 
@@ -72,7 +73,30 @@ void mxsrr(const res_state statp, mx_rr_list *rrl)
 			if(!gbTerse)
 				printf("\tMX %u %s\n",rr->pref,rr->name);
 			for(j=0; j<rr->qty; j++)
-				printf(gbTerse ? "%s\n" : "\t\tA %s\n",ip2str(rr->host[j].ip));
+			{
+				switch(rr->host[j].nsType)
+				{
+					case ns_t_a:
+						{	struct in_addr ip;
+							char *pStr = NULL;
+
+							ip.s_addr = htonl(rr->host[j].ipv4);
+							pStr = mlfi_inet_ntopAF(AF_INET, (char *)&ip);
+
+							printf(gbTerse ? "%s\n" : "\t\tA %s\n", pStr);
+							free(pStr);
+						}
+						break;
+					case ns_t_aaaa:
+						{
+							char *pStr = mlfi_inet_ntopAF(AF_INET6, (char *)&rr->host[j].ipv6);
+
+							printf(gbTerse ? "%s\n" : "\t\tAAAA %s\n", pStr);
+							free(pStr);
+						}
+						break;
+				}
+			}
 			rr->visited = 1;
 		}
 	}
