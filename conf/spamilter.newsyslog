@@ -1,0 +1,3 @@
+/var/log/spam.log                       644  30    *    $D0   Z
+/var/log/spam.info                      644  30    *    $D0   Z
+/var/log/greydbd.log                    644  14    *    $D0   J
