@@ -1,0 +1,3 @@
+dbl.spamhaus.org
+multi.surbl.org
+# black.uribl.org # this site gives different answers based on ip address making the request
