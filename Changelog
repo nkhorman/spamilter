@@ -1,5 +1,20 @@
 Changelog;
+	20150303
+	* add - support for auto-config of syslog on first install for freebsd
+	* fix - mlfi_isNonRoutableIpV4 regression
+
+	20150302
+	* add - add db.dbl config file for DBL list configuration
+	* fix - fix ipv4 greylist test regression
+
+	20150301
+	* mod - simplify/refactor dns and mx modules with support for ipv6
+
+	20150222
+	* mod - ipv6 improvements
+
 	20150220
+	* mod - expand list of valid characters for mailbox addresses
 	* fix - geoip reject regresion, the test for non-routable geoip CC was inverted
 
 	20150214
