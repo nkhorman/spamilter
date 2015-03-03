@@ -343,6 +343,7 @@ sfsistat mlfi_connect(SMFICTX *ctx, char *hostname, _SOCK_ADDR *hostaddr)
 		// TODO - oopsie, now what do we do? no session id is available
 
 		priv->pbwlistctx = bwlistCreate(priv->pSessionUuidStr);
+		priv->pDblCtx = dbl_Create(priv->pSessionUuidStr);
 #ifdef SUPPORT_FWDHOSTCHK
 		fwdhostlist_init(priv);
 #endif
@@ -357,6 +358,7 @@ sfsistat mlfi_connect(SMFICTX *ctx, char *hostname, _SOCK_ADDR *hostaddr)
 
 		// make sure that the b/w list action files are open
 		bwlistOpen(priv->pbwlistctx,gDbpath);
+		dbl_Open(priv->pDblCtx, gDbpath);
 #ifdef SUPPORT_FWDHOSTCHK
 		fwdhostlist_open(priv,gDbpath);
 #endif
@@ -1272,7 +1274,7 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 			dblq.pCallbackData = &cpr;
 			dblq.pCallbackPolicyFn = &dbl_callback_policy_std;
 
-			dbl_check_all(priv->presstate, &dblq);
+			dbl_check_all(priv->pDblCtx, priv->presstate, &dblq);
 			continue_checks = (rs == SMFIS_CONTINUE);
 			if(continue_checks)
 				mlfi_debug(priv->pSessionUuidStr,"HLO dbl_check '%s' - not listed\n",priv->helo);
@@ -1597,7 +1599,7 @@ int listCallbackBodyHosts(void *pData, void *pCallbackData)
 				dblq.pCallbackData = &pLcbh->cpr;
 				dblq.pCallbackPolicyFn = &dbl_callback_policy_std;
 
-				dbl_check_all(priv->presstate, &dblq);
+				dbl_check_all(priv->pDblCtx, priv->presstate, &dblq);
 				if(*pLcbh->cpr.pbContinueChecks)
 					mlfi_debug(priv->pSessionUuidStr,"dbl_check '%s' - not listed\n",pStr);
 			}
@@ -1833,6 +1835,8 @@ sfsistat mlfi_close(SMFICTX *ctx)
 #ifdef SUPPORT_FWDHOSTCHK
 		fwdhostlist_close(priv);
 #endif
+		dbl_Close(priv->pDblCtx);
+		dbl_Destroy(&priv->pDblCtx);
 		bwlistClose(priv->pbwlistctx);
 		bwlistDestroy(&priv->pbwlistctx);
 		dnsbl_free_hosts(priv->pdnsrblhosts);

@@ -74,8 +74,18 @@
 		int abused;
 	};
 
+	#include "table.h"
+	typedef struct _dblCtx_t
+	{
+		tableDriver_t *pTableDriver;
+		const char *pSessionId;
+	}dblCtx_t;
 
-	void dbl_check_all(const res_state statp, const dblq_t *pDblq);
+	dblCtx_t *dbl_Create(const char *pSessionId);
+	void dbl_Destroy(dblCtx_t **ppDblCtx);
+	int dbl_Open(dblCtx_t *pDblCtx, const char *dbpath);
+	void dbl_Close(dblCtx_t *pDblCtx);
 
+	void dbl_check_all(dblCtx_t *pCtx, const res_state statp, const dblq_t *pDblq);
 	int dbl_callback_policy_std(dblcb_t *pDblcb);
 #endif

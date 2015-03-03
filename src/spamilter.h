@@ -63,6 +63,7 @@
 
 	#include "list.h"
 	#include "bwlist.h"
+	#include "dbl.h"
 
 	typedef struct _mlfiPriv
 	{
@@ -118,6 +119,7 @@
 		list_t		*pListBodyHosts;
 		char		*pSessionUuidStr;
 		int		bodyTransferEncoding;
+		dblCtx_t	*pDblCtx;
 	} mlfiPriv;
 
 	#define MLFIPRIV ((mlfiPriv *) smfi_getpriv(ctx))

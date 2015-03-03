@@ -53,9 +53,111 @@
 #include "dbl.h"
 #include "misc.h"
 
+#ifdef SUPPORT_TABLE_FLATFILE
+#include "tableDriverFlatFile.h"
+#endif
+#ifdef SUPPORT_TABLE_PGSQL
+#include "tableDriverPsql.h"
+#endif
+
 #ifndef s6_addr32
 #define s6_addr32 __u6_addr.__u6_addr32
 #endif
+
+enum
+{
+	TBL_COL_DBL,
+	TBL_COL_QTY
+};
+typedef struct _dtc_t
+{
+	char *pCols[TBL_COL_QTY];
+	int colIndex;
+
+	const char *pSessionId;
+	res_state statp;
+	const dblq_t *pDblq;
+	const char *pDbl;
+}dtc_t; // Dbl Table Context Type
+
+dblCtx_t *dbl_Create(const char *pSessionId)
+{	dblCtx_t *pDblCtx = (dblCtx_t *)calloc(1,sizeof(dblCtx_t));
+
+	if(pDblCtx != NULL)
+	{
+		// setup the table drivers
+#ifdef SUPPORT_TABLE_FLATFILE
+		pDblCtx->pTableDriver = tableDriverFlatFileCreate(pSessionId);
+#endif
+#ifdef SUPPORT_TABLE_PGSQL
+		pDblCtx->pTableDriver = tableDriverPsqlCreate(pSessionId);
+#endif
+		pDblCtx->pSessionId = pSessionId;
+	}
+
+	return pDblCtx;
+}
+
+void dbl_Destroy(dblCtx_t **ppDblCtx)
+{
+	if(ppDblCtx != NULL && *ppDblCtx != NULL)
+	{
+#ifdef SUPPORT_TABLE_FLATFILE
+		tableDriverFlatFileDestroy(&(*ppDblCtx)->pTableDriver);
+#endif
+#ifdef SUPPORT_TABLE_PGSQL
+		tableDriverPsqlDestroy(&(*ppDblCtx)->pTableDriver);
+#endif
+		free(*ppDblCtx);
+		*ppDblCtx = NULL;
+	}
+}
+
+int dbl_Open(dblCtx_t *pDblCtx, const char *dbpath)
+{
+	if(pDblCtx != NULL && dbpath != NULL)
+	{
+#ifdef SUPPORT_TABLE_FLATFILE
+		char	*fn;
+#endif
+
+		if(!tableIsOpen(pDblCtx->pTableDriver))
+		{
+#ifdef SUPPORT_TABLE_FLATFILE
+			asprintf(&fn,"%s/db.dbl",dbpath); tableOpen(pDblCtx->pTableDriver,"table, colqty",fn,TBL_COL_QTY);
+			if(!tableIsOpen(pDblCtx->pTableDriver))
+				mlfi_debug(pDblCtx->pSessionId,"dbl: Unable to open file '%s'\n",fn);
+			free(fn);
+#endif
+#ifdef SUPPORT_TABLE_PGSQL
+			tableOpen(pDblCtx->pTableDriver
+				"table, colqty"
+				",tableCols"
+				",host" ",hostPort"
+				",Device" ",userName" ",userPass"
+
+				,"dbl",TBL_COL_QTY
+				,"dbl"
+				,"localhost" ,"5432"
+				,"spamilter" ,"spamilter" ,""
+				);
+			if(!tableIsOpen(pDblCtx->pTableDriver))
+				mlfi_debug(pDblCtx->pSessionId,"dbl: Unable to open\n");
+#endif
+		}
+	}
+
+	return (pDblCtx != NULL && tableIsOpen(pDblCtx->pTableDriver));
+}
+
+void dbl_Close(dblCtx_t *pDblCtx)
+{
+	if(pDblCtx != NULL)
+	{
+		if(tableIsOpen(pDblCtx->pTableDriver))
+			tableClose(pDblCtx->pTableDriver);
+	}
+}
 
 // double your insanity
 typedef struct _dbldns_t
@@ -147,29 +249,46 @@ int dbl_check(const res_state statp, const char *pDbl, const dblq_t *pDblq)
 	return again;
 }
 
-// Iterate a list of DBLs using a callback
-void dbl_check_list(const res_state statp, const char **ppDbl, const dblq_t *pDblq)
-{	int again = 1;
+// collect the column pointers
+static int dblCallbackCol(void *pData, void *pCallbackData)
+{	dtc_t *pDtc = (dtc_t *)pCallbackData;
+	int again = 1; // iterate for more columns
 
-	while(*ppDbl && again)
-		again = dbl_check(statp,*(ppDbl++), pDblq);
+	if(pDtc->colIndex < TBL_COL_QTY)
+		pDtc->pCols[pDtc->colIndex++] = (char *)pData;
+	else
+		again = 0; // reached max column count, stop
+
+	return again;
 }
 
-// A predefined list of DBLs to iterate using a callback
-// TODO - Move this list out into a config table, using
-// the table driver and tableForEachRow()... oooh, another callback!
-// tripple your insanity
-void dbl_check_all(const res_state statp, const dblq_t *pDblq)
-{
-	const char *pDbls[] =
-	{
-		"dbl.spamhaus.org",
-		"multi.surbl.org",
-		"black.uribl.com",
-		NULL
-	};
+// Iterate a list of DBLs using a callback
+static int dblCallbackRow(void *pCallbackCtx, list_t *pRow)
+{	int again = 1;
 
-	dbl_check_list(statp,pDbls, pDblq);
+	if(pRow != NULL)
+	{	dtc_t *pDtc = (dtc_t *)pCallbackCtx;
+
+		pDtc->colIndex = 0;
+		listForEach(pRow, &dblCallbackCol, pDtc);
+
+		if(pDtc->colIndex >= TBL_COL_QTY-1)
+			again = dbl_check(pDtc->statp, pDtc->pCols[TBL_COL_DBL], pDtc->pDblq);
+	}
+
+	return again;
+}
+
+// check the list of DBLs
+void dbl_check_all(dblCtx_t *pCtx, const res_state statp, const dblq_t *pDblq)
+{	dtc_t dtc;
+
+	dtc.pSessionId = pCtx->pSessionId;
+	dtc.statp = statp;
+	dtc.pDblq = pDblq;
+	dtc.pDbl = NULL;
+
+	tableForEachRow(pCtx->pTableDriver, &dblCallbackRow, &dtc);
 }
 
 int dbl_callback_policy_std(dblcb_t *pDblcb)
@@ -298,7 +417,15 @@ int main(int argc, char **argv)
 			if(pDbl != NULL)
 				dbl_check(presstate, pDbl, &dblq);
 			else
-				dbl_check_all(presstate, &dblq);
+			{	dblCtx_t *pDblCtx = dbl_Create("1234");
+
+				dbl_Open(pDblCtx, "/var/db/spamilter");
+
+				dbl_check_all(pDblCtx, presstate, &dblq);
+
+				dbl_Close(pDblCtx);
+				dbl_Destroy(&pDblCtx);
+			}
 
 			res_nclose(presstate);
 			free(presstate);
