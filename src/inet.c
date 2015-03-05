@@ -58,13 +58,45 @@ static char const cvsid[] = "@(#)$Id: inet.c,v 1.13 2011/07/29 21:23:17 neal Exp
 
 #include "inet.h"
 
-void NetSockInitAddr(struct sockaddr_in *pSock, long ip, short port)
+struct sockaddr *NetSockInitAf(struct sockaddr *pSa, int afType, const char *in, unsigned short port)
 {
-	// setup the socket address structure
-	memset((void *)pSock,0,sizeof(struct sockaddr_in));
-	pSock->sin_family	= AF_INET;
-	pSock->sin_port		= port != 0 ? htons(port) : 0;
-	pSock->sin_addr.s_addr	= ip == INADDR_ANY ? INADDR_ANY : htonl(ip);
+	switch(afType)
+	{
+		case AF_INET:
+			{	struct sockaddr_in *pSin = (struct sockaddr_in *)(pSa != NULL ? pSa : calloc(1, sizeof(struct sockaddr_in)));
+
+				if(pSin != NULL)
+				{
+					pSa = (struct sockaddr *)pSin;
+					pSin->sin_len = sizeof(struct sockaddr_in);
+					pSin->sin_family = afType;
+					pSin->sin_port = htons(port);
+
+					if(in != NULL)
+						pSin->sin_addr = *(struct in_addr *)in;
+					else
+						pSin->sin_addr.s_addr = INADDR_ANY;
+				}
+			}
+			break;
+
+		case AF_INET6:
+			{	struct sockaddr_in6 *pSin6 = (struct sockaddr_in6 *)(pSa != NULL ? pSa : calloc(1, sizeof(struct sockaddr_in6)));
+
+				if(pSin6 != NULL)
+				{
+					pSa = (struct sockaddr *)pSin6;
+					pSin6->sin6_len = sizeof(struct sockaddr_in6);
+					pSin6->sin6_family = afType;
+					pSin6->sin6_port = htons(port);
+					if(in != NULL)
+						pSin6->sin6_addr = *(struct in6_addr *)in; // TODO - ipv6 - INADDR6_ANY
+				}
+			}
+			break;
+	}
+
+	return pSa;
 }
 
 void NetSockClose(int *pSd)
@@ -79,19 +111,20 @@ void NetSockClose(int *pSd)
 	}
 }
 
-int NetSockBind(int *pSd, int sockType, long ip, short port)
-{	int			ok = ((*pSd = socket(AF_INET,sockType,0)) != INVALID_SOCKET);
-	struct sockaddr_in	socks;
+int NetSockBindAf(int *pSd, int sockType, int afType, const char *in, unsigned short port)
+{	int ok = ((*pSd = socket(afType, sockType, 0)) != INVALID_SOCKET);
 
 	if(ok)
-	{
-		NetSockInitAddr(&socks,ip,port);
+	{	struct sockaddr *pSa = NetSockInitAf(NULL, afType, in, port);
 
-		// bind the source port
-		ok = (bind(*pSd,(struct sockaddr *)&socks,sizeof(socks)) != SOCKET_ERROR);
+		if(pSa != NULL)
+		{
+			ok = (bind(*pSd, pSa, pSa->sa_len) != SOCKET_ERROR);
+			free(pSa);
+		}
 	}
 
-	return(ok);
+	return ok;
 }
 
 int NetSockOptNoLinger(int sd)
@@ -112,66 +145,88 @@ int NetSockIOCtl(int sd, long cmd, unsigned long *pArg)
 {
 	return(ioctl(sd,cmd,pArg) != SOCKET_ERROR);
 }
-int NetSockOpenUdp(unsigned long ip, unsigned short port)
+
+int NetSockOpenUdpAf(int afType, const char *in, unsigned short port)
 {	int			sd = INVALID_SOCKET;
 	unsigned long		arg_on = 1;
 
 	if(!(
-		NetSockBind(&sd, SOCK_DGRAM, (ip == 0 ? INADDR_ANY : ip), port)
-		&& NetSockIOCtl(sd,FIONBIO,&arg_on)
-		&& NetSockOpt(sd,SO_BROADCAST,1)
+		NetSockBindAf(&sd, SOCK_DGRAM, afType, in, port)
+		&& NetSockIOCtl(sd, FIONBIO, &arg_on)
+		&& NetSockOpt(sd, SO_BROADCAST, 1)
 	))
 	{
 		NetSockClose(&sd);
 	}
 
-	return(sd);
+	return sd;
 }
 
-int NetSockOpenTcpPeer(long ip, short port)
+int NetSockOpenUdp(unsigned long ip, unsigned short port)
+{
+	ip = htonl(ip);
+	return NetSockOpenUdpAf(AF_INET, (const char *)&ip, port);
+}
+
+int NetSockOpenTcpPeerAf(int afType, const char *in, unsigned short port)
 {	int			sd	= INVALID_SOCKET;
 	unsigned long		arg_on	= 1;
-	int			ok	= NetSockBind(&sd,SOCK_STREAM,INADDR_ANY,0) && (ioctl(sd,FIONBIO,&arg_on) == 0);
-	int			err;
-	struct sockaddr_in	socks;
+	int			ok	= (NetSockBindAf(&sd, SOCK_STREAM, afType, NULL, 0) && (ioctl(sd, FIONBIO, &arg_on) == 0));
 
 	if(ok)
-	{
-		NetSockInitAddr(&socks,ip,port);
-		ok = NetSockOptNoLinger(sd);
+	{	struct sockaddr *pSa = NetSockInitAf(NULL, afType, in, port);
 
-		if(ok)
+		if(pSa != NULL)
 		{
-			if((err = connect(sd,(struct sockaddr *)&socks,sizeof(socks))) == SOCKET_ERROR)
-				err = errno;
-			ok = (err == 0 || err == EINPROGRESS || err == EWOULDBLOCK);
+			ok = NetSockOptNoLinger(sd);
+
+			if(ok)
+			{	int err = (connect(sd, pSa, pSa->sa_len) == SOCKET_ERROR ? errno : 0);
+
+				ok = (err == 0 || err == EINPROGRESS || err == EWOULDBLOCK);
+			}
+
+			free(pSa);
 		}
 	}
 
 	if(!ok)
 		NetSockClose(&sd);
 
-	return(sd);
+	return sd;
 }
 
-int NetSockOpenTcpListen(long ip, short port)
+int NetSockOpenTcpPeer(unsigned long ip, unsigned short port)
+{
+	ip = htonl(ip);
+	return NetSockOpenTcpPeerAf(AF_INET, (const char *)&ip, port);
+}
+
+int NetSockOpenTcpListenAf(int afType, const char *in, unsigned short port)
 {	int			sd,ok;
 	unsigned long		arg_on	= 1;
-	struct sockaddr_in	socks;
+	struct sockaddr *	pSa = NetSockInitAf(NULL, afType, in, port);
 
-	NetSockInitAddr(&socks,ip,port);
-	ok = ((sd = socket(AF_INET,SOCK_STREAM,0)) != INVALID_SOCKET) &&
+	ok = (pSa != NULL) &&
+		((sd = socket(AF_INET, SOCK_STREAM, 0)) != INVALID_SOCKET) &&
 		NetSockOptNoLinger(sd) &&
-		NetSockOpt(sd,SO_REUSEADDR,1) &&
-		(ioctl(sd,FIONBIO,&arg_on) == 0) &&
-		(bind(sd,(struct sockaddr *)&socks,sizeof(socks)) != SOCKET_ERROR) &&
-		(listen(sd,1) != SOCKET_ERROR);
+		NetSockOpt(sd, SO_REUSEADDR, 1) &&
+		(ioctl(sd, FIONBIO, &arg_on) == 0) &&
+		(bind(sd, pSa, pSa->sa_len) != SOCKET_ERROR) &&
+		(listen(sd, 1) != SOCKET_ERROR);
 
 	if(!ok)
 		NetSockClose(&sd);
 
-	return(sd);
+	return sd;
 }
+
+int NetSockOpenTcpListen(unsigned long ip, unsigned short port)
+{
+	ip = htonl(ip);
+	return NetSockOpenTcpListenAf(AF_INET, (const char *)&ip, port);
+}
+
 
 /* buffer up lines of data from peer until 1 second time-out */
 int NetSockGets(int sd, char *buf, int buflenmax, int timeout)
@@ -238,37 +293,66 @@ int NetSockGets(int sd, char *buf, int buflenmax, int timeout)
 	return(rc);
 }
 
-int NetSockSendTo(int sd, char *buf, int buflen, unsigned long ip, unsigned short port)
+int NetSockSendToAf(int sd, char *buf, int buflen, int afType, const char * in, unsigned short port)
 {	int rc = 0;
 
-	if(sd != INVALID_SOCKET && buflen > 0 && ip != 0 && port != 0)
-	{	struct sockaddr_in sock;
+	if(sd != INVALID_SOCKET && buf != NULL && buflen > 0 && port != 0)
+	{	struct sockaddr *pSa = NetSockInitAf(NULL, afType, in, port);
 
-		memset(&sock,0,sizeof(sock));
-		sock.sin_family		= AF_INET;
-		sock.sin_port		= htons(port);
-		sock.sin_addr.s_addr	= htonl(ip);
-
-		rc = sendto(sd,buf,buflen,0,(struct sockaddr *)&sock,sizeof(sock));
+		if(pSa != NULL)
+		{
+			rc = sendto(sd, buf, buflen, 0, pSa, pSa->sa_len);
+			free(pSa);
+		}
 	}
 
-	return(rc);
+	return rc;
 }
 
-int NetSockPrintfTo(int sd, unsigned long ip, unsigned short port, char *fmt, ...)
-{	int rc = -1;
+int NetSockSendTo(int sd, char *buf, int buflen, unsigned long ip, unsigned short port)
+{
+	ip = htonl(ip);
+	return NetSockSendToAf(sd, buf, buflen, AF_INET, (const char *)&ip, port);
+}
 
-	if(sd != INVALID_SOCKET && ip != 0 && port != 0 && fmt != NULL)
-	{	va_list vl;
-		char *str = NULL;
+int NetSockVPrintfToAf(int sd, int afType, const char *in, unsigned short port, const char *fmt, va_list vl)
+{	int rc = 0;
 
-		va_start(vl,fmt);
+	if(fmt != NULL)
+	{	char *str = NULL;
+
 		rc = vasprintf(&str,fmt,vl);
 		if(str != NULL && rc != -1)
-			rc = NetSockSendTo(sd,str,rc,ip,port);
+			rc = NetSockSendToAf(sd, str, rc, afType, in, port);
 		if(str != NULL)
 			free(str);
 	}
+
+	return rc;
+}
+
+int NetSockPrintfToAf(int sd, int afType, const char *in, unsigned short port, const char *fmt, ...)
+{	int rc = -1;
+
+	if(fmt != NULL)
+	{	va_list vl;
+
+		va_start(vl,fmt);
+		rc = NetSockVPrintfToAf(sd, afType, in, port, fmt, vl);
+		va_end(vl);
+	}
+
+	return rc;
+}
+
+int NetSockPrintfTo(int sd, unsigned long ip, unsigned short port, const char *fmt, ...)
+{	int rc;
+	va_list vl;
+
+	ip = htonl(ip);
+	va_start(vl, fmt);
+	rc = NetSockVPrintfToAf(sd, AF_INET, (const char *)&ip, port, fmt, vl);
+	va_end(vl);
 
 	return rc;
 }
@@ -285,7 +369,7 @@ int NetSockSend(int sd, char *buf, int buflen)
 	return(rc);
 }
 
-int NetSockVPrintf(int sd, char *fmt, va_list vl)
+int NetSockVPrintf(int sd, const char *fmt, va_list vl)
 {	char	*str;
 	int	rc = -1;
 
@@ -301,7 +385,7 @@ int NetSockVPrintf(int sd, char *fmt, va_list vl)
 	return(rc);
 }
 
-int NetSockPrintf(int sd, char *fmt, ...)
+int NetSockPrintf(int sd, const char *fmt, ...)
 {	va_list	vl;
 	int	rc;
 

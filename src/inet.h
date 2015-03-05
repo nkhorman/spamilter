@@ -58,16 +58,20 @@
 	#define INVALID_SOCKET -1
 	#define SOCKET_ERROR -1
 
-	void NetSockInitAddr(struct sockaddr_in *pSock, long ip, short port);
-
-	int NetSockBind(int *pSd, int sockType, long ip, short port);
+	struct sockaddr *NetSockInitAf(struct sockaddr *pSa, int afType, const char *in, unsigned short port);
+	int NetSockBindAf(int *pSd, int sockType, int afType, const char *in, unsigned short port);
 
 	int NetSockOpt(int sd, int optname, int optval);
 	int NetSockOptNoLinger(int sd);
 
+	int NetSockOpenUdpAf(int afType, const char *in, unsigned short port);
 	int NetSockOpenUdp(unsigned long ip, unsigned short port);
-	int NetSockOpenTcpPeer(long ip, short port);
-	int NetSockOpenTcpListen(long ip, short port);
+
+	int NetSockOpenTcpPeerAf(int afType, const char *in, unsigned short port);
+	int NetSockOpenTcpPeer(unsigned long ip, unsigned short port);
+
+	int NetSockOpenTcpListenAf(int afType, const char *in, unsigned short port);
+	int NetSockOpenTcpListen(unsigned long ip, unsigned short port);
 
 	int NetSockSelectOne(int sd, int timeOutMs);
 
@@ -75,13 +79,17 @@
 	int NetSockRecvFrom(int sd, char *buf, int buflen, unsigned long *pip, unsigned short *pport, int *penabled);
 
 	int NetSockSend(int sd, char *buf, int buflen);
+
+	int NetSockSendToAf(int sd, char *buf, int buflen, int afType, const char * in, unsigned short port);
 	int NetSockSendTo(int sd, char *buf, int buflen, unsigned long ip, unsigned short port);
 
 	void NetSockClose(int *pSd);
 
 	int NetSockGets(int sd, char *buf, int buflenmax, int timeout);
-	int NetSockPrintf(int sd, char *fmt, ...);
-	int NetSockVPrintf(int sd, char *fmt, va_list vl);
+	int NetSockPrintf(int sd, const char *fmt, ...);
+	int NetSockVPrintf(int sd, const char *fmt, va_list vl);
 
-	int NetSockPrintfTo(int sd, unsigned long ip, unsigned short port, char *fmt, ...);
+	int NetSockVPrintfToAf(int sd, int afType, const char *in, unsigned short port, const char *fmt, va_list vl);
+	int NetSockPrintfToAf(int sd, int afType, const char *in, unsigned short port, const char *fmt, ...);
+	int NetSockPrintfTo(int sd, unsigned long ip, unsigned short port, const char *fmt, ...);
 #endif
