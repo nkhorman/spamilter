@@ -184,13 +184,15 @@ int fwdhostlist_is_deliverable(mlfiPriv *priv, char *rcpt, char *dom, int *pSmtp
 
 		if(fwdhostlist_dom_addr(priv->fwdhostlistfd, dom, fwdHostStr, &afType, &pIn) && afType != AF_UNSPEC && pIn != NULL)
 		{	char *pStr =mlfi_inet_ntopAF(afType, pIn);
+			int tst = -1;
 
 			mlfi_debug(priv->pSessionUuidStr, "%s: '%s@%s' fwdhost: '%s'", __func__, rcpt, dom, fwdHostStr);
 			mlfi_debug(priv->pSessionUuidStr, "\t\t%s %s\n", (afType == AF_INET ? "A" : "AAAA"), pStr);
 			free(pStr);
 
-			rc = (smtp_host_is_deliverable_af(priv->pSessionUuidStr, rcpt, dom, afType, pIn, pSmtprc) > 0 && *pSmtprc == 250);
-			mlfi_debug(priv->pSessionUuidStr, "%s: '%s@%s' fwdhost: '%s' = %d", __func__, rcpt, dom, fwdHostStr, *pSmtprc);
+			tst = smtp_host_is_deliverable_af(priv->pSessionUuidStr, rcpt, dom, afType, pIn, pSmtprc);
+			mlfi_debug(priv->pSessionUuidStr, "\t\t%s: %d", (tst > 0 ? "Passed" : tst == 0 ? "Failed" : "Unreacable"), *pSmtprc);
+			rc = (tst > 0 && *pSmtprc == 250);
 		}
 		else
 			rc = 1;
