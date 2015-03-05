@@ -57,8 +57,6 @@ static char const cvsid[] = "@(#)$Id: misc.c,v 1.24 2012/12/07 19:38:33 neal Exp
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-extern int gDebug;
-
 #include "misc.h"
 
 void mlfi_vdebug(const char *pSessionId, const char *pfmt, va_list vl)
