@@ -120,7 +120,7 @@ static char *stradvtrim(char **pSrc, char delim)
 	return(pStr);
 }
 
-static unsigned long fwdhostlist_dom_ip(int fd, char *dom, char *pFwdHostBuf)
+static unsigned long fwdhostlist_dom_addr(int fd, char *dom, char *pFwdHostBuf, int *pAfType, char **ppIn)
 {	unsigned long ip = 0;
 
 	if(fd != -1)
@@ -148,13 +148,28 @@ static unsigned long fwdhostlist_dom_ip(int fd, char *dom, char *pFwdHostBuf)
 				{	struct hostent *phostent = gethostbyname(pFwdHost);
 
 					strcpy(pFwdHostBuf,pFwdHost);
-					ip = (phostent != NULL ? ntohl(*(long *)phostent->h_addr) : 0);
+
+					if(phostent != NULL)
+					{
+						switch(phostent->h_addrtype)
+						{
+							case AF_INET: *ppIn = calloc(1,sizeof(struct in_addr)); break;
+							case AF_INET6: *ppIn = calloc(1,sizeof(struct in6_addr)); break;
+						}
+
+						if(*ppIn != NULL)
+						{
+							*pAfType = phostent->h_addrtype;
+							memcpy(*ppIn, phostent->h_addr, phostent->h_length);
+							ip = 1;
+						}
+					}
 				}
 			}
 		}
 	}
 
-	return(ip);
+	return ip;
 }
 
 int fwdhostlist_is_deliverable(mlfiPriv *priv, char *rcpt, char *dom, int *pSmtprc)
@@ -162,12 +177,23 @@ int fwdhostlist_is_deliverable(mlfiPriv *priv, char *rcpt, char *dom, int *pSmtp
 
 	if(priv != NULL && dom != NULL && pSmtprc != NULL)
 	{	char fwdHostStr[512];
-		unsigned ip;
+		int afType = AF_UNSPEC;
+		char *pIn = NULL;
 		
 		memset(fwdHostStr,0,sizeof(fwdHostStr));
-		ip = fwdhostlist_dom_ip(priv->fwdhostlistfd,dom,fwdHostStr);
-		rc = (ip == 0 || (ip != 0 && smtp_host_is_deliverable(priv->pSessionUuidStr,rcpt,dom,ip,pSmtprc) > 0 && *pSmtprc == 250));
-		mlfi_debug(priv->pSessionUuidStr, "%s: '%s@%s' fwdhost: '%s'/%08lX = %d", __func__, rcpt, dom, fwdHostStr, ip, *pSmtprc);
+
+		if(fwdhostlist_dom_addr(priv->fwdhostlistfd, dom, fwdHostStr, &afType, &pIn) && afType != AF_UNSPEC && pIn != NULL)
+		{	char *pStr =mlfi_inet_ntopAF(afType, pIn);
+
+			mlfi_debug(priv->pSessionUuidStr, "%s: '%s@%s' fwdhost: '%s'", __func__, rcpt, dom, fwdHostStr);
+			mlfi_debug(priv->pSessionUuidStr, "\t\t%s %s\n", (afType == AF_INET ? "A" : "AAAA"), pStr);
+			free(pStr);
+
+			rc = (smtp_host_is_deliverable_af(priv->pSessionUuidStr, rcpt, dom, afType, pIn, pSmtprc) > 0 && *pSmtprc == 250);
+			mlfi_debug(priv->pSessionUuidStr, "%s: '%s@%s' fwdhost: '%s' = %d", __func__, rcpt, dom, fwdHostStr, *pSmtprc);
+		}
+		else
+			rc = 1;
 	}
 
 	return rc;
