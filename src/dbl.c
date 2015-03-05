@@ -188,8 +188,8 @@ static int dbl_check_callback(dqrr_t *pDqrr, void *pData)
 	switch(ns_rr_type(pDblcb->pDqrr->rr))
 	{
 		// valid DBL answer types
-		case ns_t_a: // 0x7f0001xx
-		case ns_t_aaaa: // ::FFFF:7F00:2
+		case ns_t_a: // 0x7f0000xx
+		case ns_t_aaaa: // ::FFFF:7F00:0
 		case ns_t_txt:
 			// It's our job to make sure this is empty, and free it afterwards
 			pDblcb->pDblResult = NULL;
@@ -292,9 +292,11 @@ void dbl_check_all(dblCtx_t *pCtx, const res_state statp, const dblq_t *pDblq)
 }
 
 int dbl_callback_policy_std(dblcb_t *pDblcb)
-{	int bCallbackProceed = 0;
+{	int bPolicyMatch = 0;
 	dqrr_t *pDqrr = pDblcb->pDqrr;
 	int nsType = ns_rr_type(pDqrr->rr);
+	int afType = AF_UNSPEC;
+	int respVal = 0;
 
 	// http://www.spamhaus.org/faq/section/Spamhaus%20DBL#277
 	// http://www.rfc-editor.org/rfc/rfc5782.txt
@@ -317,22 +319,22 @@ int dbl_callback_policy_std(dblcb_t *pDblcb)
 	{
 		case ns_t_a: // 0x7f0000xx
 			if(ns_rr_rdlen(pDqrr->rr) == NS_INADDRSZ)
-			{	unsigned long ip = ns_get32(ns_rr_rdata(pDqrr->rr));
+			{
+				// since ns_get32() advances the pointer that we want
+				// to use again below for mlfi_inet_ntopAF, we
+				// create a temp copy the rrdata pointer, and use it
+				const unsigned char *pRrData = ns_rr_rdata(pDqrr->rr);
+				unsigned long ip = ns_get32(pRrData);
 
 				if((ip&0xffffff00) == 0x7f000000)
 				{
-					pDblcb->abused = ((ip & 0x000000ff) >= 100); // an abused domain
-
-					if(!pDblcb->abused)
-						pDblcb->pDblResult = mlfi_inet_ntopAF(AF_INET, (char *)ns_rr_rdata(pDqrr->rr));
-
-					bCallbackProceed = !pDblcb->abused;
+					respVal = (ip & 0x000000ff);
+					afType = AF_INET;
 				}
 			}
 			break;
 
-		case ns_t_aaaa: // ::FFFF:7F00:2
-			// TODO - none of this logic is validated
+		case ns_t_aaaa: // ::FFFF:7F00:0
 			if(ns_rr_rdlen(pDqrr->rr) == NS_IN6ADDRSZ)
 			{
 				struct in6_addr *pIp6 = (struct in6_addr *)ns_rr_rdata(pDqrr->rr);
@@ -345,22 +347,29 @@ int dbl_callback_policy_std(dblcb_t *pDblcb)
 					&& (pIp6->s6_addr32[3] & 0xffffff00) == 0x7f000000
 					)
 				{
-					pDblcb->abused = ((pIp6->s6_addr32[3] & 0x000000ff) >= 100); // an abused domain
-
-					if(!pDblcb->abused)
-						pDblcb->pDblResult = mlfi_inet_ntopAF(AF_INET6, (char *)pIp6);
+					respVal = (pIp6->s6_addr32[3] & 0x000000ff);
+					afType = AF_INET6;
 				}
 			}
 			break;
 	}
 
-	//if(pDblcb->pDblResult != NULL)
-	//	printf("pDblResult %s\n", pDblcb->pDblResult);
+	if(afType != AF_UNSPEC)
+	{
+		pDblcb->abused = (respVal >= 100); // an abused domain
+		if(respVal > 0 && respVal < 100)
+		{
+			pDblcb->pDblResult = mlfi_inet_ntopAF(AF_INET, (char *)ns_rr_rdata(pDqrr->rr));
+			bPolicyMatch = 1;
+		}
+	}
 
-	return bCallbackProceed;
+	return bPolicyMatch;
 }
 
 #ifdef _UNIT_TEST
+#include <syslog.h>
+
 static int callback(const dblcb_t *pDblcb)
 {
 	printf("DBL '%s' query '%s' returned '%s'%s\n"
@@ -395,6 +404,7 @@ int main(int argc, char **argv)
 	argv += optind;
 
 
+	openlog("dbl", LOG_PERROR|LOG_NDELAY|LOG_PID, LOG_DAEMON);
 	if(pDomain != NULL)
 	{
 		if(pDbl != NULL)
@@ -417,7 +427,7 @@ int main(int argc, char **argv)
 			if(pDbl != NULL)
 				dbl_check(presstate, pDbl, &dblq);
 			else
-			{	dblCtx_t *pDblCtx = dbl_Create("1234");
+			{	dblCtx_t *pDblCtx = dbl_Create("");
 
 				dbl_Open(pDblCtx, "/var/db/spamilter");
 
