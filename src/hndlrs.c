@@ -783,86 +783,89 @@ sfsistat mlfi_envrcpt(SMFICTX *ctx, char **argv)
 
 	mlfi_debug(priv->pSessionUuidStr,"mlfi_envrcpt: '%s'\n",*argv);
 
-	if (priv != NULL && !priv->islocalnethost)
-	{	char *pMbox = NULL;
-		char *pDomain = NULL;
-		char *reason = NULL;
-
+	if (priv != NULL)
+	{
 		if(priv->rcpt != NULL)
 			free(priv->rcpt);
 		priv->rcpt = str2lo(strdup(*argv));
 
-		mlfi_regex_mboxsplit(priv->rcpt,&pMbox,&pDomain);
-		dupe_query(priv,*argv,DUPE_RCPT);
-		priv->rcptaction = bwlistActionQuery(priv->pbwlistctx,BWL_L_RCPT,pDomain,pMbox,priv->rcptactionexec);
-		mlfi_debug(priv->pSessionUuidStr,"mlfi_envrcpt: rcptaction = %u/'%s'\n",priv->rcptaction,gpBwlStrs[priv->rcptaction]);
-		asprintf(&reason,"Blacklisted recipient '%s@%s'",pMbox,pDomain);
+		if(!priv->islocalnethost)
+		{	char *pMbox = NULL;
+			char *pDomain = NULL;
+			char *reason = NULL;
 
-		switch(priv->rcptaction)
-		{
-			case BWL_A_TARPIT:
-				sleep(120);	// slow the bastard down!
-				// deliberate fall thru to BWL_A_REJECT
-			case BWL_A_REJECT:
-				mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Recipient has been blacklisted, Please see: %s#blacklistedrecipient",gPolicyUrl);
-				mlfi_status_debug(priv,&rs,LOG_REJECTED_STR,reason
-					,"mlfi_envrcpt: Blacklisted recipient '%s@%s'\n",pMbox,pDomain);
-				if(gMtaHostIpfw)
-					mlfi_MtaHostIpfwAction(priv,"add");
-				break;
-			case BWL_A_TEMPFAIL:
-				mlfi_status_debug(priv,&rs,LOG_TEMPFAILED_STR,reason,NULL);
-				break;
-			case BWL_A_DISCARD:
-				mlfi_status_debug(priv,&rs,LOG_DISCARDED_STR,reason,NULL);
-				break;
-			case BWL_A_ACCEPT:
-				// take no further action
-				break;
-			case BWL_A_EXEC:
-				rs = mlfi_hndlr_exec(ctx,RBL_S_RCPT);
-				break;
-			default:
-				priv->rcptaction = BWL_A_NULL;
-				// deliberate fall thru to BWL_A_NULL case
-			case BWL_A_NULL:
-				// no acton specified, do other normal checks
-				if(priv->sndraction != BWL_A_ACCEPT)
-				{
+			mlfi_regex_mboxsplit(priv->rcpt,&pMbox,&pDomain);
+			dupe_query(priv,*argv,DUPE_RCPT);
+			priv->rcptaction = bwlistActionQuery(priv->pbwlistctx,BWL_L_RCPT,pDomain,pMbox,priv->rcptactionexec);
+			mlfi_debug(priv->pSessionUuidStr,"mlfi_envrcpt: rcptaction = %u/'%s'\n",priv->rcptaction,gpBwlStrs[priv->rcptaction]);
+			asprintf(&reason,"Blacklisted recipient '%s@%s'",pMbox,pDomain);
+
+			switch(priv->rcptaction)
+			{
+				case BWL_A_TARPIT:
+					sleep(120);	// slow the bastard down!
+					// deliberate fall thru to BWL_A_REJECT
+				case BWL_A_REJECT:
+					mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Recipient has been blacklisted, Please see: %s#blacklistedrecipient",gPolicyUrl);
+					mlfi_status_debug(priv,&rs,LOG_REJECTED_STR,reason
+						,"mlfi_envrcpt: Blacklisted recipient '%s@%s'\n",pMbox,pDomain);
+					if(gMtaHostIpfw)
+						mlfi_MtaHostIpfwAction(priv,"add");
+					break;
+				case BWL_A_TEMPFAIL:
+					mlfi_status_debug(priv,&rs,LOG_TEMPFAILED_STR,reason,NULL);
+					break;
+				case BWL_A_DISCARD:
+					mlfi_status_debug(priv,&rs,LOG_DISCARDED_STR,reason,NULL);
+					break;
+				case BWL_A_ACCEPT:
+					// take no further action
+					break;
+				case BWL_A_EXEC:
+					rs = mlfi_hndlr_exec(ctx,RBL_S_RCPT);
+					break;
+				default:
+					priv->rcptaction = BWL_A_NULL;
+					// deliberate fall thru to BWL_A_NULL case
+				case BWL_A_NULL:
+					// no acton specified, do other normal checks
+					if(priv->sndraction != BWL_A_ACCEPT)
+					{
 #if defined(SUPPORT_VIRTUSER) || defined(SUPPORT_ALIASES) || defined(SUPPORT_LOCALUSER)
-					int deliverable = 0;
-					int deliverableValid = 0;
+						int deliverable = 0;
+						int deliverableValid = 0;
 #endif
 #if defined(SUPPORT_VIRTUSER)
-					deliverable |= (gVirtUserTableChk != NULL && virtusertable_validate_rcptdom(priv->pSessionUuidStr,pMbox,pDomain,gVirtUserTableChk));
-					deliverableValid |= (gVirtUserTableChk != NULL);
+						deliverable |= (gVirtUserTableChk != NULL && virtusertable_validate_rcptdom(priv->pSessionUuidStr,pMbox,pDomain,gVirtUserTableChk));
+						deliverableValid |= (gVirtUserTableChk != NULL);
 #endif
 #if defined(SUPPORT_ALIASES)
-					deliverable |= (gAliasTableChk != NULL && aliastable_validate(priv->pSessionUuidStr,pMbox,gAliasTableChk));
-					deliverableValid |= (gAliasTableChk != NULL);
+						deliverable |= (gAliasTableChk != NULL && aliastable_validate(priv->pSessionUuidStr,pMbox,gAliasTableChk));
+						deliverableValid |= (gAliasTableChk != NULL);
 #endif
 #if defined(SUPPORT_LOCALUSER)
-					deliverable |= (gLocalUserTableChk && mlfi_envrcpt_islocaluser(priv,pMbox));
-					deliverableValid |= gLocalUserTableChk;
+						deliverable |= (gLocalUserTableChk && mlfi_envrcpt_islocaluser(priv,pMbox));
+						deliverableValid |= gLocalUserTableChk;
 #endif
 #if defined(SUPPORT_VIRTUSER) || defined(SUPPORT_ALIASES) || defined(SUPPORT_LOCALUSER)
-					if(deliverableValid && !deliverable)
-					{
-						mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Not deliverable, Please see: %s#undeliverable",gPolicyUrl);
-						asprintf(&reason,"Not deliverable '%s@%s'",pMbox,pDomain);
-						mlfi_status_debug(priv,&rs,LOG_REJECTED_STR,"Missing Helo/Ehlo",
-							"mlfi_envrcpt: Not deliverable '%s@%s'\n",pMbox,pDomain);
-						free(reason);
-					}
-					else
+						if(deliverableValid && !deliverable)
+						{
+							mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Not deliverable, Please see: %s#undeliverable",gPolicyUrl);
+							asprintf(&reason,"Not deliverable '%s@%s'",pMbox,pDomain);
+							mlfi_status_debug(priv,&rs,LOG_REJECTED_STR,"Missing Helo/Ehlo",
+								"mlfi_envrcpt: Not deliverable '%s@%s'\n",pMbox,pDomain);
+							free(reason);
+						}
+						else
 #endif
-						rs = mlfi_rdnsbl_reject(ctx, &rs, RBL_S_RCPT, priv->pip, priv->pdnsrblhosts, &priv->pdnsrblmatch);
-				}
+							rs = mlfi_rdnsbl_reject(ctx, &rs, RBL_S_RCPT, priv->pip, priv->pdnsrblhosts, &priv->pdnsrblmatch);
+					}
 				break;
-		}
+			}
 
-		free(pMbox);
-		free(pDomain);
+			free(pMbox);
+			free(pDomain);
+		}
 	}
 
 	return rs;
@@ -984,7 +987,7 @@ int dblCheckCallbackHlo(const dblcb_t *pDblcb)
 		);
 
 	mlfi_setreply(ctx, 550, "5.7.1", "Rejecting due to security policy - Blacklisted host, Please see: %s#blacklistedhostdbl", gPolicyUrl);
-	asprintf(pcpr->ppReason, "Blacklisted host DBL '%s' via '%s'", pDblcb->pDblResult, pDblcb->pDbl);
+	asprintf(pcpr->ppReason, "Blacklisted host DBL '%s' via '%s'", pDblcb->pDblq->pDomain, pDblcb->pDbl);
 	mlfi_status_debug(priv, pcpr->prs, LOG_REJECTED_STR, *pcpr->ppReason, "mlfi_hndlrs: Blacklisted host DBL\n");
 	free(*pcpr->ppReason);
 	*pcpr->pbContinueChecks = 0;
