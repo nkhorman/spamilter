@@ -114,10 +114,9 @@ int smtp_host_test_mailfrom_rcptto(const char *pSessionId, int sd, int timeout, 
 	return(rc);
 }
 
-// TODO - ipv6
-int smtp_host_is_deliverable(const char *pSessionId, const char *mbox, const char *dom, long hostip, int *smtprc)
+int smtp_host_is_deliverable_af(const char *pSessionId, const char *mbox, const char *dom, int afType, const char *in, int *smtprc)
 {	int	rc = -1;	/* 1 = success, 0 = failure, -1 = unreachable */
-	int	sd = NetSockOpenTcpPeer(hostip,25);
+	int	sd = NetSockOpenTcpPeerAf(afType, in, 25);
 	int	timeout = 90;
 
 	if(sd != INVALID_SOCKET && (*smtprc = smtp_get_resp(pSessionId,sd,90,220)) == 220)
@@ -144,7 +143,7 @@ int smtp_host_is_deliverable(const char *pSessionId, const char *mbox, const cha
 
 	NetSockClose(&sd);
 
-	return(rc);
+	return rc;
 }
 
 int smtp_mx_is_deliverable(const char *pSessionId, mx_rr *rr, const char *mbox, const char *dom, int *smtprc)
@@ -154,34 +153,38 @@ int smtp_mx_is_deliverable(const char *pSessionId, mx_rr *rr, const char *mbox, 
 	rr->visited = 1;
 
 	for(j=0; tst == -1 && j < rr->qty; j++)
-	{
+	{	struct in_addr ipv4;
+		const char *in = NULL;
+		char *pStr = NULL;
+		int afType = 0;
+
 		switch(rr->host[j].nsType)
 		{
 			case ns_t_a:
-				{	struct in_addr ip;
-					char *pStr = NULL;
-
-					ip.s_addr = htonl(rr->host[j].ipv4);
-					pStr = mlfi_inet_ntopAF(AF_INET, (char *)&ip);
-
-					mlfi_debug(pSessionId,"\t\tA %s\n", pStr);
-					if(ifi_islocalip(rr->host[j].ipv4))
-					{
-						tst = 2;
-						*smtprc = 250;
-					}
-					else
-						tst = smtp_host_is_deliverable(pSessionId, mbox, dom, rr->host[j].ipv4, smtprc);
-					free(pStr);
-				}
+				ipv4.s_addr = htonl(rr->host[j].ipv4);
+				in = (const char *)&ipv4;
+				afType = AF_INET;
 				break;
 
 			case ns_t_aaaa:
-				// TODO - ipv6
-				printf("%s:%s:%d - TODO - ipv6\n", __FILE__, __func__, __LINE__);
+				in = (const char *)&rr->host[j].ipv6;
+				afType = AF_INET6;
 				break;
 		}
 
+		pStr = mlfi_inet_ntopAF(afType, in);
+		mlfi_debug(pSessionId,"\t\t%s %s\n", (afType == AF_INET ? "A" : "AAAA"), pStr);
+		free(pStr);
+
+		// TODO - ipv6
+		//if(ifi_islocalip_af(afType, in))
+		if(afType == AF_INET && ifi_islocalip(rr->host[j].ipv4))
+		{
+			tst = 2;
+			*smtprc = 250;
+		}
+		else
+			tst = smtp_host_is_deliverable_af(pSessionId, mbox, dom, afType, in, smtprc);
 
 		switch(tst)
 		{
@@ -200,7 +203,7 @@ int smtp_mx_is_deliverable(const char *pSessionId, mx_rr *rr, const char *mbox, 
 		}
 	}
 
-	return(tst);
+	return tst;
 }
 
 int smtp_email_address_is_deliverable(const char *pSessionId, const res_state statp, const char *mbox, const char *dom, int *smtprc)
