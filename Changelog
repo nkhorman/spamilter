@@ -1,4 +1,8 @@
 Changelog;
+	20150305
+	* add - ipv6 support for fwdhost checking
+	* fix - auto-config of syslog
+
 	20150303
 	* add - support for auto-config of syslog on first install for freebsd
 	* fix - mlfi_isNonRoutableIpV4 regression
