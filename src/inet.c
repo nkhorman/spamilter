@@ -58,6 +58,10 @@ static char const cvsid[] = "@(#)$Id: inet.c,v 1.13 2011/07/29 21:23:17 neal Exp
 
 #include "inet.h"
 
+#ifdef __FreeBSD__
+#define HAVE_SOCKADDR_SA_LEN 1
+#endif
+
 struct sockaddr *NetSockInitAf(struct sockaddr *pSa, int afType, const char *in, unsigned short port)
 {
 	switch(afType)
@@ -68,7 +72,9 @@ struct sockaddr *NetSockInitAf(struct sockaddr *pSa, int afType, const char *in,
 				if(pSin != NULL)
 				{
 					pSa = (struct sockaddr *)pSin;
+#ifdef HAVE_SOCKADDR_SA_LEN
 					pSin->sin_len = sizeof(struct sockaddr_in);
+#endif
 					pSin->sin_family = afType;
 					pSin->sin_port = htons(port);
 
@@ -86,7 +92,9 @@ struct sockaddr *NetSockInitAf(struct sockaddr *pSa, int afType, const char *in,
 				if(pSin6 != NULL)
 				{
 					pSa = (struct sockaddr *)pSin6;
+#ifdef HAVE_SOCKADDR_SA_LEN
 					pSin6->sin6_len = sizeof(struct sockaddr_in6);
+#endif
 					pSin6->sin6_family = afType;
 					pSin6->sin6_port = htons(port);
 					if(in != NULL)
@@ -119,7 +127,12 @@ int NetSockBindAf(int *pSd, int sockType, int afType, const char *in, unsigned s
 
 		if(pSa != NULL)
 		{
-			ok = (bind(*pSd, pSa, pSa->sa_len) != SOCKET_ERROR);
+#ifdef HAVE_SOCKADDR_SA_LEN
+#define SALEN pSa->sa_len
+#else
+#define SALEN (afType == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6))
+#endif
+			ok = (bind(*pSd, pSa, SALEN) != SOCKET_ERROR);
 			free(pSa);
 		}
 	}
@@ -180,8 +193,13 @@ int NetSockOpenTcpPeerAf(int afType, const char *in, unsigned short port)
 		{
 			ok = NetSockOptNoLinger(sd);
 
+#ifdef HAVE_SOCKADDR_SA_LEN
+#define SALEN pSa->sa_len
+#else
+#define SALEN (afType == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6))
+#endif
 			if(ok)
-			{	int err = (connect(sd, pSa, pSa->sa_len) == SOCKET_ERROR ? errno : 0);
+			{	int err = (connect(sd, pSa, SALEN) == SOCKET_ERROR ? errno : 0);
 
 				ok = (err == 0 || err == EINPROGRESS || err == EWOULDBLOCK);
 			}
@@ -207,12 +225,17 @@ int NetSockOpenTcpListenAf(int afType, const char *in, unsigned short port)
 	unsigned long		arg_on	= 1;
 	struct sockaddr *	pSa = NetSockInitAf(NULL, afType, in, port);
 
+#ifdef HAVE_SOCKADDR_SA_LEN
+#define SALEN pSa->sa_len
+#else
+#define SALEN (afType == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6))
+#endif
 	ok = (pSa != NULL) &&
 		((sd = socket(AF_INET, SOCK_STREAM, 0)) != INVALID_SOCKET) &&
 		NetSockOptNoLinger(sd) &&
 		NetSockOpt(sd, SO_REUSEADDR, 1) &&
 		(ioctl(sd, FIONBIO, &arg_on) == 0) &&
-		(bind(sd, pSa, pSa->sa_len) != SOCKET_ERROR) &&
+		(bind(sd, pSa, SALEN) != SOCKET_ERROR) &&
 		(listen(sd, 1) != SOCKET_ERROR);
 
 	if(!ok)
@@ -301,7 +324,12 @@ int NetSockSendToAf(int sd, char *buf, int buflen, int afType, const char * in, 
 
 		if(pSa != NULL)
 		{
-			rc = sendto(sd, buf, buflen, 0, pSa, pSa->sa_len);
+#ifdef HAVE_SOCKADDR_SA_LEN
+#define SALEN pSa->sa_len
+#else
+#define SALEN (afType == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6))
+#endif
+			rc = sendto(sd, buf, buflen, 0, pSa, SALEN);
 			free(pSa);
 		}
 	}
