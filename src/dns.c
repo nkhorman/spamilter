@@ -67,6 +67,7 @@ dqrr_t *dns_query_rr_init(const res_state statp, int nsType)
 		pDqrr->nsType = nsType;
 		pDqrr->respLen = NS_PACKETSZ;
 		pDqrr->pResp = calloc(1, pDqrr->respLen);
+		pDqrr->tries = 2;
 	}
 
 	return pDqrr;
@@ -82,6 +83,7 @@ dqrr_t * dns_query_rr_reinit(dqrr_t *pDqrr, int nsType)
 		pDqrr->nsType = nsType;
 		pDqrr->respLen = NS_PACKETSZ;
 		pDqrr->pResp = calloc(1, pDqrr->respLen);
+		pDqrr->tries = 2;
 	}
 
 	return pDqrr;
@@ -99,16 +101,40 @@ void dns_query_rr_free(dqrr_t *pDqrr)
 	}
 }
 
+#ifdef UNIT_TEST
+typedef struct _nsType_t
+{
+	int type;
+	const char *name;
+} nsType_t;
+
+nsType_t gNsTypes[] = { {ns_t_a, "A"}, {ns_t_aaaa, "AAAA"}, {ns_t_ptr, "PTR"}, {ns_t_cname, "CNAME"} };
+
+const char *nsTypeLookup(int nsType)
+{	int i;
+	const char *pStr = NULL;
+
+	for(i=0; pStr == NULL && i<sizeof(gNsTypes)/sizeof(gNsTypes[0]); i++)
+		pStr = (gNsTypes[i].type == nsType ? gNsTypes[i].name : NULL);
+
+	return (pStr != NULL ? pStr : "Unknown");
+}
+#endif
+
 // Execute a query with a specified type
 int dns_query_rr_resp(dqrr_t *pDqrr, const char *pQuery)
 {	int rc = -1;
 
 	if(pDqrr != NULL && pQuery != NULL && *pQuery)
-	{	int i,queryRetries = 1;
+	{	int i,tries = pDqrr->tries;
+		const char *pNsTypeStr = nsTypeLookup(pDqrr->nsType);
 
 		// try hard to have a big enough buffer for the response
-		for(i=0; i<5 && pDqrr->pResp != NULL && rc < 0 && queryRetries; i++)
+		for(i=0; i<5 && pDqrr->pResp != NULL && rc < 0 && tries; i++)
 		{
+#ifdef UNIT_TEST
+			printf("%s:%s:%d type %u/%s retrys %u %s\n", __FILE__, __func__, __LINE__, pDqrr->nsType, pNsTypeStr, tries, pQuery);
+#endif
 			rc = res_nquery(pDqrr->statp, pQuery, ns_c_in, pDqrr->nsType, pDqrr->pResp, pDqrr->respLen);
 
 			if(rc > 0)
@@ -129,24 +155,22 @@ int dns_query_rr_resp(dqrr_t *pDqrr, const char *pQuery)
 					case NO_RECOVERY: // Non recoverable errors, FORMERR, REFUSED, NOTIMP
 					case NO_DATA: // valid name, no data record of requested type
 						// deliberate fall thru
-					case NETDB_SUCCESS: // no problem - this is NXDOMAIN
 						rc = 0;
 						break;
 
-					// attempt to query again
+					case NETDB_SUCCESS: // no problem - this is NXDOMAIN
 					case TRY_AGAIN: // Non-Authoritative Host not found, or SERVERFAIL
-						if(queryRetries)
+						if(tries) // attempt to query again ?
 						{
-							queryRetries--;
+							tries--;
 							// cause another query
 							i = 0;
-							rc = -1;
+							rc = (tries ?  -1 : 0);
 						}
 						break;
 				}
 			}
 		}
-		//printf("%s:%s:%d query '%s' rc %d\n", __FILE__, __func__, __LINE__, pQuery, rc);
 	}
 
 	return rc;
@@ -401,12 +425,6 @@ int dnsParseResponseCallback(dqrr_t *pDqrr, void *pdata)
 
 res_state gpRes = NULL;
 
-typedef struct _nsType_t
-{
-	int type;
-	const char *name;
-} nsType_t;
-
 int testType(nsType_t *pType, const char *pQuery)
 {	int rc = 0;
 	dqrr_t *pDqrr = dns_query_rr_init(gpRes, pType->type);
@@ -426,15 +444,14 @@ int testType(nsType_t *pType, const char *pQuery)
 
 void test1(int argc, char **argv)
 {	int i,j,rc;
-	nsType_t nsTypes[] = { {ns_t_a, "a"}, {ns_t_aaaa, "aaaa"}, {ns_t_ptr, "ptr"}, {ns_t_cname, "cname"} };
 
 	// Query some common types of a given record name
 	for(i=1; i<argc; i++)
 	{
 		printf("%s\n", argv[i]);
 
-		for(j=0,rc=0; j<sizeof(nsTypes)/sizeof(nsTypes[0]); j++)
-			rc += testType(&nsTypes[j], argv[i]);
+		for(j=0,rc=0; j<sizeof(gNsTypes)/sizeof(gNsTypes[0]); j++)
+			rc += testType(&gNsTypes[j], argv[i]);
 
 		//if(rc == 0)
 		{	char *pstr = dns_inet_ptoarpa(argv[i], AF_INET, NULL);
@@ -444,7 +461,7 @@ void test1(int argc, char **argv)
 
 			if(pstr != NULL)
 			{
-				rc += testType(&nsTypes[2], pstr);
+				rc += testType(&gNsTypes[2], pstr);
 				free(pstr);
 			}
 		}

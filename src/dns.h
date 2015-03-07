@@ -51,6 +51,7 @@
 	{
 		res_state statp;
 		int nsType;
+		int tries;
 
 		// the response buffer
 		u_char *pResp;
