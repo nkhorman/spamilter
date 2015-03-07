@@ -127,7 +127,9 @@ int dns_query_rr_resp(dqrr_t *pDqrr, const char *pQuery)
 
 	if(pDqrr != NULL && pQuery != NULL && *pQuery)
 	{	int i,tries = pDqrr->tries;
+#ifdef UNIT_TEST
 		const char *pNsTypeStr = nsTypeLookup(pDqrr->nsType);
+#endif
 
 		// try hard to have a big enough buffer for the response
 		for(i=0; i<5 && pDqrr->pResp != NULL && rc < 0 && tries; i++)
