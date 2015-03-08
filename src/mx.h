@@ -63,7 +63,7 @@
 
 	typedef struct _mx_rr
 	{
-		char	name[MAXDNAME];
+		char	name[NS_MAXDNAME];
 		int	pref;
 		int	visited;
 		mx_host	host[MAX_MXHOSTS];
@@ -78,7 +78,7 @@
 			unsigned long ipv4;
 			struct in6_addr ipv6;
 		};
-		char	domain[MAXDNAME];
+		char	domain[NS_MAXDNAME];
 		int	match;
 		mx_rr	mx[MAX_MXHOSTS];
 		int	qty;
