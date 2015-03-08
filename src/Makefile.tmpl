@@ -13,8 +13,8 @@
 #<ALL>CC =		gcc
 <ALL>SRCS =		dns.c <WITH_DBL dbl.c> dnsbl.c hndlrs.c misc.c smisc.c mx.c smtp.c inet.c ifi.c bwlist.c badext.c dupe.c regexapi.c regexmisc.c md5api.c <WITH_ALIASES aliastable.c> <WITH_VIRTUSER virtusertable.c> <WITH_POPAUTH popauth.c><WITH_LIBSPF spfapi.c> <WITH_VASPRINTF nstring.c> <WITH_FWDHOSTCHK fwdhostlist.c> <WITH_GEOIP geoip.c> list.c <WITH_TABLE_FLATFILE table.c tableDriverFlatFile.c> <WITH_TABLE_PGSQL pgsql.c tableDriverPsql.c>
 <NEED_LIBUTIL_LOCAL>SRCS +=		libutil/pidfile.c libutil/flopen.c
-<Linux>SRCS +=		md5c.c md5hl.c
-<Linux>SRCS +=		setproctitle.c
+<NOT_BSD>SRCS +=		md5c.c md5hl.c
+<NOT_BSD>SRCS +=		setproctitle.c
 <ALL>OBJS =		${SRCS:.c=.o}
 <ALL>INCLUDES =	${SRCS:.c=.h} spamilter.h <INC_OpenBSD ns_compat.h>
 <ALL>
@@ -44,7 +44,8 @@
 <ALL>INCLUDEDIR =	-I. -I${SMDIR}/include <WITH_LIBSPF -I${LIBSPFINC}> <WITH_GEOIP -I${LIBGEOIPINC}>
 <INCDIRS>INCLUDEDIR +=		<X>
 <ALL>
-<ALL>CFLAGS =		-Wall -pthread<INC_SunOS s>
+<ALL>CFLAGS =	-Wall -Wno-unused-const-variable <INC_SunOS s>
+<FreeBSD>CFLAGS +=	-pthread
 <ALL>CFLAGS +=	-ggdb -g3
 <WITH_GREYLIST>CFLAGS += -I/usr/local/psql/include
 <SUPPORTTABLEPGSQL>CFLAGS += -I/usr/local/psql/include
@@ -54,8 +55,9 @@
 <ALL>
 <ALL>LIBS =		-lmilter -lutil
 <BSD>LIBS +=	-lmd
-<Linux>LIBS +=		-lsmutil -lresolv -ldb
-<SunOS>LIBS +=		-lsmutil -lresolv -lsocket -lnsl -lxnet -lpthread
+<NOT_BSD>LIBS +=	-lsmutil -lresolv
+<Linux>LIBS +=		-ldb
+<SunOS>LIBS +=		-lsocket -lnsl -lxnet -lpthread
 <LIBS>LIBS +=		<X>
 <ALL>LIBDIRS =
 <BSD>LIBDIRS +=	-L${SMDIR}/libmilter
