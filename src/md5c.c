@@ -43,7 +43,7 @@
 #include <endian.h>
 #else
 #include <machine/endian.h>
-#include <sys/endian.h>
+//#include <sys/endian.h>
 #endif
 
 #include "md5c.h"
