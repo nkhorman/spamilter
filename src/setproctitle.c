@@ -53,6 +53,10 @@
 
 #if (defined __linux || defined __APPLE__)
 
+#if (defined __APPLE__)
+#include <libgen.h>
+#endif
+
 #ifndef SPT_MAXTITLE
 #define SPT_MAXTITLE 255
 #endif
