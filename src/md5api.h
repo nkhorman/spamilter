@@ -41,7 +41,7 @@
 #ifndef _MD5API_H_
 #define _MD5API_H_
 
-#ifdef OS_Linux
+#ifndef OS_FreeBSD
  	#include "md5c.h"
 #else
  	#include <md5.h>
