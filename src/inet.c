@@ -98,7 +98,9 @@ struct sockaddr *NetSockInitAf(struct sockaddr *pSa, int afType, const char *in,
 					pSin6->sin6_family = afType;
 					pSin6->sin6_port = htons(port);
 					if(in != NULL)
-						pSin6->sin6_addr = *(struct in6_addr *)in; // TODO - ipv6 - INADDR6_ANY
+						pSin6->sin6_addr = *(struct in6_addr *)in;
+					else
+						pSin6->sin6_addr = in6addr_any;
 				}
 			}
 			break;
