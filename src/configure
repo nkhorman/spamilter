@@ -386,7 +386,8 @@ else
 			smobj="$os.`uname -r`.`uname -m`"
 			$echobin "s/<SMOBJDIR>/$smobj/g" >> $tmpsed
 			Not "FreeBSD"
-			Has "BSD"
+			Not "BSD"
+			CFlags "HAVE_SETPROCTITLE"
 			;;
 		*)
 			$echobin "Unknown OS $os"
