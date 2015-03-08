@@ -161,7 +161,7 @@ int mx_get_rr_match(mx_rr_list *rrl)
 
 				case ns_t_aaaa:
 					rrl->match = (rrl->mx[i].host[j].nsType == rrl->nsType
-						&& memcmp(&rrl->mx[i].host[j].ipv6, &rrl->ipv6, sizeof(rrl->ipv6)) == 0
+						&& IN6_ARE_ADDR_EQUAL(&rrl->mx[i].host[j].ipv6, &rrl->ipv6)
 						);
 					break;
 			}

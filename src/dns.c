@@ -271,7 +271,7 @@ static int dnsMatchIpCallback(dqrr_t *pDqrr, void *pdata)
 				if(ns_rr_rdlen(pDqrr->rr) == NS_IN6ADDRSZ)
 				{	struct in6_addr *pIp6 = (struct in6_addr *)ns_rr_rdata(pDqrr->rr);
 
-					pDmi->match = (memcmp(pIp6, pDmi->pIpv6, sizeof(struct in6_addr)) == 0);
+					pDmi->match = IN6_ARE_ADDR_EQUAL(pIp6, pDmi->pIpv6);
 				}
 				break;
 		}
