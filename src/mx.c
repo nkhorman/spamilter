@@ -80,7 +80,7 @@ static int mx_get_rr_hosts_Callback(dqrr_t *pDqrr, void *pdata)
 				struct in6_addr *pIp6 = (struct in6_addr *)ns_rr_rdata(pDqrr->rr);
 
 				for(i=0,isDuplicate=0; i<mxrr->qty && !isDuplicate; i++)
-					isDuplicate = (memcmp(pIp6, &mxrr->host[i].ipv6, sizeof(mxrr->host[i].ipv6)) == 0);
+					isDuplicate = IN6_ARE_ADDR_EQUAL(pIp6, &mxrr->host[i].ipv6);
 
 				if(!isDuplicate)
 				{
