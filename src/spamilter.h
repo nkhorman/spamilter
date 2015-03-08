@@ -52,7 +52,7 @@
 	#include <sys/types.h>
 	#include <sys/socket.h>
 	#include <netinet/in.h>
-#ifndef OS_Linux
+#ifdef OS_FreeBSD
 	#include <uuid.h>
 #endif
 	#include "dnsbl.h"

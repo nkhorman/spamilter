@@ -291,14 +291,14 @@ sfsistat mlfi_connect(SMFICTX *ctx, char *hostname, _SOCK_ADDR *hostaddr)
 
 	if(priv != NULL)
 	{
-#ifndef OS_Linux
+#ifdef OS_FreeBSD
 		struct uuid sessionUuid;
 #endif
 		char *pSessionUuidStr = NULL;
 
 		smfi_setpriv(ctx, priv);
 
-#ifndef OS_Linux
+#ifdef OS_FreeBSD
 		// session uuid
 		if(uuidgen(&sessionUuid,1) == 0)
 		{	uint32_t status = 0;
