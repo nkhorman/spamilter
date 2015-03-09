@@ -88,6 +88,11 @@ void fwdhostlist_close(mlfiPriv *priv)
 	}
 }
 
+// Kind of like strtok, but better.
+// Returns a pointer to a string delimited by "delim",
+// left and right trimmed for white space, and zero
+// terminated. Then pSrc will be advanced to point to
+// the next string in the buffer.
 static char *stradvtrim(char **pSrc, char delim)
 {	char *pStr = NULL;
 
@@ -105,7 +110,7 @@ static char *stradvtrim(char **pSrc, char delim)
 		pDelim = strchr(pStr,delim);
 		if(pDelim != NULL)
 		{
-			*pDelim = '\0';;
+			*pDelim = '\0';
 			*pSrc = pDelim + 1;
 		}
 		else
@@ -117,18 +122,23 @@ static char *stradvtrim(char **pSrc, char delim)
 			*(pEnd--) = '\0';
 	}
 
-	return(pStr);
+	return pStr;
 }
 
-static unsigned long fwdhostlist_dom_addr(int fd, char *dom, char *pFwdHostBuf, int *pAfType, char **ppIn)
-{	unsigned long ip = 0;
+// Find the "Domain" in the db.fwdhost file, resolve
+// it to an ip address, and return the address family
+// type, and address to the comsumer via pAfType, and ppIn
+// The consumer must free the ip address allocated in *ppIn
+static int fwdhostlist_domain_addr_get(mlfiPriv *priv, const char *pDomain, char *pFwdHostBuf, size_t fwdHostBufLen, int *pAfType, char **ppIn)
+{	int bFwdHostMatchFound = 0;
 
-	if(fd != -1)
+	if(priv->fwdhostlistfd != -1)
 	{	char buf[8192];
 		char *pStr;
 
-		lseek(fd,0l,SEEK_SET);
-		while(ip == 0 && mlfi_fdgets(fd,buf,sizeof(buf)) >= 0)
+		lseek(priv->fwdhostlistfd,0l,SEEK_SET);
+		// read through the file
+		while(bFwdHostMatchFound == 0 && mlfi_fdgets(priv->fwdhostlistfd,buf,sizeof(buf)) >= 0)
 		{
 			pStr = strchr(buf,'#');
 			if(pStr != NULL)
@@ -141,62 +151,89 @@ static unsigned long fwdhostlist_dom_addr(int fd, char *dom, char *pFwdHostBuf, 
 				pStr = buf;
 
 			if(strlen(pStr))
-			{	char *pDom = stradvtrim(&pStr,'|');
+			{	char *pFwdDomain = stradvtrim(&pStr,'|');
 				char *pFwdHost = stradvtrim(&pStr,'|');
 
-				if(strcasecmp(dom,pDom) == 0 && strlen(pFwdHost))
-				{	struct hostent *phostent = gethostbyname(pFwdHost);
+				// if there is a domain match, and there is a forwading host
+				if(strcasecmp(pDomain,pFwdDomain) == 0 && strlen(pFwdHost))
+				{	struct hostent *phostent = gethostbyname(pFwdHost); // resolve the hostname
 
-					strcpy(pFwdHostBuf,pFwdHost);
-
-					if(phostent != NULL)
+					if(phostent != NULL) // if the hostname was resolved
 					{
+						// tell the consumer what host the address is for
+						strncpy(pFwdHostBuf, pFwdHost, fwdHostBufLen-1);
+						pFwdHostBuf[fwdHostBufLen] = 0; // make sure it's terminated
+
+						// allocate a network order ip address structure based on the address family type
 						switch(phostent->h_addrtype)
 						{
 							case AF_INET: *ppIn = calloc(1,sizeof(struct in_addr)); break;
 							case AF_INET6: *ppIn = calloc(1,sizeof(struct in6_addr)); break;
 						}
 
+						// copy the ip address
 						if(*ppIn != NULL)
 						{
 							*pAfType = phostent->h_addrtype;
 							memcpy(*ppIn, phostent->h_addr, phostent->h_length);
-							ip = 1;
+							bFwdHostMatchFound = 1;
 						}
 					}
+					else
+						mlfi_debug(priv->pSessionUuidStr, "%s: unable to resolve host '%s'", __func__, pFwdHost);
 				}
 			}
 		}
 	}
 
-	return ip;
+	return bFwdHostMatchFound;
 }
 
-int fwdhostlist_is_deliverable(mlfiPriv *priv, char *rcpt, char *dom, int *pSmtprc)
-{	int rc = 0;
+// Test if an email address is deliverable via a forwarding host.
+// This will return true, if there is no Forwarding host listed,
+// for the given email address domain, or, if the forwarding host
+// name was resolvable, and the host will accept delivery for the
+// specified email address.
+int fwdhostlist_is_deliverable(mlfiPriv *priv, char *rcpt, char *pDomain, int *pSmtprc)
+{	int bDeliverable = 0;
 
-	if(priv != NULL && dom != NULL && pSmtprc != NULL)
+	if(priv != NULL && pDomain != NULL && pSmtprc != NULL)
 	{	char fwdHostStr[512];
 		int afType = AF_UNSPEC;
 		char *pIn = NULL;
 		
 		memset(fwdHostStr,0,sizeof(fwdHostStr));
 
-		if(fwdhostlist_dom_addr(priv->fwdhostlistfd, dom, fwdHostStr, &afType, &pIn) && afType != AF_UNSPEC && pIn != NULL)
-		{	char *pStr =mlfi_inet_ntopAF(afType, pIn);
-			int tst = -1;
+		// Find ip address information for a matching domain
+		if(fwdhostlist_domain_addr_get(priv, pDomain, fwdHostStr, sizeof(fwdHostStr), &afType, &pIn))
+		{
+			// if we have ip address info, test deliverability
+			if(afType != AF_UNSPEC && pIn != NULL)
+			{	char *pStr = mlfi_inet_ntopAF(afType, pIn); // turn the ip address into a string for display purposes
+				int tst = -1;
 
-			mlfi_debug(priv->pSessionUuidStr, "%s: '%s@%s' fwdhost: '%s'", __func__, rcpt, dom, fwdHostStr);
-			mlfi_debug(priv->pSessionUuidStr, "\t\t%s %s\n", (afType == AF_INET ? "A" : "AAAA"), pStr);
-			free(pStr);
+				// show the ip address
+				mlfi_debug(priv->pSessionUuidStr, "%s: '%s@%s' fwdhost: '%s'", __func__, rcpt, pDomain, fwdHostStr);
+				mlfi_debug(priv->pSessionUuidStr, "\t\t%s %s\n", (afType == AF_INET ? "A" : "AAAA"), pStr);
+				free(pStr);
 
-			tst = smtp_host_is_deliverable_af(priv->pSessionUuidStr, rcpt, dom, afType, pIn, pSmtprc);
-			mlfi_debug(priv->pSessionUuidStr, "\t\t%s: %d", (tst > 0 ? "Passed" : tst == 0 ? "Failed" : "Unreacable"), *pSmtprc);
-			rc = (tst > 0 && *pSmtprc == 250);
+				// connect to ip address and test devliverability
+				tst = smtp_host_is_deliverable_af(priv->pSessionUuidStr, rcpt, pDomain, afType, pIn, pSmtprc);
+				bDeliverable = (tst > 0 && *pSmtprc == 250); // is it deliverable ?
+
+				// show test results
+				mlfi_debug(priv->pSessionUuidStr, "\t\t%s: %d", (tst > 0 ? "Passed" : tst == 0 ? "Failed" : "Unreacable"), *pSmtprc);
+			}
+			else
+				*pSmtprc = -1; // smtp errored, because we couldn't check it
 		}
 		else
-			rc = 1;
+			bDeliverable = 1; // say that it is deliverable, if we couldn't find a forwarding host
+
+		// free the ip address allocated by fwdhostlist_dom_addr()
+		if(pIn != NULL)
+			free(pIn);
 	}
 
-	return rc;
+	return bDeliverable;
 }
