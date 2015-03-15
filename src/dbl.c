@@ -270,9 +270,11 @@ static int dblCallbackRow(void *pCallbackCtx, list_t *pRow)
 	{	dtc_t *pDtc = (dtc_t *)pCallbackCtx;
 
 		pDtc->colIndex = 0;
+		memset(&pDtc->pCols, 0, sizeof(pDtc->pCols));
 		listForEach(pRow, &dblCallbackCol, pDtc);
 
-		if(pDtc->colIndex >= TBL_COL_QTY-1)
+		// If we have all columns
+		if(pDtc->colIndex == TBL_COL_QTY)
 			again = dbl_check(pDtc->statp, pDtc->pCols[TBL_COL_DBL], pDtc->pDblq);
 	}
 
