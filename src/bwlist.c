@@ -239,6 +239,7 @@ static int bwlistCallbackRow(void *pCallbackCtx, list_t *pRow)
 	{	bga_t *pbga = (bga_t *)pCallbackCtx;
 
 		pbga->colIndex = 0;
+		memset(&pbga->pCols, 0, sizeof(pbga->pCols));
 		listForEach(pRow,&bwlistCallbackCol,pbga);
 
 		if(pbga->colIndex >= BWLIST_COL_QTY-1)
