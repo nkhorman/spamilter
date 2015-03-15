@@ -146,17 +146,19 @@ int smtp_host_is_deliverable_af(const char *pSessionId, const char *mbox, const 
 	return rc;
 }
 
-int smtp_mx_is_deliverable(const char *pSessionId, mx_rr *rr, const char *mbox, const char *dom, int *smtprc)
-{	int j,tst = -1;
+int smtp_mx_is_deliverable(const char *pSessionId, mx_rr *rr, const char *mbox, const char *dom, int *smtprc, bool bTestAll)
+{	int j;
+	int lastSuccess = -1;
 
 	mlfi_debug(pSessionId,"\tMX %u %s\n",rr->pref,rr->name);
 	rr->visited = 1;
 
-	for(j=0; tst == -1 && j < rr->qty; j++)
+	for(j=0; (lastSuccess == -1 || bTestAll) && j < rr->qty; j++)
 	{	struct in_addr ipv4;
 		const char *in = NULL;
 		char *pStr = NULL;
 		int afType = 0;
+		int tst = -1;
 
 		switch(rr->host[j].nsType)
 		{
@@ -190,12 +192,15 @@ int smtp_mx_is_deliverable(const char *pSessionId, mx_rr *rr, const char *mbox, 
 		{
 			case 2:
 				mlfi_debug(pSessionId,"\t\tPassed - Local Host\n");
+				lastSuccess = tst;
 				break;
 			case 1:
 				mlfi_debug(pSessionId,"\t\tPassed - Foreign Host: %d\n",*smtprc);
+				lastSuccess = tst;
 				break;
 			case 0:
 				mlfi_debug(pSessionId,"\t\tFailed: %d\n",*smtprc);
+				lastSuccess = tst;
 				break;
 			default:
 				mlfi_debug(pSessionId,"\t\tUnreachable\n");
@@ -203,10 +208,10 @@ int smtp_mx_is_deliverable(const char *pSessionId, mx_rr *rr, const char *mbox, 
 		}
 	}
 
-	return tst;
+	return lastSuccess;
 }
 
-int smtp_email_address_is_deliverable(const char *pSessionId, const res_state statp, const char *mbox, const char *dom, int *smtprc)
+int smtp_email_address_is_deliverable(const char *pSessionId, const res_state statp, const char *mbox, const char *dom, int *smtprc, bool bTestAll)
 {	int		rc = 0;
 	mx_rr_list	*rrl = calloc(1,sizeof(mx_rr_list));
 	int		i,j,l,tst = -1;
@@ -240,7 +245,7 @@ int smtp_email_address_is_deliverable(const char *pSessionId, const res_state st
 
 				/* test MX */
 				if(rr != NULL)
-					tst = smtp_mx_is_deliverable(pSessionId,rr,mbox,dom,smtprc);
+					tst = smtp_mx_is_deliverable(pSessionId, rr, mbox, dom, smtprc, bTestAll);
 			}
 			if(tst == 1 || tst == 2)
 				rc = 1;

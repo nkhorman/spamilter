@@ -538,7 +538,7 @@ sfsistat mlfi_sndrchk(SMFICTX *ctx, const char *pMbox, const char *pDomain)
 	{	int smtprc = 0;
 
 		mlfi_debug(priv->pSessionUuidStr,"mlfi_sndrchk: %s@%s\n",pMbox,pDomain);
-		priv->SmtpSndrChkFail = !smtp_email_address_is_deliverable(priv->pSessionUuidStr,priv->presstate,pMbox,pDomain,&smtprc);
+		priv->SmtpSndrChkFail = !smtp_email_address_is_deliverable(priv->pSessionUuidStr, priv->presstate, pMbox, pDomain, &smtprc, false);
 
 		if(priv->SmtpSndrChkFail && strcasecmp(gSmtpSndrChkAction,"Reject") == 0)
 		{
