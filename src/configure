@@ -461,7 +461,7 @@ EOF
 cat $tmpflags >> $cflagsfile
 rm -f $tmpflags
 
-for file in dupelocal.inc hndlrs_contentfilter_local.inc ifilocal.inc; do
+for file in dupelocal.inc hndlrs_contentfilter_local.inc; do
 	if [ ! -f "$file" ]; then touch "$file"; fi
 done
 
