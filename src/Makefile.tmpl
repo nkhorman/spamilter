@@ -11,7 +11,7 @@
 <ALL> #--------------------------------------------------------------------*
 <ALL>
 #<ALL>CC =		gcc
-<ALL>SRCS =		dns.c <WITH_DBL dbl.c> dnsbl.c hndlrs.c misc.c smisc.c mx.c smtp.c inet.c ifi.c bwlist.c badext.c dupe.c regexapi.c regexmisc.c md5api.c <WITH_ALIASES aliastable.c> <WITH_VIRTUSER virtusertable.c> <WITH_POPAUTH popauth.c><WITH_LIBSPF spfapi.c> <WITH_VASPRINTF nstring.c> <WITH_FWDHOSTCHK fwdhostlist.c> <WITH_GEOIP geoip.c> list.c <WITH_TABLE_FLATFILE table.c tableDriverFlatFile.c> <WITH_TABLE_PGSQL pgsql.c tableDriverPsql.c>
+<ALL>SRCS =		dns.c <WITH_DBL dbl.c> dnsbl.c hndlrs.c misc.c smisc.c mx.c smtp.c inet.c ifi.c ifidb.c bwlist.c badext.c dupe.c regexapi.c regexmisc.c md5api.c <WITH_ALIASES aliastable.c> <WITH_VIRTUSER virtusertable.c> <WITH_POPAUTH popauth.c><WITH_LIBSPF spfapi.c> <WITH_VASPRINTF nstring.c> <WITH_FWDHOSTCHK fwdhostlist.c> <WITH_GEOIP geoip.c> list.c table.c <WITH_TABLE_FLATFILE tableDriverFlatFile.c> <WITH_TABLE_PGSQL pgsql.c tableDriverPsql.c>
 <NEED_LIBUTIL_LOCAL>SRCS +=		libutil/pidfile.c libutil/flopen.c
 <NOT_BSD>SRCS +=		md5c.c md5hl.c
 <NOT_BSD>SRCS +=		setproctitle.c
@@ -73,7 +73,7 @@
 <FreeBSD>RCSHELL =	spamilter
 <FreeBSD>RCMODE =		0754
 <ALL>
-<ALL>all: spamilter dnsblchk <INC_FreeBSD dnsblupd> mxlookup iflookup ipfwmtad <WITH_GREYLIST greydbd>
+<ALL>all: spamilter dnsblchk <INC_FreeBSD dnsblupd> mxlookup ipfwmtad <WITH_GREYLIST greydbd>
 <ALL>	${MAKE} -C ../docs/man
 <ALL>
 <ALL>uninstall: uninstall-man
@@ -87,7 +87,7 @@
 <PKGLIBSPF2>	rm -rf libspf/.built libspf/build2
 <ALL>
 <ALL>clean:
-<ALL>	rm -f ${OBJS} *core spamilter dnsblchk <INC_FreeBSD dnsblupd> mxlookup iflookup ipfwmtad <WITH_GREYLIST greydbd>
+<ALL>	rm -f ${OBJS} *core spamilter dnsblchk <INC_FreeBSD dnsblupd> mxlookup ipfwmtad <WITH_GREYLIST greydbd>
 <ALL>	${MAKE} -C ../docs/man clean
 <ALL>
 <ALL>install: install-spamilter install-dnsblchk <INC_FreeBSD install-dnsblupd> install-mxlookup install-ipfwmtad <INC_FreeBSD install-startup> <WITH_GREYLIST install-greydbd> install-config install-man
@@ -155,7 +155,7 @@
 <ALL>	${CC} ${CFLAGS} -o spamilter spamilter.o ${WATCHEROBJS} ${OBJS} <WITH_NSCOMPAT ${NROBJS}> <WITH_LIBSPF ${LIBSPFDIR}/${LIBSPF}> <WITH_GEOIP ${LIBGEOIPDIR}/libGeoIP.a> ${LIBDIRS} ${LIBS} <WITH_TABLE_PGSQL ${LIBPGSQL}>
 <ALL>
 <ALL>dnsblchk: Makefile ${SRCS} <WITH_NSCOMPAT ${NRSRCS}> <WITH_VASPRINTF nstring.c> dnsblchk.o ${OBJS} <WITH_NSCOMPAT ${NROBJS}> <WITH_VASPRINTF nstring.o> ${INCLUDES} dnsblchk.c
-<ALL>	${CC} ${CFLAGS} -o dnsblchk dnsblchk.o dnsbl.o dns.o smisc.o misc.o mx.o smtp.o inet.o ifi.o <WITH_NSCOMPAT ${NROBJS}> <WITH_VASPRINTF nstring.o> ${LIBDIRS} ${LIBS}
+<ALL>	${CC} ${CFLAGS} -o dnsblchk dnsblchk.o dnsbl.o dns.o smisc.o misc.o mx.o smtp.o inet.o ifi.o ifidb.o list.o table.o <WITH_TABLE_FLATFILE tableDriverFlatFile.o> <WITH_TABLE_PGSQL pgsql.c tableDriverPsql.c> <WITH_NSCOMPAT ${NROBJS}> <WITH_VASPRINTF nstring.o> ${LIBDIRS} ${LIBS}
 <ALL>
 <FreeBSD># dnsblupd is for use with the companion shell script blupd as an Exec action
 <FreeBSD>dnsblupd: Makefile dnsblupd.c dnsupdate.c dns.c dnsblupd.o dnsupdate.o dns.o  dnsupdate.h dns.h config.h misc.o misc.h <WITH_NSCOMPAT ${NRSRCS} ${NROBJS}>
@@ -167,9 +167,6 @@
 <ALL>mxlookup: Makefile mxlookup.c mx.c <WITH_NSCOMPAT ${NRSRCS}> mxlookup.o mx.o mx.h dns.o dns.h misc.o misc.h <WITH_NSCOMPAT ${NROBJS}>
 <ALL>	${CC} ${CFLAGS} -o mxlookup mxlookup.o mx.o dns.o misc.o ${LIBDIRS} ${LIBS} <WITH_NSCOMPAT ${NROBJS}> <NOT_BSD -lresolv>
 <ALL>	
-<ALL>iflookup: Makefile iflookup.c ifi.c iflookup.o ifi.o ifi.h
-<ALL>	${CC} ${CFLAGS} -o iflookup iflookup.o ifi.o ${LIBDIRS} ${LIBS}
-<ALL>
 <PKGGREYLIST>greydbd: Makefile greydbd.o inet.o inet.h pgsql.o pgsql.h md5api.o md5api.h misc.o misc.h config.h
 <PKGGREYLIST>	${CC} ${CFLAGS} -o greydbd greydbd.o inet.o pgsql.o md5api.o misc.o -lmd ${LIBPGSQL}
 <SUPPORTTABLEFLAT>

@@ -290,12 +290,13 @@ void usage(void)
 	);
 }
 
+char *gDbpath = "/var/db/spamilter";
+
 int main(int argc, char **argv)
 {	int	c;
 	int	smtprc;
 	int	rc;
-	char	*dbpath = "/var/db/spamilter";
-	char		sessionId[10];
+	char	sessionId[10];
 
 	sprintf(sessionId,"%04X",(unsigned int)pthread_self());
 
@@ -322,12 +323,12 @@ int main(int argc, char **argv)
 				break;
 			case 'p':
 				if(optarg != NULL && *optarg)
-					dbpath = optarg;
+					gDbpath = optarg;
 				break;
 			case 'i':
 				if(optarg != NULL && *optarg)
 				{
-					if(testipstr(optarg,dbpath) == 0)
+					if(testipstr(optarg,gDbpath) == 0)
 						printf("\t\tPassed\n");
 				}
 				else
@@ -358,7 +359,7 @@ int main(int argc, char **argv)
 
 	while(argc > 0)
 	{
-		testdomainmx(*argv,dbpath);
+		testdomainmx(*argv,gDbpath);
 		argc--;
 		argv++;
 	}

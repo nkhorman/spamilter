@@ -400,24 +400,23 @@ sfsistat mlfi_connect(SMFICTX *ctx, char *hostname, _SOCK_ADDR *hostaddr)
 			case AF_INET:
 				priv->islocalnethost = ( ntohl(((struct sockaddr_in *)priv->pip)->sin_addr.s_addr) == INADDR_LOOPBACK );
 				if(!priv->islocalnethost)
-					priv->islocalnethost = ifi_islocalnet(ntohl(((struct sockaddr_in *)priv->pip)->sin_addr.s_addr));
+					priv->islocalnethost = ifi_islocalnetAf(priv->pip->sa_family, (char *)&((struct sockaddr_in *)priv->pip)->sin_addr);
 				break;
 			case AF_INET6:
 				{	struct in6_addr *pAddr = &((struct sockaddr_in6 *)priv->pip)->sin6_addr;
 
-					priv->islocalnethost = (
-						IN6_ARE_ADDR_EQUAL(pAddr, &in6addr_loopback)
-						|| IN6_IS_ADDR_LINKLOCAL(pAddr) // fe80:xx
-						|| IN6_IS_ADDR_SITELOCAL(pAddr) // fec0::xx
-						);
-					// TODO - ipv6 - need ifi_islocalnet() style tests
+					priv->islocalnethost = IN6_ARE_ADDR_EQUAL(pAddr, &in6addr_loopback);
+					//	|| IN6_IS_ADDR_LINKLOCAL(pAddr) // fe80:xx
+					//	|| IN6_IS_ADDR_SITELOCAL(pAddr) // fec0::xx
+					if(!priv->islocalnethost)
+						priv->islocalnethost = ifi_islocalnetAf(priv->pip->sa_family, (char *)pAddr);
 				}
 				break;
 		}
 
 #ifdef SUPPORT_POPAUTH
 		if(!priv->islocalnethost)
-			priv->islocalnethost = (gPopAuthChk != NULL && popauth_validate(priv,gPopAuthChk));
+			priv->islocalnethost = (gPopAuthChk != NULL && popauth_validate(priv, gPopAuthChk));
 #endif
 
 		mlfi_debug(priv->pSessionUuidStr,"mlfi_connect: islocalnethost: %u\n",priv->islocalnethost);

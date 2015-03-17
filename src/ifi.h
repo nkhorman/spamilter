@@ -95,7 +95,7 @@
 	struct ifi_info	*get_ifi_info(int, int);
 	void free_ifi_info(struct ifi_info *);
 
-	int ifi_islocalip(long ip);
-	int ifi_islocalnet(long ip);
+	int ifi_islocalipAf(int afType, const char *pIn);
+	int ifi_islocalnetAf(int afType, const char *pIn);
 
 #endif

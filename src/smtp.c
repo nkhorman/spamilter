@@ -178,9 +178,7 @@ int smtp_mx_is_deliverable(const char *pSessionId, mx_rr *rr, const char *mbox, 
 		mlfi_debug(pSessionId,"\t\t%s %s\n", (afType == AF_INET ? "A" : "AAAA"), pStr);
 		free(pStr);
 
-		// TODO - ipv6
-		//if(ifi_islocalip_af(afType, in))
-		if(afType == AF_INET && ifi_islocalip(rr->host[j].ipv4))
+		if(ifi_islocalipAf(afType, in))
 		{
 			tst = 2;
 			*smtprc = 250;
@@ -255,5 +253,5 @@ int smtp_email_address_is_deliverable(const char *pSessionId, const res_state st
 	if(rrl != NULL)
 		free(rrl);
 
-	return(rc);
+	return rc;
 }
