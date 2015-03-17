@@ -1,4 +1,7 @@
 Changelog;
+	20150316
+	* wip - crash land balance of ifi module changes for ipv6 handling and local host network via db.ifi handling
+
 	20150315
 	* fix - fix potential segfault, depending on the content of db.sndr, db.rcpt, and db.dbl
 	* add - make dnsblchk -e check all mx hosts

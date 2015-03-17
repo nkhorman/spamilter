@@ -117,7 +117,7 @@
 <ALL>	if [ ! -d ${CONFDIR} ]; then \
 <ALL>		install -p -m 0664 ../conf/spamilter.rc ${RCFILEPATH}; \
 <ALL>		install -d -C -m 0664 ${CONFDIR}; \
-<ALL>		for i in db.extensions db.fwdhost db.geocc db.rcpt db.rdnsbl db.sndr db.dbl; do \
+<ALL>		for i in db.extensions db.fwdhost db.geocc db.rcpt db.rdnsbl db.sndr db.dbl db.ifi; do \
 <ALL>			install -p -m 0664 ../conf/$${i} ${CONFDIR}; \
 <ALL>		done; \
 <GEOIPDIR>		install -d -C -m 0664 ${CONFDIR}/geoip; \
