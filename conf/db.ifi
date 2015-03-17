@@ -1,3 +1,4 @@
+#
 #	The following table is used to configure rules that specify which network
 #	hosts are allowed to bypass the filtering checks when connected.
 #
@@ -7,45 +8,53 @@
 #
 #	The amount, or lack of white space is not significant.
 #
-#			|	address			|	exception
+#	The fields are;
+#	action		|	match address		|	exception address
 #	allow or deny	|	address, address, ...	|	empty or address, address, ...
 #
 #	allow = Do NOT run filter tests, for "address" other than those specified by "excpetion"
 #	deny = DO run filter tests, for "address" other than those specified by "excpetion"
 #
-#	The ``address'' and ``exception'' column are meant to have one, or possibly more, ipv4
-#	or ipv6 network address and netmask specifications, that are comma spearated.
+#	The ``match addrress'' and ``exception address'' fields are meant to have one, or possibly
+#	more, ipv4 or ipv6 network address and netmask specifications, that are comma spearated.
 #	They must be listed in CIDR form only. ie. 192.168.0.0/16, not 192.168.0.0/255.255.0.0
 #
 #	It is invalid to mix ipv4 and ipv6 address spcecifications on the same row
 #
-#	Valid addresses are anything that is recognized by the systems inet_pton() function.
+#	Valid addresse sytax is anything that is recognized by the systems inet_pton() function.
 #
 #	The examples listed here, are contrived, and in no way suggest what should,
 #	or shouldn't be included or excluded for the local site, but rather, they are
 #	meant to show valid syntax examples.
 #
 #	--- examples --
+#	An ipv4, allow single host example
 #	allow		|	10.1.2.3/32		|
+#
+#	An ipv4, allow every thing in /16 except /24
 #	allow		|	192.168.0.0/16		|	192.168.10.0/24
-#	allow		|	2001:470:1f0f:df0::/64	|
 #
 #	An ipv4, allow everything example	
 #	allow		|	0.0.0.0/0		|
 #
 #	An ipv6, allow everyting example
 #	allow		|	::0/0			|
-#	allow		|	fe80::10.1.2.3/120	|
 #	--- end of examples ---
 #
-#	You probably want this one, as it emulates the previous hard coded behavoir.
-#	One problem that the hard coded behavior didn't account for, was a dual homed host
-#	whose public interface was NAT'd. Now, that type of configuration can be correctly
+#	One problem that the previous hard coded behavior didn't account for, was a dual homed
+#	host whose public interface was NAT'd. Now, that type of configuration can be correctly
 #	dealt with here, buy excluding the public NAT network.
-
+#
+#	The primary reason that the hard coded address were moved into this config file, is to
+#	handle the wildly varying plethora of ipv6 addresses on a given interface, and "knowing"
+#	which one were private vs. public. ie. an fe80:: address can, technically, be a public
+#	facing interface.
+#
+#	You probably want this one, or a variation of it, as it emulates the previous hard coded
+#	behavoir.
 	allow	|	10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16	|
-
+#
 #	Note: That, 127.0.0.1 and ::1 are hard coded as ``allow'', and are therefore not, listed here.
 #	Adding them, will likely result in unexpected behavior, so just don't!
-
+#
 #	For those of you who used ifilocal.inc, you should replicate the your equivialent lnh[] entries here.
