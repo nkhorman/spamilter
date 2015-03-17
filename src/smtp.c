@@ -146,7 +146,7 @@ int smtp_host_is_deliverable_af(const char *pSessionId, const char *mbox, const 
 	return rc;
 }
 
-int smtp_mx_is_deliverable(const char *pSessionId, mx_rr *rr, const char *mbox, const char *dom, int *smtprc, bool bTestAll)
+int smtp_mx_is_deliverable(const char *pSessionId, mx_rr *rr, const char *mbox, const char *dom, int *smtprc, int bTestAll)
 {	int j;
 	int lastSuccess = -1;
 
@@ -209,7 +209,7 @@ int smtp_mx_is_deliverable(const char *pSessionId, mx_rr *rr, const char *mbox, 
 	return lastSuccess;
 }
 
-int smtp_email_address_is_deliverable(const char *pSessionId, const res_state statp, const char *mbox, const char *dom, int *smtprc, bool bTestAll)
+int smtp_email_address_is_deliverable(const char *pSessionId, const res_state statp, const char *mbox, const char *dom, int *smtprc, int bTestAll)
 {	int		rc = 0;
 	mx_rr_list	*rrl = calloc(1,sizeof(mx_rr_list));
 	int		i,j,l,tst = -1;

@@ -340,7 +340,7 @@ int main(int argc, char **argv)
 					char	*dom = NULL;
 
 					mboxdomainsplit(mbox,&dom);
-					rc = smtp_email_address_is_deliverable(sessionId, gStatp, mbox, dom, &smtprc, true);
+					rc = smtp_email_address_is_deliverable(sessionId, gStatp, mbox, dom, &smtprc, 1);
 					printf("mx deliverable: %d, returned: %d\n",rc,smtprc);
 				}
 				else
