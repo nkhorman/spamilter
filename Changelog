@@ -1,4 +1,8 @@
 Changelog;
+	20150320
+	* fix - segv in dnsblupd
+	* mod - add exit(1) if dnsblupd can't find the RR for -i, -r, and -l
+
 	20150316
 	* wip - crash land balance of ifi module changes for ipv6 handling and local host network via db.ifi handling
 
