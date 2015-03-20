@@ -41,6 +41,6 @@
 #ifndef _SPAMILTER_DNSUPDATE_H_
 #define _SPAMILTER_DNSUPDATE_H_
 
-	int dns_update_rr_a(int debug, int r_opcode, char *r_dname, u_int32_t r_ttl, char *r_addr);
+	int dns_update_rr_a(int debug, int r_opcode, char *r_dname, u_int32_t r_ttl, char *r_addr, int afType);
 
 #endif

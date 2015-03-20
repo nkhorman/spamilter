@@ -48,15 +48,11 @@ static char const cvsid[] = "@(#)$Id: dnsupdate.c,v 1.4 2011/07/29 21:23:16 neal
 #include "config.h"
 #include "dnsupdate.h"
 
-int dns_update_rr_a(int debug, int r_opcode, char *r_dname, u_int32_t r_ttl, char *r_addr)
+int dns_update_rr_a(int debug, int r_opcode, char *r_dname, u_int32_t r_ttl, char *r_addr, int afType)
 {	int	rc = -1;
 	int	r_size = 0;
 	ns_updrec *rrecp;
-#ifdef HAVE_RES_N
-	struct __res_state res;
-#else
-	#define res _res
-#endif
+	res_state res = RES_NALLOC(res);
 
 	if(r_dname != NULL)
 		r_size = strlen(r_dname);
@@ -71,7 +67,7 @@ int dns_update_rr_a(int debug, int r_opcode, char *r_dname, u_int32_t r_ttl, cha
 			break;
 	}
 
-	rrecp = res_mkupdrec(S_UPDATE, r_dname, C_IN, T_A, r_ttl);
+	rrecp = res_mkupdrec(S_UPDATE, r_dname, C_IN, (afType == AF_INET6 ? T_AAAA : T_A), r_ttl);
 	if(rrecp != NULL)
 	{
 		rrecp->r_opcode = r_opcode;
@@ -80,12 +76,12 @@ int dns_update_rr_a(int debug, int r_opcode, char *r_dname, u_int32_t r_ttl, cha
 			rrecp->r_data = (u_char *)malloc(r_size);
 		strncpy((char *)rrecp->r_data, r_addr, r_size);
 
-		res_ninit(&res);
+		res_ninit(res);
 		if(debug)
-			res.options |= RES_DEBUG;
+			res->options |= RES_DEBUG;
 		else
-			res.options &= ~RES_DEBUG;
-		rc = res_nupdate(&res, rrecp, NULL);
+			res->options &= ~RES_DEBUG;
+		rc = res_nupdate(res, rrecp, NULL);
 	}
 	if(rrecp->r_data != NULL)
 		free(rrecp->r_data);
