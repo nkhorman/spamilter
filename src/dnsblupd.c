@@ -68,17 +68,19 @@ void usage()
 		);
 }
 
-void lookup(res_state statp, char *pHost)
+int lookup(res_state statp, char *pHost)
 {
 	int ra = dns_query_rr(statp, ns_t_a, pHost);
 	int raaaa = (ra == 0 ? dns_query_rr(statp, ns_t_aaaa, pHost) : 0);
 	int rr = ra + raaaa;
 
 	printf("%s record for %s %s\n", (ra ? "A" : (raaaa ? "AAAA" : "No")), pHost, (rr ? "exists." : "found."));
+
+	return (rr > 0);
 }
 
 int main(int argc, char **argv)
-{	char		*zone		= "rdnsbl.wanlink.net";
+{	char		*zone		= NULL;
 	char		*r_addr		= "127.0.0.1";
 	char		*r_dname	= NULL;
 	int		c, debug	= 0;
@@ -86,6 +88,7 @@ int main(int argc, char **argv)
 	u_int32_t	r_ttl		= 0ul;
 	res_state	statp		= RES_NALLOC(statp);
 	int		aFamily		= AF_INET;
+	int		lookupSuccess	= 0;
 
 	if(argc == 1)
 	{
@@ -102,18 +105,26 @@ int main(int argc, char **argv)
 			case 'i':
 				if (optarg != NULL && *optarg)
 				{
-					r_dname = dns_inet_ptoarpa(optarg, AF_INET, zone);
-					if(r_dname == NULL)
-						r_dname = dns_inet_ptoarpa(optarg, AF_INET6, zone);
-					if(r_dname != NULL)
+					if(zone!= NULL)
 					{
-						aFamily = AF_INET6;
-						printf("Insert request for %s\n",r_dname);
-						r_opcode = 1;
-						r_ttl = 3600ul;
+						r_dname = dns_inet_ptoarpa(optarg, AF_INET, zone);
+						if(r_dname == NULL)
+						{
+							r_dname = dns_inet_ptoarpa(optarg, AF_INET6, zone);
+							if(r_dname != NULL)
+								aFamily = AF_INET6;
+						}
+						if(r_dname != NULL)
+						{
+							printf("Insert request for %s\n",r_dname);
+							r_opcode = 1;
+							r_ttl = 3600ul;
+						}
+						else
+							printf("Invalid IP address\n");
 					}
 					else
-						printf("Invalid IP address\n");
+						printf("No Zone specified.\n");
 				}
 				else
 					printf("IP address missing\n");
@@ -121,17 +132,25 @@ int main(int argc, char **argv)
 			case 'r':
 				if (optarg != NULL && *optarg)
 				{
-					r_dname = dns_inet_ptoarpa(optarg, AF_INET, zone);
-					if(r_dname == NULL)
-						r_dname = dns_inet_ptoarpa(optarg, AF_INET6, zone);
-					if(r_dname != NULL)
+					if(zone != NULL)
 					{
-						aFamily = AF_INET6;
-						printf("Remove request for %s\n",r_dname);
-						r_opcode = 0;
+						r_dname = dns_inet_ptoarpa(optarg, AF_INET, zone);
+						if(r_dname == NULL)
+						{
+							r_dname = dns_inet_ptoarpa(optarg, AF_INET6, zone);
+							if(r_dname != NULL)
+								aFamily = AF_INET6;
+						}
+						if(r_dname != NULL)
+						{
+							printf("Remove request for %s\n",r_dname);
+							r_opcode = 0;
+						}
+						else
+							printf("Invalid IP address\n");
 					}
 					else
-						printf("Invalid IP address\n");
+						printf("No Zone specified.\n");
 				}
 				else
 					printf("IP address missing\n");
@@ -149,16 +168,25 @@ int main(int argc, char **argv)
 			case 'l':
 				if (optarg != NULL && *optarg)
 				{
-					r_dname = dns_inet_ptoarpa(optarg, AF_INET, zone);
-					if(r_dname == NULL)
-						r_dname = dns_inet_ptoarpa(optarg, AF_INET6, zone);
-					if(r_dname != NULL)
+					if(zone != NULL)
 					{
-						aFamily = AF_INET6;
-						lookup(statp, r_dname);
-						free(r_dname);
-						r_dname = NULL;
+						r_dname = dns_inet_ptoarpa(optarg, AF_INET, zone);
+						if(r_dname == NULL)
+						{
+							r_dname = dns_inet_ptoarpa(optarg, AF_INET6, zone);
+							if(r_dname != NULL)
+								aFamily = AF_INET6;
+						}
+						if(r_dname != NULL)
+						{
+							lookupSuccess = lookup(statp, r_dname);
+							free(r_dname);
+							r_dname = NULL;
+						}
+
 					}
+					else
+						printf("No Zone specified.\n");
 				}
 				break;
 			case 'z':
@@ -184,11 +212,12 @@ int main(int argc, char **argv)
 	{
 		if(aFamily == AF_INET6)
 			r_addr = "::1";
-		printf("Update request %scompleted\n", dns_update_rr_a(debug, r_opcode, r_dname, r_ttl, r_addr) == -1 ? "not " : "");
-		lookup(statp, r_dname);
+
+		printf("Update request %scompleted\n", dns_update_rr_a(debug, r_opcode, r_dname, r_ttl, r_addr, aFamily) == -1 ? "not " : "");
+		lookupSuccess = lookup(statp, r_dname);
 		free(r_dname);
 		r_dname = NULL;
 	}
 
-	return 0;
+	return (lookupSuccess ? 0 : 1); // exit(1) if lookup fails
 }
