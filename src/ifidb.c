@@ -70,6 +70,7 @@ enum
 	TBL_COL_ALLOWDENY,
 	TBL_COL_ADDRESS,
 	TBL_COL_EXECEPTION,
+	TBL_COL_LOCALFOREIGN,
 	TBL_COL_QTY
 };
 
@@ -93,8 +94,15 @@ typedef struct _ira_t
 enum
 {
 	IFIDB_NONE,
+
+	// allow deny column
 	IFIDB_ALLOW,
-	IFIDB_DENY
+	IFIDB_DENY,
+
+	// local foreign column
+	IFIDB_LOCAL,
+	IFIDB_FOREIGN,
+	IFIDB_BOTH,
 };
 
 typedef struct _ir_t
@@ -102,6 +110,7 @@ typedef struct _ir_t
 	int allowDeny;
 	list_t *pListAddress;
 	list_t *pListException;
+	int localForeign;
 }ir_t; // Ifi Row Type
 
 ifiDbCtx_t *ifiDb_Create(const char *pSessionId)
@@ -161,7 +170,7 @@ int ifiDb_Open(ifiDbCtx_t *pIfiDbCtx, const char *dbpath)
 				",Device" ",userName" ",userPass"
 
 				,"ifiDb",TBL_COL_QTY
-				,"allowdeny,address,exception"
+				,"allowdeny,address,exception,localforeign"
 				,"localhost" ,"5432"
 				,"spamilter" ,"spamilter" ,""
 				);
@@ -184,16 +193,17 @@ void ifiDb_Close(ifiDbCtx_t *pIfiDbCtx)
 }
 
 #ifdef _UNIT_TEST_IFIDB
-#define SAFESTR(a) ((a) != NULL ? (a) : "")
+#define SAFESTR(a) ((a) != NULL ? (a) : "(NULL STRING / EMPTY COLUMN)")
 
 static void ifiDb_ShowRow(idrc_t *pIdrc)
 {
 	if(pIdrc != NULL)
 	{
-		printf("%s|%s|%s\n"
+		printf("%s|%s|%s|%s\n"
 			, SAFESTR(pIdrc->pCols[TBL_COL_ALLOWDENY])
 			, SAFESTR(pIdrc->pCols[TBL_COL_ADDRESS])
 			, SAFESTR(pIdrc->pCols[TBL_COL_EXECEPTION])
+			, SAFESTR(pIdrc->pCols[TBL_COL_LOCALFOREIGN])
 		);
 	}
 }
@@ -202,7 +212,7 @@ static void ifiDb_ShowRow(idrc_t *pIdrc)
 static list_t* ifiDb_IrBuildAddressList(char *pStr, int *pAfType)
 {	list_t *pList = NULL;
 
-	if(pStr != NULL)
+	if(pStr != NULL && *pStr)
 	{	char *p1;
 		char *p2;
 
@@ -278,12 +288,20 @@ ir_t *ifiDb_IrBuild(char *pCols[])
 {	ir_t *pIr = calloc(1, sizeof(ir_t));
 
 	if(pIr != NULL)
-	{	char *pStr = pCols[TBL_COL_ALLOWDENY];
+	{	char *pStrAllowDeny = pCols[TBL_COL_ALLOWDENY];
+		char *pStrLocalForeign = pCols[TBL_COL_LOCALFOREIGN];
 
-		pIr->allowDeny = (strcasecmp(pStr, "allow") == 0
-			? IFIDB_ALLOW : strcasecmp(pStr, "deny") == 0
+		pIr->allowDeny = (pStrAllowDeny == NULL
+			? IFIDB_NONE : strcasecmp(pStrAllowDeny, "allow") == 0
+			? IFIDB_ALLOW : strcasecmp(pStrAllowDeny, "deny") == 0
 			? IFIDB_DENY
 			: IFIDB_NONE
+			);
+		pIr->localForeign = (pStrLocalForeign == NULL
+			? IFIDB_BOTH : strcasecmp(pStrLocalForeign, "local") == 0
+			? IFIDB_LOCAL : strcasecmp(pStrLocalForeign, "foreign") == 0
+			? IFIDB_FOREIGN
+			: IFIDB_BOTH
 			);
 
 		if(pIr->allowDeny != IFIDB_NONE)
@@ -297,21 +315,21 @@ ir_t *ifiDb_IrBuild(char *pCols[])
 			{
 				ifiDb_IrFree(pIr);
 				pIr = NULL;
-				printf("free 3\n"); // TODO - mlfi_debug
+				//printf("free 3\n"); // TODO - mlfi_debug
 			}
 			// mixed address types ?
 			else if(afType[1] != AF_UNSPEC && afType[0] != afType[1])
 			{
 				ifiDb_IrFree(pIr);
 				pIr = NULL;
-				printf("free 1\n"); // TODO - mlfi_debug
+				//printf("free 1\n"); // TODO - mlfi_debug
 			}
 		}
 		else // invalid action
 		{
 			ifiDb_IrFree(pIr);
 			pIr = NULL;
-			printf("free 2\n"); // TODO - mlfi_debug
+			//printf("free 2\n"); // TODO - mlfi_debug
 		}
 	}
 
@@ -342,8 +360,8 @@ static int ifiDbCallbackBuildList(void *pCallbackCtx, list_t *pRow)
 		// iterate the cols
 		listForEach(pRow, &ifiDbCallbackBuildListCol, &idrc);
 
-		// we need at least the first two of the three columns
-		if(idrc.colIndex >= TBL_COL_QTY-1)
+		// we need at least the first two columns
+		if(idrc.colIndex >= 2)
 		{	ir_t *pIr = NULL;
 #ifdef _UNIT_TEST_IFIDB
 			ifiDb_ShowRow(&idrc);
@@ -370,6 +388,7 @@ typedef struct _idc_t
 	const char *pIn;
 	int match;
 	int action;
+	int isLocal;
 }idc_t; // Ifi Db Check Type
 
 #define BITSHIFT(a,b) \
@@ -449,12 +468,22 @@ int ifiDb_CheckAddressCallback(void *pData, void *pCallbackCtx)
 	return !pIdc->match;
 }
 
+// For this row
 int ifiDb_CheckRowCallback(void *pData, void *pCallbackCtx)
 {	ir_t *pIr = (ir_t *)pData;
 	idc_t *pIdc = (idc_t *)pCallbackCtx;
 
+	// iterate all address to find a match
 	listForEach(pIr->pListAddress, ifiDb_CheckAddressCallback, pIdc);
 
+	// scope the potential match to local, foreign, or both
+	pIdc->match &= (
+		pIr->localForeign == IFIDB_BOTH
+		|| (pIdc->isLocal && pIr->localForeign == IFIDB_LOCAL)
+		|| (!pIdc->isLocal && pIr->localForeign == IFIDB_FOREIGN)
+		);
+
+	// if we found a match in the address list
 	if(pIdc->match)
 	{	idc_t idc;
 
@@ -463,10 +492,11 @@ int ifiDb_CheckRowCallback(void *pData, void *pCallbackCtx)
 		idc.afType = pIdc->afType;
 		idc.pIn = pIdc->pIn;
 		idc.match = 0;
-		idc.action = IFIDB_NONE;
 
+		// see if there is an exception
 		listForEach(pIr->pListException, ifiDb_CheckAddressCallback, &idc);
 
+		// if there is an exception, invert the meaning of the inital allow/deny
 		if(idc.match)
 		{
 			switch(pIdc->action)
@@ -477,16 +507,18 @@ int ifiDb_CheckRowCallback(void *pData, void *pCallbackCtx)
 		}
 	}
 
-	return !pIdc->match;
+	return !pIdc->match; // again ? if there was no match in the address list
 }
 
-int ifiDb_CheckAllow(int afType, const char *pIn, list_t *pIfiDb, int *pAllow)
+// Iterate all table rows
+int ifiDb_CheckAllow(int afType, const char *pIn, list_t *pIfiDb, int *pAllow, int isLocal)
 {	idc_t idc;
 
 	idc.afType = afType;
 	idc.pIn = pIn;
 	idc.match = 0;
 	idc.action = IFIDB_NONE;
+	idc.isLocal = isLocal;
 
 	listForEach(pIfiDb, &ifiDb_CheckRowCallback, &idc);
 

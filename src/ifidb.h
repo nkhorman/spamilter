@@ -55,5 +55,5 @@
 	void ifiDb_Close(ifiDbCtx_t *pIfiDbCtx);
 
 	void ifiDb_BuildList(ifiDbCtx_t *pCtx);
-	int ifiDb_CheckAllow(int afType, const char *pIn, list_t *pIfiDb, int *pAllow);
+	int ifiDb_CheckAllow(int afType, const char *pIn, list_t *pIfiDb, int *pAllow, int isLocal);
 #endif

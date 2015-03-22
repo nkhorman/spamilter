@@ -126,7 +126,7 @@ static int ifi_callbackIsLocal(int afType, void *pAddr, void *pMask, void *pCtx)
 {	iil_t *pIil = (iil_t *)pCtx;
 
 	if(afType == pIil->afType)
-	{	int match = 0;
+	{	int isLocal = 0;
 
 #ifdef _UNIT_TEST_IFI
 		char *pStrAddr = inet_ntopAf(afType, pAddr);
@@ -148,20 +148,17 @@ static int ifi_callbackIsLocal(int afType, void *pAddr, void *pMask, void *pCtx)
 						pIil->matchAllow = 1;
 						break;
 					case MATCH_NETWORK:
-						match = (
+						isLocal = (
 							(pIil->ipv4.s_addr & ((struct in_addr *)pMask)->s_addr) ==
 							(((struct in_addr *)pAddr)->s_addr & ((struct in_addr *)pMask)->s_addr)
 							);
 
-						if(match)
+						if(pIil->pIfiDb != NULL)
+							pIil->match = ifiDb_CheckAllow(pIil->afType, (char *)&pIil->ipv4, pIil->pIfiDb, &pIil->matchAllow, isLocal);
+						else
 						{
-							if(pIil->pIfiDb != NULL)
-								pIil->match = ifiDb_CheckAllow(pIil->afType, (char *)&pIil->ipv4, pIil->pIfiDb, &pIil->matchAllow);
-							else
-							{
-								pIil->match = match;
-								pIil->matchAllow = 1;
-							}
+							pIil->match = isLocal;
+							pIil->matchAllow = 1;
 						}
 						break;
 				}
@@ -179,21 +176,19 @@ static int ifi_callbackIsLocal(int afType, void *pAddr, void *pMask, void *pCtx)
 							struct in6_addr r = *(struct in6_addr *)pAddr;
 							struct in6_addr m = *(struct in6_addr *)pMask;;
 
-							match = (
+							isLocal = (
 								(l.s6_addr32[0] & m.s6_addr32[0]) ==  (r.s6_addr32[0] & m.s6_addr32[0])
 								&& (l.s6_addr32[1] & m.s6_addr32[1]) ==  (r.s6_addr32[1] & m.s6_addr32[1])
 								&& (l.s6_addr32[2] & m.s6_addr32[2]) ==  (r.s6_addr32[2] & m.s6_addr32[2])
 								&& (l.s6_addr32[3] & m.s6_addr32[3]) ==  (r.s6_addr32[3] & m.s6_addr32[3])
 								);
-							if(match)
+
+							if(pIil->pIfiDb != NULL)
+								pIil->match = ifiDb_CheckAllow(pIil->afType, (char *)&pIil->ipv6, pIil->pIfiDb, &pIil->matchAllow, isLocal);
+							else
 							{
-								if(pIil->pIfiDb != NULL)
-									pIil->match = ifiDb_CheckAllow(pIil->afType, (char *)&pIil->ipv6, pIil->pIfiDb, &pIil->matchAllow);
-								else
-								{
-									pIil->match = match;
-									pIil->matchAllow = 1;
-								}
+								pIil->match = isLocal;
+								pIil->matchAllow = 1;
 							}
 						}
 						break;
@@ -214,7 +209,7 @@ static void ifi_iterate(int (*pCallbackFn)(int, void *, void *, void *), void *p
 
 		while(pIf != NULL && again)
 		{
-			if((pIf->ifa_flags & (IFF_UP|IFF_LOOPBACK)) == IFF_UP)
+			if((pIf->ifa_flags & (IFF_UP | IFF_LOOPBACK | IFF_POINTOPOINT)) && (pIf->ifa_flags & IFF_UP))
 			{
 				char *pInAddr = NULL;
 				char *pInMask = NULL;
