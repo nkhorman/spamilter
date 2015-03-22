@@ -50,6 +50,8 @@
 #include <resolv.h>
 #include <netdb.h>
 
+#include "config.h"
+
 #include "ifidb.h"
 #include "misc.h"
 
