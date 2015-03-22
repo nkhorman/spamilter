@@ -1,4 +1,8 @@
 Changelog;
+	20150322
+	* add - the ability to scope a db.ifi ruleset to local or foreign networks
+	* fix - potential segfault, depending on the content of db.ifi
+
 	20150320
 	* fix - segv in dnsblupd
 	* mod - add exit(1) if dnsblupd can't find the RR for -i, -r, and -l

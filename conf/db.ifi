@@ -2,17 +2,16 @@
 #	The following table is used to configure rules that specify which network
 #	hosts are allowed to bypass the filtering checks when connected.
 #
-#	The reason this is even needed, is if this MTA is an inbound and outbound
-#	relay MTA. Assuming that you trust all outbound traffic, you don't want to
-#	do any filter checks for oubound traffic.
+#	The reason this is even needed, is for outbound MTA relays. Assuming that you trust
+#	all outbound traffic, you don't want to do any filter checks for oubound traffic.
 #
 #	The amount, or lack of white space is not significant.
 #
 #	The fields are;
-#	action		|	match address		|	exception address
-#	allow or deny	|	address, address, ...	|	empty or address, address, ...
+#	action		|	match address		|	exception address		|	scope
+#	allow or deny	|	address, address, ...	|	empty or address, address, ...  |	local, foreign, (empty)
 #
-#	allow = Do NOT run filter tests, for "address" other than those specified by "excpetion"
+#	allow = Do NOT run filter tests, for "address" other than those specified by "excepetion"
 #	deny = DO run filter tests, for "address" other than those specified by "excpetion"
 #
 #	The ``match addrress'' and ``exception address'' fields are meant to have one, or possibly
@@ -21,7 +20,11 @@
 #
 #	It is invalid to mix ipv4 and ipv6 address spcecifications on the same row
 #
-#	Valid addresse sytax is anything that is recognized by the systems inet_pton() function.
+#	Valid address sytax is anything that is recognized by the system's inet_pton() function.
+#
+#	The scope field allows the rule to be bound to a ``local'' directly attached network,
+#	a ``foreign'' un-attached network, or ``'' (empty) either network type.
+#	An unspecified scope of ``'' (empty) emulates the previously hard coded behavior.
 #
 #	The examples listed here, are contrived, and in no way suggest what should,
 #	or shouldn't be included or excluded for the local site, but rather, they are
@@ -29,32 +32,33 @@
 #
 #	--- examples --
 #	An ipv4, allow single host example
-#	allow		|	10.1.2.3/32		|
+#	allow		|	10.1.2.3/32		|	|
 #
 #	An ipv4, allow every thing in /16 except /24
-#	allow		|	192.168.0.0/16		|	192.168.10.0/24
+#	allow		|	192.168.0.0/16		|	192.168.10.0/24		|
 #
 #	An ipv4, allow everything example	
-#	allow		|	0.0.0.0/0		|
+#	allow		|	0.0.0.0/0		|	|
 #
 #	An ipv6, allow everyting example
-#	allow		|	::0/0			|
+#	allow		|	::0/0			|	|
 #	--- end of examples ---
 #
-#	One problem that the previous hard coded behavior didn't account for, was a dual homed
+#	One problem that the previously hard coded behavior didn't account for, was a dual homed
 #	host whose public interface was NAT'd. Now, that type of configuration can be correctly
-#	dealt with here, buy excluding the public NAT network.
+#	dealt with here, by excluding the public NAT network.
 #
 #	The primary reason that the hard coded address were moved into this config file, is to
 #	handle the wildly varying plethora of ipv6 addresses on a given interface, and "knowing"
 #	which one were private vs. public. ie. an fe80:: address can, technically, be a public
 #	facing interface.
 #
-#	You probably want this one, or a variation of it, as it emulates the previous hard coded
+#	You probably want this one, or a variation of it, as it emulates the previously hard coded
 #	behavoir.
-	allow	|	10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16	|
+	allow	|	10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16	|	|
 #
 #	Note: That, 127.0.0.1 and ::1 are hard coded as ``allow'', and are therefore not, listed here.
 #	Adding them, will likely result in unexpected behavior, so just don't!
 #
 #	For those of you who used ifilocal.inc, you should replicate the your equivialent lnh[] entries here.
+#
