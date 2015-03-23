@@ -171,7 +171,7 @@ int mx_get_rr_match(mx_rr_list *rrl)
 	return(rrl->match);
 }
 
-void mx_get_rr_recurse_host(const res_state statp, mx_rr_list *rrl)
+void mx_get_rr_recurse_host(ds_t const *pDs, mx_rr_list *rrl)
 {	char	*s,*d;
 
 	while(!mx_get_rr_match(rrl) && strlen(rrl->domain))
@@ -188,7 +188,7 @@ void mx_get_rr_recurse_host(const res_state statp, mx_rr_list *rrl)
 			}
 			*d = '\0';
 			if(strlen(rrl->domain))
-				mx_get_rr_bydomain(statp, rrl,rrl->domain);
+				mx_get_rr_bydomain(pDs, rrl,rrl->domain);
 		}
 	}
 }
@@ -199,9 +199,14 @@ void testdomainmx(char *domain, char *path)
 	mx_rr_list	*rrl = &mxrrl;
 	int	i,j;
 	mx_rr	*rr;
+	ds_t ds;
+
+	ds.pSessionId="";
+	ds.statp = gStatp;
+	ds.bLoggingEnabled = 0;
 
 	memset(rrl, 0, sizeof(mx_rr_list));
-	mx_get_rr_recurse_host(gStatp, mx_get_rr_bydomain(gStatp, rrl, domain));
+	mx_get_rr_recurse_host(&ds, mx_get_rr_bydomain(&ds, rrl, domain));
 	
 	if(rrl->qty == 0)
 		printf("no mx records\n");
