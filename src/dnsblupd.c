@@ -68,10 +68,10 @@ void usage()
 		);
 }
 
-int lookup(res_state statp, char *pHost)
+int lookup(ds_t *pDs, char *pHost)
 {
-	int ra = dns_query_rr(statp, ns_t_a, pHost);
-	int raaaa = (ra == 0 ? dns_query_rr(statp, ns_t_aaaa, pHost) : 0);
+	int ra = dns_query_rr(pDs, ns_t_a, pHost);
+	int raaaa = (ra == 0 ? dns_query_rr(pDs, ns_t_aaaa, pHost) : 0);
 	int rr = ra + raaaa;
 
 	printf("%s record for %s %s\n", (ra ? "A" : (raaaa ? "AAAA" : "No")), pHost, (rr ? "exists." : "found."));
@@ -89,6 +89,7 @@ int main(int argc, char **argv)
 	res_state	statp		= RES_NALLOC(statp);
 	int		aFamily		= AF_INET;
 	int		lookupSuccess	= 0;
+	ds_t ds;
 
 	if(argc == 1)
 	{
@@ -97,6 +98,10 @@ int main(int argc, char **argv)
 	}
 
 	res_ninit(statp);
+
+	ds.pSessionId = "";
+	ds.statp = statp;
+	ds.bLoggingEnabled = 0;
 
 	while ((c = getopt(argc, argv, "i:a:r:dz:l:?")) != -1)
 	{
@@ -179,7 +184,7 @@ int main(int argc, char **argv)
 						}
 						if(r_dname != NULL)
 						{
-							lookupSuccess = lookup(statp, r_dname);
+							lookupSuccess = lookup(&ds, r_dname);
 							free(r_dname);
 							r_dname = NULL;
 						}
@@ -214,7 +219,7 @@ int main(int argc, char **argv)
 			r_addr = "::1";
 
 		printf("Update request %scompleted\n", dns_update_rr_a(debug, r_opcode, r_dname, r_ttl, r_addr, aFamily) == -1 ? "not " : "");
-		lookupSuccess = lookup(statp, r_dname);
+		lookupSuccess = lookup(&ds, r_dname);
 		free(r_dname);
 		r_dname = NULL;
 	}
