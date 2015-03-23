@@ -370,6 +370,9 @@ sfsistat mlfi_connect(SMFICTX *ctx, char *hostname, _SOCK_ADDR *hostaddr)
 
 		if(hostaddr != NULL)
 		{
+#ifndef SOCK_MAXADDRLEN
+#define SOCK_MAXADDRLEN sizeof(struct sockaddr_in6)
+#endif
 			size_t sa_len = (hostaddr->sa_family == AF_INET ?
 				sizeof(struct sockaddr_in) : hostaddr->sa_family == AF_INET6 ?
 				sizeof(struct sockaddr_in6) : SOCK_MAXADDRLEN
