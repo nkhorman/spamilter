@@ -234,6 +234,7 @@ int dnsbl_check_rbl_af(const char *pSessionId, const res_state statp, int afType
 		char *pArpaIpStr = dns_inet_ptoarpa(pIpStr, afType, domain);
 		int nsType = 0;
 		int rc = -1;
+		ds_t ds;
 
 		switch(afType)
 		{
@@ -241,7 +242,11 @@ int dnsbl_check_rbl_af(const char *pSessionId, const res_state statp, int afType
 			case AF_INET6:	nsType = ns_t_aaaa;	break;
 		}
 
-		pDqrr = dns_query_rr_init(statp, nsType);
+		ds.pSessionId = pSessionId;
+		ds.statp = statp;
+		ds.bLoggingEnabled = gDebug;
+
+		pDqrr = dns_query_rr_init(&ds, nsType);
 		rc = dns_query_rr_resp(pDqrr, pArpaIpStr);
 
 		if(rc > 0)

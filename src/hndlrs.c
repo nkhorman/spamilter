@@ -369,19 +369,11 @@ sfsistat mlfi_connect(SMFICTX *ctx, char *hostname, _SOCK_ADDR *hostaddr)
 			priv->pdnsrblhosts = dnsbl_create(priv->pSessionUuidStr,gDbpath);
 
 		if(hostaddr != NULL)
-		{	// sa_len is supposed to be the length of the sockaddr structure, but it is zero instead,
-			// so, use sa_family to pick the compile time sizeof() of the socket family structure and
-			// if that fails, use the max
-			// TODO - This should probably be a macro or a function instead
-#ifdef OS_FreeBSD
-			const unsigned int sa_len = (hostaddr->sa_len > 0 ?
-				hostaddr->sa_len : hostaddr->sa_family == AF_INET ?
+		{
+			size_t sa_len = (hostaddr->sa_family == AF_INET ?
 				sizeof(struct sockaddr_in) : hostaddr->sa_family == AF_INET6 ?
 				sizeof(struct sockaddr_in6) : SOCK_MAXADDRLEN
 				);
-#else
-#define sa_len sizeof(struct sockaddr_in6)
-#endif
 
 			priv->pip = (struct sockaddr *)calloc(1,sa_len);
 			if(priv->pip != NULL)
@@ -1066,6 +1058,11 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 	{	int x,continue_checks = 1;
 		char *reason = NULL;
 		int ipfwMtaHostIpBanCandidate = 0;
+		ds_t ds;
+
+		ds.statp = priv->presstate;
+		ds.pSessionId = priv->pSessionUuidStr;
+		ds.bLoggingEnabled = gDebug;
 
 #ifdef SUPPORT_FWDHOSTCHK
 		// Policy enforcment
@@ -1207,8 +1204,8 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 		// The HLO MTA hostname should resolve to an ip address
 		if(continue_checks
 			&& gMtaHostChk
-			&& !dns_query_rr(priv->presstate, ns_t_a, priv->helo)
-			&& !dns_query_rr(priv->presstate, ns_t_aaaa, priv->helo)
+			&& !dns_query_rr(&ds, ns_t_a, priv->helo)
+			&& !dns_query_rr(&ds, ns_t_aaaa, priv->helo)
 			)
 		{
 			mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Invalid hostname '%s', Please see: %s#invalidhostname",priv->helo,gPolicyUrl);
@@ -1276,7 +1273,7 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 			dblq.pCallbackData = &cpr;
 			dblq.pCallbackPolicyFn = &dbl_callback_policy_std;
 
-			dbl_check_all(priv->pDblCtx, priv->presstate, &dblq);
+			dbl_check_all(priv->pDblCtx, &ds, &dblq);
 			continue_checks = (rs == SMFIS_CONTINUE);
 			if(continue_checks)
 				mlfi_debug(priv->pSessionUuidStr,"HLO dbl_check '%s' - not listed\n",priv->helo);
@@ -1288,7 +1285,7 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 		if(continue_checks
 			&& gMtaHostIpChk
 			&& strcmp(priv->helo,priv->iphostname) != 0
-			&& !dns_hostname_ip_match_sa(priv->presstate, priv->helo, priv->pip)
+			&& !dns_hostname_ip_match_sa(&ds, priv->helo, priv->pip)
 			)
 		{
 			mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Helo hostname/ip mismatch, Please see: %s#hostnameipmismatch",gPolicyUrl);
@@ -1595,13 +1592,18 @@ int listCallbackBodyHosts(void *pData, void *pCallbackData)
 			if(*pLcbh->cpr.pbContinueChecks) // if BL testing passes
 			{
 				dblq_t dblq;
+				ds_t ds;
+
+				ds.statp = priv->presstate;
+				ds.pSessionId = priv->pSessionUuidStr;
+				ds.bLoggingEnabled = gDebug;
 
 				dblq.pDomain = pStr;
 				dblq.pCallbackFn = &dblCheckCallbackBody;
 				dblq.pCallbackData = &pLcbh->cpr;
 				dblq.pCallbackPolicyFn = &dbl_callback_policy_std;
 
-				dbl_check_all(priv->pDblCtx, priv->presstate, &dblq);
+				dbl_check_all(priv->pDblCtx, &ds, &dblq);
 				if(*pLcbh->cpr.pbContinueChecks)
 					mlfi_debug(priv->pSessionUuidStr,"dbl_check '%s' - not listed\n",pStr);
 			}

@@ -75,7 +75,7 @@ typedef struct _dtc_t
 	int colIndex;
 
 	const char *pSessionId;
-	res_state statp;
+	ds_t const *pDs;
 	const dblq_t *pDblq;
 	const char *pDbl;
 }dtc_t; // Dbl Table Context Type
@@ -225,8 +225,8 @@ static int dbl_check_callback(dqrr_t *pDqrr, void *pData)
 // So, since we ourselves, use an iterator for the RR's, we have to stuff the consumer foo, in
 // a context struct, to pass through the iterator to use when calling the consumer's callback.
 // Double your pleasure, double your fun... :)
-int dbl_check(const res_state statp, const char *pDbl, const dblq_t *pDblq)
-{	dqrr_t *pDqrr = dns_query_rr_init(statp, ns_t_a);
+int dbl_check(ds_t const * pDs, const char *pDbl, const dblq_t *pDblq)
+{	dqrr_t *pDqrr = dns_query_rr_init(pDs, ns_t_a);
 	int rc = dns_query_rr_resp_printf(pDqrr, "%s.%s", pDblq->pDomain, pDbl);
 	int again = 1;
 
@@ -275,18 +275,18 @@ static int dblCallbackRow(void *pCallbackCtx, list_t *pRow)
 
 		// If we have all columns
 		if(pDtc->colIndex == TBL_COL_QTY)
-			again = dbl_check(pDtc->statp, pDtc->pCols[TBL_COL_DBL], pDtc->pDblq);
+			again = dbl_check(pDtc->pDs, pDtc->pCols[TBL_COL_DBL], pDtc->pDblq);
 	}
 
 	return again;
 }
 
 // check the list of DBLs
-void dbl_check_all(dblCtx_t *pCtx, const res_state statp, const dblq_t *pDblq)
+void dbl_check_all(dblCtx_t *pCtx, ds_t const *pDs, const dblq_t *pDblq)
 {	dtc_t dtc;
 
 	dtc.pSessionId = pCtx->pSessionId;
-	dtc.statp = statp;
+	dtc.pDs = pDs;
 	dtc.pDblq = pDblq;
 	dtc.pDbl = NULL;
 

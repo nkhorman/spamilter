@@ -221,8 +221,14 @@ int smtp_email_address_is_deliverable(const char *pSessionId, const res_state st
 
 	if(rrl != NULL && mbox != NULL && dom != NULL)
 	{
+		ds_t ds;
+
+		ds.statp = statp;
+		ds.pSessionId = pSessionId;
+		ds.bLoggingEnabled = 0;
+
 		memset(rrl,0,sizeof(mx_rr_list));
-		mx_get_rr_bydomain(statp,rrl,dom);
+		mx_get_rr_bydomain(&ds, rrl, dom);
 
 		if(rrl->qty == 0)
 			mlfi_debug(pSessionId,"no mx records\n");

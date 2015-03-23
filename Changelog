@@ -1,5 +1,6 @@
 Changelog;
 	20150322
+	* add - dns query logging support, active only when running in debug mode
 	* add - the ability to scope a db.ifi ruleset to local or foreign networks
 	* fix - potential segfault, depending on the content of db.ifi
 

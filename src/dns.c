@@ -55,15 +55,16 @@ static char const cvsid[] = "@(#)$Id: dns.c,v 1.18 2012/06/26 01:04:29 neal Exp 
 #include <resolv.h>
 #include <netdb.h>
 
+#include "misc.h"
 #include "dns.h"
 
 // Create a query structure, and init with a specified type
-dqrr_t *dns_query_rr_init(const res_state statp, int nsType)
+dqrr_t *dns_query_rr_init(const ds_t *pDs, int nsType)
 {	dqrr_t *pDqrr = calloc(1, sizeof(dqrr_t));
 
 	if(pDqrr != NULL)
 	{
-		pDqrr->statp = statp;
+		pDqrr->pDs = pDs;
 		pDqrr->nsType = nsType;
 		pDqrr->respLen = NS_PACKETSZ;
 		pDqrr->pResp = calloc(1, pDqrr->respLen);
@@ -101,14 +102,14 @@ void dns_query_rr_free(dqrr_t *pDqrr)
 	}
 }
 
-#ifdef UNIT_TEST
+//#ifdef UNIT_TEST
 typedef struct _nsType_t
 {
 	int type;
 	const char *name;
 } nsType_t;
 
-nsType_t gNsTypes[] = { {ns_t_a, "A"}, {ns_t_aaaa, "AAAA"}, {ns_t_ptr, "PTR"}, {ns_t_cname, "CNAME"} };
+nsType_t gNsTypes[] = { {ns_t_a, "A"}, {ns_t_aaaa, "AAAA"}, {ns_t_ptr, "PTR"}, {ns_t_cname, "CNAME"}, {ns_t_mx, "MX"} };
 
 const char *nsTypeLookup(int nsType)
 {	int i;
@@ -119,7 +120,7 @@ const char *nsTypeLookup(int nsType)
 
 	return (pStr != NULL ? pStr : "Unknown");
 }
-#endif
+//#endif
 
 // Execute a query with a specified type
 int dns_query_rr_resp(dqrr_t *pDqrr, const char *pQuery)
@@ -127,9 +128,9 @@ int dns_query_rr_resp(dqrr_t *pDqrr, const char *pQuery)
 
 	if(pDqrr != NULL && pQuery != NULL && *pQuery)
 	{	int i,tries = pDqrr->tries;
-#ifdef UNIT_TEST
+//#ifdef UNIT_TEST
 		const char *pNsTypeStr = nsTypeLookup(pDqrr->nsType);
-#endif
+//#endif
 
 		// try hard to have a big enough buffer for the response
 		for(i=0; i<5 && pDqrr->pResp != NULL && rc < 0 && tries; i++)
@@ -137,7 +138,13 @@ int dns_query_rr_resp(dqrr_t *pDqrr, const char *pQuery)
 #ifdef UNIT_TEST
 			printf("%s:%s:%d type %u/%s retrys %u %s\n", __FILE__, __func__, __LINE__, pDqrr->nsType, pNsTypeStr, tries, pQuery);
 #endif
-			rc = res_nquery(pDqrr->statp, pQuery, ns_c_in, pDqrr->nsType, pDqrr->pResp, pDqrr->respLen);
+			rc = res_nquery(pDqrr->pDs->statp, pQuery, ns_c_in, pDqrr->nsType, pDqrr->pResp, pDqrr->respLen);
+
+			if(pDqrr->pDs->bLoggingEnabled)
+			{
+				mlfi_debug(pDqrr->pDs->pSessionId,
+					"%s rc %d h_errno %d type %u/%s retrys %u %s\n", __func__, rc, h_errno, pDqrr->nsType, pNsTypeStr, tries, pQuery);
+			}
 
 			if(rc > 0)
 			{
@@ -210,9 +217,9 @@ int dns_query_rr_resp_printf(dqrr_t *pDqrr, const char *pFmt, ...)
 
 // Do a query of a specified type, returning 1 if there was at least one result
 // The consumer doesn't care about the response content
-int dns_query_rr(const res_state statp, int nsType, const char *pQuery)
+int dns_query_rr(const ds_t *pDs, int nsType, const char *pQuery)
 {	int rc = -1;
-	dqrr_t *pDqrr = dns_query_rr_init(statp, nsType);
+	dqrr_t *pDqrr = dns_query_rr_init(pDs, nsType);
 
 	if(pDqrr != NULL)
 	{
@@ -281,7 +288,7 @@ static int dnsMatchIpCallback(dqrr_t *pDqrr, void *pdata)
 }
 
 // Query a hostname of a specified type and find a match
-int dns_hostname_ip_match_af(const res_state statp, const char *hostname, int afType, const char *in)
+int dns_hostname_ip_match_af(const ds_t *pDs, const char *hostname, int afType, const char *in)
 {	dmi_t dmi;
 
 	memset(&dmi, 0, sizeof(dmi));
@@ -292,7 +299,7 @@ int dns_hostname_ip_match_af(const res_state statp, const char *hostname, int af
 	}
 
 	if(hostname != NULL)
-	{	dqrr_t *pDqrr = dns_query_rr_init(statp, dmi.nsType);
+	{	dqrr_t *pDqrr = dns_query_rr_init(pDs, dmi.nsType);
 		int rc = dns_query_rr_resp(pDqrr, hostname);
 
 		if(rc > 0)
@@ -305,7 +312,7 @@ int dns_hostname_ip_match_af(const res_state statp, const char *hostname, int af
 }
 
 // Query a hostname of a specified type and find a match
-int dns_hostname_ip_match_sa(const res_state statp, const char *hostname, struct sockaddr *psa)
+int dns_hostname_ip_match_sa(const ds_t *pDs, const char *hostname, struct sockaddr *psa)
 {	const char *in = NULL;
 
 	switch(psa->sa_family)
@@ -314,7 +321,7 @@ int dns_hostname_ip_match_sa(const res_state statp, const char *hostname, struct
 		case AF_INET6: in = (const char *)&((struct sockaddr_in6 *)psa)->sin6_addr; break;
 	}
 
-	return (in != NULL ? dns_hostname_ip_match_af(statp, hostname, psa->sa_family, in) : 0);
+	return (in != NULL ? dns_hostname_ip_match_af(pDs, hostname, psa->sa_family, in) : 0);
 }
 
 // Build an arpa request for an ipv4 or ipv6 address.

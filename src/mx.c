@@ -96,9 +96,9 @@ static int mx_get_rr_hosts_Callback(dqrr_t *pDqrr, void *pdata)
 }
 
 // find A and AAAA host records
-mx_rr *mx_get_rr_hosts(const res_state statp, mx_rr *mxrr)
+mx_rr *mx_get_rr_hosts(ds_t const * pDs, mx_rr *mxrr)
 {
-	dqrr_t *pDqrr = dns_query_rr_init(statp, ns_t_a);
+	dqrr_t *pDqrr = dns_query_rr_init(pDs, ns_t_a);
 
 	// search for A records
 	if(dns_query_rr_resp(pDqrr, mxrr->name) > -1)
@@ -145,7 +145,7 @@ static int mx_get_rr_bydomainCallback(dqrr_t *pDqrr, void *pdata)
 						rrl->mx[rrl->qty].pref = hostPreference;
 
 						// find all the hosts for the listed mx
-						mx_get_rr_hosts(pDqrr->statp, &rrl->mx[rrl->qty]);
+						mx_get_rr_hosts(pDqrr->pDs, &rrl->mx[rrl->qty]);
 						rrl->qty++;
 					}
 				}
@@ -157,8 +157,8 @@ static int mx_get_rr_bydomainCallback(dqrr_t *pDqrr, void *pdata)
 }
 
 // find mx records and coresponding A and AAAA records per host for a given domain
-mx_rr_list *mx_get_rr_bydomain(const res_state statp, mx_rr_list *rrl, const char *name)
-{	dqrr_t *pDqrr = dns_query_rr_init(statp, ns_t_mx);
+mx_rr_list *mx_get_rr_bydomain(ds_t const *pDs, mx_rr_list *rrl, const char *name)
+{	dqrr_t *pDqrr = dns_query_rr_init(pDs, ns_t_mx);
 
 	// find mx records
 	if(pDqrr != NULL)
@@ -192,7 +192,7 @@ mx_rr_list *mx_get_rr_bydomain(const res_state statp, mx_rr_list *rrl, const cha
 		rrl->mx[rrl->qty].pref = 0;		// mx host preference
 
 		// find all the hosts for the listed mx
-		mx_get_rr_hosts(statp, &rrl->mx[rrl->qty++]);
+		mx_get_rr_hosts(pDs, &rrl->mx[rrl->qty++]);
 
 		if(rrl->mx[0].qty == 0)	// if no A or AAAA RRs,
 			rrl->qty = 0;	// then no MX RRs either

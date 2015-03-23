@@ -49,6 +49,8 @@
 	#include <resolv.h>
 	#include <netdb.h>
 
+	#include "dns.h"
+
 	#define  MAX_MXHOSTS 50
 
 	typedef struct _mx_host
@@ -84,7 +86,7 @@
 		int	qty;
 	} mx_rr_list;
 
-	mx_rr *mx_get_rr_hosts(const res_state statp, mx_rr *mxrr);
-	mx_rr_list *mx_get_rr_bydomain(const res_state statp, mx_rr_list *rrl, const char *name);
+	mx_rr *mx_get_rr_hosts(ds_t const * pDs, mx_rr *mxrr);
+	mx_rr_list *mx_get_rr_bydomain(ds_t const *pDs, mx_rr_list *rrl, const char *name);
 
 #endif

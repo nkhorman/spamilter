@@ -52,7 +52,7 @@ static char const cvsid[] = "@(#)$Id: mxlookup.c,v 1.4 2011/07/29 21:23:17 neal 
 
 int gbTerse = 0;
 
-void mxsrr(const res_state statp, mx_rr_list *rrl)
+void mxsrr(mx_rr_list *rrl)
 {	int	i,j,l;
 	mx_rr	*rr;
 
@@ -107,14 +107,19 @@ void mxbsrr(char *domain)
 	res_state	statp = RES_NALLOC(statp);
 
 	if(domain != NULL)
-	{
+	{	ds_t ds;
+
+		ds.statp = statp;
+		ds.pSessionId = "";
+		ds.bLoggingEnabled = 0;
+
 		res_ninit(statp);
 
 		if(!gbTerse)
 			printf("%s\n",domain);
 
 		memset(&mxrrl,0,sizeof(mx_rr_list));
-		mxsrr(statp,mx_get_rr_bydomain(statp, &mxrrl,domain));
+		mxsrr(mx_get_rr_bydomain(&ds, &mxrrl,domain));
 	}
 }
 

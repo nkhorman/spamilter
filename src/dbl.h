@@ -86,6 +86,6 @@
 	int dbl_Open(dblCtx_t *pDblCtx, const char *dbpath);
 	void dbl_Close(dblCtx_t *pDblCtx);
 
-	void dbl_check_all(dblCtx_t *pCtx, const res_state statp, const dblq_t *pDblq);
+	void dbl_check_all(dblCtx_t *pCtx, ds_t const *pDs, const dblq_t *pDblq);
 	int dbl_callback_policy_std(dblcb_t *pDblcb);
 #endif
