@@ -193,7 +193,7 @@ int regexapi(const char *pstr, const char *pregex, int cflags)
 }
 
 
-#ifdef _UNIT_TEST
+#ifdef _UNIT_TEST_REGEXAPI
 int main(int argc, char **argv)
 {
 	if(argc>2)
