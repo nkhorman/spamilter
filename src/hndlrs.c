@@ -887,34 +887,35 @@ sfsistat mlfi_header(SMFICTX *ctx, char *headerf, char *headerv)
 		}
 		else if(gHeaderChkReceived
 			&& priv->sndraction != BWL_A_ACCEPT
-			//&& priv->rcptaction != BWL_A_ACCEPT
 			&& (
 				strcasecmp(headerf,"Received") == 0
 				|| strcasecmp(headerf,"X-Originating-IP") == 0 // hotmail does this
 			)
 			&& strlen(headerv)
 			)
-		// TODO - ipv6 - extraction from header and testing
-		{	unsigned long ip = mlfi_regex_ipv4(headerv);
-			int routeable = (ip != 0 && !mlfi_isNonRoutableIpV4(ip));
+		{	struct sockaddr *pSa = NULL;
+			int found = mlfi_regex_ipv46_extract(headerv, &pSa);
+			int routeable = (found && !mlfi_isNonRoutableIpSA(pSa));
+			char *pIpStr = (found ?  mlfi_inet_ntopSA(pSa) : NULL);
+
 #ifdef SUPPORT_GEOIP
 			const char *pGeoipCC = "--";
 			if(routeable)
 			{	
-				pGeoipCC = geoip_result_addIpv4(ctx,ip, geoip_LookupCCByIpv4(ctx,ip));
-				mlfi_debug(priv->pSessionUuidStr,"mlfi_header: geoip: %u.%u.%u.%u, CC: %s\n"
-					,(ip>>24)&0xff ,(ip>>16)&0xff ,(ip>>8)&0xff ,ip&0xff
+				pGeoipCC = geoip_result_addSA(ctx, pSa, geoip_LookupCCBySA(ctx, pSa));
+				mlfi_debug(priv->pSessionUuidStr,"mlfi_header: geoip: %s, CC: %s\n"
+					,pIpStr
 					,pGeoipCC
 					);
 			}
 #endif
 
-			mlfi_debug(priv->pSessionUuidStr,"mlfi_header: Received ip: %u.%u.%u.%u"
+			mlfi_debug(priv->pSessionUuidStr,"mlfi_header: Received ip: %s"
 #ifdef SUPPORT_GEOIP
 				", Country code: '%s'"
 #endif
 				", Routable %d, '%s'\n"
-				,(ip&0xff000000)>>24 ,(ip&0x00ff0000)>>16 ,(ip&0x0000ff00)>>8 ,(ip&0x000000ff)
+				,pIpStr
 #ifdef SUPPORT_GEOIP
 				,pGeoipCC
 #endif
@@ -922,15 +923,32 @@ sfsistat mlfi_header(SMFICTX *ctx, char *headerf, char *headerv)
 				);
 
 			// RBL check the ip in the "Recevied by/from:" header if it is routable
-			if(routeable && ip != ntohl(((struct sockaddr_in *)priv->pip)->sin_addr.s_addr))
-			{	struct sockaddr_in s;
-				RBLLISTMATCH *prblmatch = NULL;
+			// and if it doesn't equal the ip address of the connecting MTA
+			if(routeable && pSa != NULL && 
+				(
+					// if is ipv6 and not equal to connecting MTA
+					(
+						pSa->sa_family == AF_INET6 && priv->pip->sa_family == AF_INET6
+						&& !IN6_ARE_ADDR_EQUAL( &((struct sockaddr_in6 *)pSa)->sin6_addr, &((struct sockaddr_in6 *)priv->pip)->sin6_addr)
+					)
+					||
+					// if is ipv4 and not equal to connecting MTA
+					(
+						pSa->sa_family == AF_INET && priv->pip->sa_family == AF_INET
+						&& ((struct sockaddr_in *)pSa)->sin_addr.s_addr != ((struct sockaddr_in *)priv->pip)->sin_addr.s_addr
+					)
+				)
+			)
+			{	RBLLISTMATCH *prblmatch = NULL;
 
-				s.sin_addr.s_addr = htonl(ip);
-				s.sin_family = AF_INET;
-				rs = mlfi_rdnsbl_reject(ctx, &rs, RBL_S_HDR, (struct sockaddr *)&s, priv->pdnsrblhosts, &prblmatch);
+				rs = mlfi_rdnsbl_reject(ctx, &rs, RBL_S_HDR, pSa, priv->pdnsrblhosts, &prblmatch);
 				dnsbl_free_match(prblmatch);
 			}
+
+			if(pIpStr != NULL)
+				free(pIpStr);
+			if(pSa != NULL)
+				free(pSa);
 		}
 		else if(strcasecmp(headerf,"Content-Transfer-Encoding") == 0)
 		{
