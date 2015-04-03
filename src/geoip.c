@@ -140,13 +140,6 @@ void geoip_close(SMFICTX *ctx)
 	}
 }
 
-// TODO - ipv6 - to be removed
-const char *geoip_LookupCCByIpv4(SMFICTX *ctx, unsigned long ip)
-{	unsigned long nip = htonl(ip);
-
-	return geoip_LookupCCByAF(ctx,  AF_INET, (const char *)&nip);
-}
-
 const char *geoip_LookupCCByAF(SMFICTX *ctx, int af, const char *in)
 {	mlfiPriv *priv = MLFIPRIV;
 	const char *pCC = NULL;

@@ -73,7 +73,6 @@
 
 	int geoip_query_action_cc(SMFICTX *ctx, const char *pCC);
 
-	const char *geoip_LookupCCByIpv4(SMFICTX *ctx, unsigned long ip);
 	const char *geoip_LookupCCByAF(SMFICTX *ctx, int af, const char *in);
 	const char *geoip_LookupCCByHostEnt(SMFICTX *ctx, const struct hostent *pHostEnt);
 	const char *geoip_LookupCCByHostName(SMFICTX *ctx, const char *pHostName);
