@@ -45,27 +45,82 @@ static char const cvsid[] = "@(#)$Id: regexmisc.c,v 1.14 2012/12/12 02:38:35 nea
 #include <unistd.h>
 #include <string.h>
 
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
 #include "misc.h"
 #include "regexapi.h"
 #include "list.h"
 
-
 /*
-http://regexlib.com/Search.aspx?k=ipv4&AspxAutoDetectCookieSupport=1
-http://regexlib.com/REDetails.aspx?regexp_id=2690
-	(^ \d{20} $)
-	| (^ ((:[a-fA-F0-9]{1,4}){6}|::) ffff:(25[0-5] | 2[0-4][0-9] | 1[0-9][0-9] | [0-9]{1,2})(\.(25[0-5] | 2[0-4][0-9] | 1[0-9][0-9] | [0-9]{1,2})){3} $)
-	| (^ ((:[a-fA-F0-9]{1,4}){6} | ::) ffff (:[a-fA-F0-9]{1,4}){2} $)
-	| (^ ([a-fA-F0-9]{1,4}) (:[a-fA-F0-9]{1,4}){7} $)
-	| (^ :(:[a-fA-F0-9]{1,4}(::)?){1,6} $)
-	| (^ ((::)?[a-fA-F0-9]{1,4}:){1,6}: $)
-	| (^ :: $)
-
 http://stackoverflow.com/questions/53497/regular-expression-that-matches-valid-ipv6-addresses
 
+IPV4SEG  = (25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])
+IPV4ADDR = (IPV4SEG\.){3,3}IPV4SEG
+IPV6SEG  = [0-9a-fA-F]{1,4}
+IPV6ADDR = (
+	(IPV6SEG:){7,7}IPV6SEG|                # 1:2:3:4:5:6:7:8
+	(IPV6SEG:){1,7}:|                      # 1::                                 1:2:3:4:5:6:7::
+	(IPV6SEG:){1,6}:IPV6SEG|               # 1::8               1:2:3:4:5:6::8   1:2:3:4:5:6::8
+	(IPV6SEG:){1,5}(:IPV6SEG){1,2}|        # 1::7:8             1:2:3:4:5::7:8   1:2:3:4:5::8
+	(IPV6SEG:){1,4}(:IPV6SEG){1,3}|        # 1::6:7:8           1:2:3:4::6:7:8   1:2:3:4::8
+	(IPV6SEG:){1,3}(:IPV6SEG){1,4}|        # 1::5:6:7:8         1:2:3::5:6:7:8   1:2:3::8
+	(IPV6SEG:){1,2}(:IPV6SEG){1,5}|        # 1::4:5:6:7:8       1:2::4:5:6:7:8   1:2::8
+	IPV6SEG:((:IPV6SEG){1,6})|             # 1::3:4:5:6:7:8     1::3:4:5:6:7:8   1::8
+	:((:IPV6SEG){1,7}|:)|                  # ::2:3:4:5:6:7:8    ::2:3:4:5:6:7:8  ::8       ::       
+	fe80:(:IPV6SEG){0,4}%[0-9a-zA-Z]{1,}|  # fe80::7:8%eth0     fe80::7:8%1  (link-local IPv6 addresses with zone index)
+	::(ffff(:0{1,4}){0,1}:){0,1}IPV4ADDR|  # ::255.255.255.255  ::ffff:255.255.255.255  ::ffff:0:255.255.255.255 (IPv4-mapped IPv6 addresses and IPv4-translated addresses)
+	(IPV6SEG:){1,4}:IPV4ADDR               # 2001:db8:3:4::192.0.2.33  64:ff9b::192.0.2.33 (IPv4-Embedded IPv6 Address)
+	)
 */
 
-unsigned long mlfi_regex_ipv4(const char *pstr)
+#define PAT_IPV6PREFIX "([Ii][Pp][Vv]6:){0,1}"
+#define PAT_IPV6A "(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))"
+#define PAT_IPV6B PAT_IPV6PREFIX PAT_IPV6A
+
+// Tries to find a ipv6 address in pStr, extract it, and return
+// a valid sockaddr struct.
+// Returns 1 if an ip was found and a sockaddr was allocated.
+// The caller must provide a sockaddr **, and then free the sockaddr *
+int mlfi_regex_ipv6_extract(const char *pstr, struct in6_addr *pIn)
+{	int found = 0;
+
+	if(pIn != NULL)
+	{
+		const char *regstrs[] = // must be in most specific to least specific order
+		{
+			// bla [ipv6] (bla [ipv6]) bla
+			".{1,}[(].{1,}[ ][[]"PAT_IPV6B"[]][ ]{0,}[)]",
+			// bla [ipv6]
+			".{1,}[[]"PAT_IPV6B"[]]",
+			// bla (ipv6)
+			".{1,}[(]"PAT_IPV6B"[)]",
+			// ipv6
+			"[ ]{0,}"PAT_IPV6B"[ ]{0,}",
+		};
+		unsigned int i,match;
+
+		for(i=0,match=0; !match && i<sizeof(regstrs)/sizeof(regstrs[0]); i++)
+		{	regexapi_t *prat = regexapi_exec(pstr,regstrs[i],REGEX_DEFAULT_CFLAGS,1);
+			int j,q = regexapi_nsubs(prat,0);
+
+			match = (regexapi_matches(prat) && q >= 1);
+			for(j=0; match && !found && j<q; j++)
+			{	const char *p = regexapi_sub(prat,0,j);
+
+				found = (inet_pton(AF_INET6, p, pIn) == 1);
+				//printf("sub %d: '%s'\n",i+1,p);
+			}
+			regexapi_free(prat);
+		}
+	}
+
+	return found;
+}
+
+// Tries to find a ipv4 address in pStr, extract and return it
+unsigned long mlfi_regex_ipv4_extract(const char *pstr)
 {	unsigned long ip = 0;
 
 	if(ip == 0)
@@ -123,6 +178,46 @@ unsigned long mlfi_regex_ipv4(const char *pstr)
 	}
 
 	return ip;
+}
+
+// Tries to find a ipv4 or ipv6 address in pStr, extract it, and return
+// a valid sockaddr struct based on the ip address type found in pStr.
+// Returns 1 if an ip was found and a sockaddr was allocated.
+// The caller must provide a sockaddr **, and then free the sockaddr *
+int mlfi_regex_ipv46_extract(char const *pStr, struct sockaddr **ppSa)
+{	int found = 0;
+
+	if(pStr != NULL && *pStr && ppSa != NULL)
+	{	unsigned long ipv4 = mlfi_regex_ipv4_extract(pStr);
+
+		if(ipv4 != 0)
+		{	struct sockaddr_in *pSa = calloc(1,sizeof(struct sockaddr_in));
+
+			if(pSa != NULL)
+			{
+				pSa->sin_family = AF_INET;
+				pSa->sin_addr.s_addr = htonl(ipv4);
+				*ppSa = (struct sockaddr *)pSa;
+			}
+		}
+		else
+		{	struct in6_addr ipv6;
+
+			found = mlfi_regex_ipv6_extract(pStr, &ipv6);
+			if(found)
+			{	struct sockaddr_in6 *pSa = calloc(1, sizeof(struct sockaddr_in6));
+
+				if(pSa != NULL)
+				{
+					pSa->sin6_family =AF_INET6;
+					pSa->sin6_addr = ipv6;
+					*ppSa = (struct sockaddr *)pSa;
+				}
+			}
+		}
+	}
+
+	return found;
 }
 
 // The concept of this is similar to printf()
@@ -348,10 +443,22 @@ void mlfi_regex_line_http(const char *pSessionId, const char *pbuf, list_t *pLis
 }
 
 #ifdef _UNIT_TEST_REGEXMISC
+void test_ip(char const *p1)
+{
+	struct sockaddr *pSa = NULL;
+	int found = mlfi_regex_ipv46_extract(p1, &pSa);
+	char const *p2 = (found ? mlfi_inet_ntopSA(pSa) : NULL);
+
+	if(pSa != NULL)
+		free(pSa);
+
+	printf("'%s' = %s\n", p1, (p2 == NULL ? "" : p2));
+}
+
 void usage(void)
 {
 	printf(
-		"-i [ip address] - test and ip addres to see if it passes an ipv4 regex for use with \"Recived by ...\" headers\n"
+		"-i [ip address] - test and ip addres to see if it passes an ipv4 or ipv6 regex for use with \"Recived by ...\" headers\n"
 		"-e [email address] - test and email address to see if it passes an email regex\n"
 	);
 }
@@ -371,16 +478,11 @@ int main(int argc, char **argv)
 		{
 			case 'i':
 				if(optarg != NULL && *optarg)
-				{	unsigned long ip = mlfi_regex_ipv4(optarg);
-
-					printf("'%s' = %lu.%lu.%lu.%lu\n"
-						,optarg
-						,(ip&0xff000000)>>24 ,(ip&0x00ff0000)>>16 ,(ip&0x0000ff00)>>8 ,(ip&0x000000ff)
-						);
-				}
+					test_ip(optarg);
 				else
 					printf("Bogus/Missing command line arguement\n");
 				break;
+
 			case 'e':
 				if(optarg != NULL && *optarg)
 				{	char	*frm = NULL;

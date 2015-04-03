@@ -43,8 +43,12 @@
 
 	#include "list.h"
 
-	unsigned long mlfi_regex_ipv4(const char *pstr);
+	unsigned long mlfi_regex_ipv4_extract(const char *pstr);
+	int mlfi_regex_ipv6_extract(const char *pstr, struct in6_addr *pIn);
+	int mlfi_regex_ipv46_extract(char const *pStr, struct sockaddr **ppSa);
+
 	int mlfi_regex_mboxtwist(const char *pstr, const char *pRegex, char **ppFrm, char **ppDom);
 	int mlfi_regex_mboxsplit(const char *pstr, char **ppfrm, char **ppdom);
+
 	void mlfi_regex_line_http(const char *pSessionId, const char *pbuf, list_t *pListHosts);
 #endif
