@@ -1,4 +1,7 @@
 Changelog;
+	20150403
+	* mod - last ipv6 todo - support ipv6 address extraction from headers
+
 	20150322
 	* add - dns query logging support, active only when running in debug mode
 	* add - the ability to scope a db.ifi ruleset to local or foreign networks
