@@ -286,7 +286,7 @@ static void ifiDb_IrFree(ir_t *pIr)
 	}
 }
 
-ir_t *ifiDb_IrBuild(char *pCols[])
+ir_t *ifiDb_IrBuild(const char *pSessionId, char *pCols[])
 {	ir_t *pIr = calloc(1, sizeof(ir_t));
 
 	if(pIr != NULL)
@@ -317,21 +317,25 @@ ir_t *ifiDb_IrBuild(char *pCols[])
 			{
 				ifiDb_IrFree(pIr);
 				pIr = NULL;
-				//printf("free 3\n"); // TODO - mlfi_debug
+				mlfi_debug(pSessionId, "%s: Missing Address\n", __func__);
 			}
 			// mixed address types ?
 			else if(afType[1] != AF_UNSPEC && afType[0] != afType[1])
 			{
 				ifiDb_IrFree(pIr);
 				pIr = NULL;
-				//printf("free 1\n"); // TODO - mlfi_debug
+				mlfi_debug(pSessionId, "%s: Mixed Address types are not allowed. Address: '%s' <--> Exception: '%s'\n"
+					, __func__
+					, pCols[TBL_COL_ADDRESS]
+					, pCols[TBL_COL_EXECEPTION]
+					);
 			}
 		}
 		else // invalid action
 		{
 			ifiDb_IrFree(pIr);
 			pIr = NULL;
-			//printf("free 2\n"); // TODO - mlfi_debug
+			mlfi_debug(pSessionId, "%s: Invalid action '%s'\n", __func__, pStrAllowDeny);
 		}
 	}
 
@@ -368,7 +372,7 @@ static int ifiDbCallbackBuildList(void *pCallbackCtx, list_t *pRow)
 #ifdef _UNIT_TEST_IFIDB
 			ifiDb_ShowRow(&idrc);
 #endif
-			pIr = ifiDb_IrBuild(idrc.pCols);
+			pIr = ifiDb_IrBuild(pCtx->pSessionId, idrc.pCols);
 			if(pIr != NULL)
 				listAdd(pCtx->pIfiDb, pIr);
 		}
