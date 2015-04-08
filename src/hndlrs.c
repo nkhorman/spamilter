@@ -1502,6 +1502,7 @@ sfsistat mlfi_body(SMFICTX *ctx, u_char *bodyp, size_t bodylen)
 	return(rs);
 }
 
+/*
 int mlfi_prependSubjectHeader(SMFICTX *ctx, char *fmt, ...)
 {	mlfiPriv	*priv = MLFIPRIV;
 	int		rc = 0;
@@ -1536,6 +1537,7 @@ int mlfi_prependSubjectHeader(SMFICTX *ctx, char *fmt, ...)
 
 	return(rc);
 }
+*/
 
 #ifdef SUPPORT_DBL
 int dblCheckCallbackBody(const dblcb_t *pDblcb)
@@ -1716,7 +1718,7 @@ sfsistat mlfi_eom(SMFICTX *ctx)
 					}
 					else if(strcasecmp(gMsExtChkAction,"Tag") == 0)
 					{
-						mlfi_prependSubjectHeader(ctx,"Virus ?");
+						mlfi_addhdr_printf(ctx,"X-Milter","%s DataSet=Tagged; Tag=Virus;" ,mlfi.xxfi_name);
 
 						mlfi_status_debug(priv,NULL,"Virus",NULL,"mlfi_eom: Flagged - Virus\n");
 						tag++;
@@ -1735,8 +1737,9 @@ sfsistat mlfi_eom(SMFICTX *ctx)
 			if(rs == SMFIS_CONTINUE)
 			{
 				if(priv->SmtpSndrChkFail && strcasecmp(gSmtpSndrChkAction,"Tag") == 0)
-				{
-					mlfi_prependSubjectHeader(ctx,"Valid Sender ?");
+				{	char *sndr = (priv->replyto != NULL && *priv->replyto ? priv->replyto : priv->sndr);
+
+					mlfi_addhdr_printf(ctx,"X-Milter","%s DataSet=Tagged; Tag=SmtpSndrChkFail; Sender=%s;" ,mlfi.xxfi_name ,sndr);
 
 					mlfi_status_debug(priv,NULL,"Sender",NULL,"mlfi_eom: Flagged - Invalid Sender\n");
 					tag++;
@@ -1755,7 +1758,7 @@ sfsistat mlfi_eom(SMFICTX *ctx)
 							dnsbl_add_hdr(ctx,*prbls);
 					}
 
-					mlfi_prependSubjectHeader(ctx,"Spam ?");
+					mlfi_addhdr_printf(ctx,"X-Milter","%s DataSet=Tagged; Tag=Spam;" ,mlfi.xxfi_name);
 
 					mlfi_status_debug(priv,NULL,"Spam",NULL,"mlfi_eom: Flagged - Spam\n");
 					tag++;
