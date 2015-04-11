@@ -1578,7 +1578,7 @@ int listCallbackBodyHosts(void *pData, void *pCallbackData)
 	{
 		// add the stored body links as headers to the email for possible analysis by others
 		mlfi_debug(priv->pSessionUuidStr,"mlfi_eom: Adding BodyHosts header: '%s'\n",pStr);
-		mlfi_addhdr_printf(ctx,"X-Milter", "%s DataSet=BodyHost; reciever=%s; host='%s';"
+		mlfi_addhdr_printf(ctx,"X-Milter", "%s DataSet=BodyHost; receiver=%s; host='%s';"
 			,mlfi.xxfi_name ,gHostname
 			,pStr
 			);
@@ -1673,7 +1673,7 @@ int listCallbackGeoipAddHdr(void *pData, void *pCallbackData)
 	SMFICTX *ctx = (SMFICTX *)pCallbackData;
 	char *pIpStr = mlfi_inet_ntopAF(pResult->ip.afType, (pResult->ip.afType == AF_INET ? (char *)&pResult->ip.ipv4 : (char *)&pResult->ip.ipv6));
 
-	mlfi_addhdr_printf(ctx,"X-Milter", "%s DataSet=GeoIP; reciever=%s; ip=%s; CC=%s;"
+	mlfi_addhdr_printf(ctx,"X-Milter", "%s DataSet=GeoIP; receiver=%s; ip=%s; CC=%s;"
 		,mlfi.xxfi_name ,gHostname
 		,pIpStr
 		,(pResult->pCountryCity != NULL ? pResult->pCountryCity : pResult->pCountryCode)
@@ -1695,7 +1695,7 @@ sfsistat mlfi_eom(SMFICTX *ctx)
 	// per message, either _eom or _abort, not both
 	if (priv != NULL)
 	{
-		mlfi_addhdr_printf(ctx,"X-Milter", "%s DataSet=SessionId; reciever=%s; sessionid='%s';"
+		mlfi_addhdr_printf(ctx,"X-Milter", "%s DataSet=SessionId; receiver=%s; sessionid='%s';"
 			,mlfi.xxfi_name ,gHostname
 			,priv->pSessionUuidStr
 			);
@@ -1766,7 +1766,7 @@ sfsistat mlfi_eom(SMFICTX *ctx)
 #if defined(SUPPORT_LIBSPF) || defined(SUPPORT_LIBSPF2)
 				if(gMtaSpfChk && priv->spf_rs != NULL)
 				{
-					mlfi_addhdr_printf(ctx,"X-Milter", "%s DataSet=SPF; reciever=%s; client-ip=%s; envelope-from=%s; helo=%s; assesment=%s (%s);"
+					mlfi_addhdr_printf(ctx,"X-Milter", "%s DataSet=SPF; receiver=%s; client-ip=%s; envelope-from=%s; helo=%s; assesment=%s (%s);"
 						,mlfi.xxfi_name,gHostname
 						,priv->ipstr,priv->sndr,priv->helo
 						,priv->spf_rs,priv->spf_error
@@ -1815,7 +1815,7 @@ sfsistat mlfi_eom(SMFICTX *ctx)
 	listForEach(priv->pGeoipList,&listCallbackGeoipAddHdr,(void *)ctx);
 #endif
 
-	mlfi_addhdr_printf(ctx,"X-Milter","%s DataSet=MTA-Peer; reciever=%s; sender-ip=%s; sender-helo=%s;"
+	mlfi_addhdr_printf(ctx,"X-Milter","%s DataSet=MTA-Peer; receiver=%s; sender-ip=%s; sender-helo=%s;"
 		,mlfi.xxfi_name,gHostname,priv->ipstr,priv->helo
 		);
 
