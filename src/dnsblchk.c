@@ -299,7 +299,7 @@ char *gDbpath = "/var/db/spamilter";
 
 int main(int argc, char **argv)
 {	int	c;
-	int	smtprc;
+	int	smtprc = -1;
 	int	rc;
 	char	sessionId[10];
 
