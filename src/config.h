@@ -55,6 +55,9 @@
 #include <netinet/in.h>
 #include <arpa/nameser.h>
 #include <resolv.h>
+#include <string.h>
+
+#include "config.defs"
 
 #ifndef res_ninit
 	#define RES_NALLOC(s)			(s)
@@ -62,32 +65,29 @@
 	#define RES_NALLOC(s)			calloc(1,sizeof(*s))
 #endif
 
-#if !defined(HAVE_RES_N) && __RES < 20030124
-#if !defined(res_state) && !defined(__res_state_defined)
-	typedef void *res_state;
+#ifndef res_state
+	typedef struct __res_state *res_state;
 #endif
+
 #ifndef res_ninit
 	#define res_ninit(s)                    res_init()
 #endif
+
 #ifndef res_nclose
 	#define res_nclose(s)			res_close()
 #endif
+
 #ifndef res_nquery
 	#define res_nquery(s,d,c,t,a,l)         res_query(d,c,t,a,l)
 #endif
+
 #ifndef res_nsearch
 	#define res_nsearch(s,d,c,t,a,l)        res_search(d,c,t,a,l)
 #endif
+
 #ifndef res_nupdate
 	#define res_nupdate(s,d,t)		res_update(d)
 #endif
-#else
-	#include <res_update.h>
-#endif
-
-	#include <string.h>
-
-#include "config.defs"
 
 #ifdef NEED_NSTRING
 	#include "nstring.h"

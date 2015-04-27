@@ -70,7 +70,6 @@ EOF
 		*)
 cat <<EOF
 	--with-libbind		- directory prefix of previously compiled bind source
-	--have-resn		- platform has support for res_n???? functions (--with-libbind defines this)
 	--need-libutil		- use local copy of libutil
 	--need-nscompat		- use local name resolver compatibility layer
 	--need-vasprintf	- use local implementation of v/asprintf
@@ -224,15 +223,11 @@ while [ "$1" != "" ]; do
 		--with-pam)
 			ConfigSwitchWith "PAM" "$1"
 			;;
-		--have-resn)
-			ConfigSwitch "HAVE_RES_N" "$1"
-			;;
 		--with-libbind)
 			if [ "$2" = "" ]; then
 				$echobin "Missing --with-libbind directory paramater";
 				exit 1;
 			fi
-			ConfigSwitch "HAVE_RES_N" "$1 $2"
 			incdirs="-I`SedifyDir $2/include` $incdirs"
 			libdirs="-L`SedifyDir $2/lib` $libdirs"
 			libs="-lbind $libs"
@@ -347,15 +342,9 @@ else
 				smdir="/usr/src/contrib/sendmail"
 			fi
 			Has "BSD"
-			CFlags "HAVE_RES_N"
 			CFlags "HAVE_SETPROCTITLE"
 			;;
 		SunOS)
-			if [ "$osver" = "5.8" -o "$osver" = "5.9" -o "$osver" = "5.10" ]; then
-				CFlags "HAVE_RES_N"
-			else
-				CFlags "USE_RR_CL"
-			fi
 			smobj="$os.`uname -r`.`uname -m|sed -e's/.$//'`"
 			$echobin "s/<SMOBJDIR>/$smobj/g" >> $tmpsed
 			Not "FreeBSD"
