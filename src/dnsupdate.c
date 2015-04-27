@@ -45,6 +45,10 @@ static char const cvsid[] = "@(#)$Id: dnsupdate.c,v 1.4 2011/07/29 21:23:16 neal
 #include <unistd.h>
 #include <string.h>
 
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <res_update.h>
+
 #include "config.h"
 #include "dnsupdate.h"
 

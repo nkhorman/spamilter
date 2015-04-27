@@ -49,13 +49,9 @@
 	#include "ns_compat.h"
 #endif
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
 #include <netinet/in.h>
 #include <arpa/nameser.h>
 #include <resolv.h>
-#include <string.h>
 
 #include "config.defs"
 
