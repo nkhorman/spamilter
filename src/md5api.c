@@ -44,6 +44,7 @@ static char const cvsid[] = "@(#)$Id: md5api.c,v 1.2 2013/01/04 02:37:49 neal Ex
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <string.h>
 
 #include "md5api.h"
 
