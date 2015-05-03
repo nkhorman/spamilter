@@ -198,13 +198,13 @@ int mlfi_regex_ipv46_extract(char const *pStr, struct sockaddr **ppSa)
 				pSa->sin_family = AF_INET;
 				pSa->sin_addr.s_addr = htonl(ipv4);
 				*ppSa = (struct sockaddr *)pSa;
+				found = 1;
 			}
 		}
 		else
 		{	struct in6_addr ipv6;
 
-			found = mlfi_regex_ipv6_extract(pStr, &ipv6);
-			if(found)
+			if(mlfi_regex_ipv6_extract(pStr, &ipv6))
 			{	struct sockaddr_in6 *pSa = calloc(1, sizeof(struct sockaddr_in6));
 
 				if(pSa != NULL)
@@ -212,6 +212,7 @@ int mlfi_regex_ipv46_extract(char const *pStr, struct sockaddr **ppSa)
 					pSa->sin6_family =AF_INET6;
 					pSa->sin6_addr = ipv6;
 					*ppSa = (struct sockaddr *)pSa;
+					found = 1;
 				}
 			}
 		}
