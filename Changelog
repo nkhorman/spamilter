@@ -1,4 +1,7 @@
 Changelog;
+	20150710
+	* add - add support for auto whitelisting outbound recipients
+
 	20150403
 	* mod - last ipv6 todo - support ipv6 address extraction from headers
 
