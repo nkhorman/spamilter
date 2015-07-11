@@ -93,6 +93,9 @@ static char const cvsid[] = "@(#)$Id: hndlrs.c,v 1.185 2015/01/21 04:41:19 neal 
 #ifdef SUPPORT_DBL
 #include "dbl.h"
 #endif
+#ifdef SUPPORT_AUTO_WHITELIST
+#include "relaydomain.h"
+#endif
 
 char *str2lo(char *src)
 {	char *p = src;
@@ -478,8 +481,10 @@ sfsistat mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 		if(priv->sndr != NULL)
 			free(priv->sndr);
 		priv->sndr = str2lo(strdup(*envfrom));
+
 		mlfi_regex_mboxsplit(priv->sndr,&pMbox,&pDomain);
 		dupe_query(priv,*envfrom,DUPE_FROM);
+
 		priv->sndraction = bwlistActionQuery(priv->pbwlistctx,BWL_L_SNDR,pDomain,pMbox,priv->sndractionexec);
 		mlfi_debug(priv->pSessionUuidStr,"mlfi_envfrom: sndraction = %u/'%s'\n",priv->sndraction,gpBwlStrs[priv->sndraction]);
 
@@ -1437,6 +1442,47 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 		if(gMtaHostIpfw && ipfwMtaHostIpBanCandidate)
 			mlfi_MtaHostIpfwAction(priv,"add");
 	}
+#ifdef SUPPORT_AUTO_WHITELIST
+	else
+	{
+		char *sndrMbox = NULL;
+		char *sndrDom = NULL;
+
+		mlfi_regex_mboxsplit(priv->sndr,&sndrMbox,&sndrDom);
+		if(sndrDom != NULL && *sndrDom)
+		{
+			int add = 0;
+			char *rcptMbox = NULL;
+			char *rcptDom = NULL;
+
+			mlfi_regex_mboxsplit(priv->rcpt,&rcptMbox,&rcptDom);
+
+			switch(bwlistActionQuery(priv->pbwlistctx, BWL_L_SNDR, rcptDom, rcptMbox, NULL))
+			{
+				case BWL_A_NULL: // add
+					// from us to not us
+					add = (
+						relayDomain(sndrDom, "/etc/mail/relay-domains") == 1
+						&& relayDomain(rcptDom, "/etc/mail/relay-domains") == 0
+						);
+					break;
+				default:
+					break;
+			}
+
+			if(add)
+			{
+				FILE *fout = fopen("/var/db/spamilter/db.sent","a");
+				if(fout != NULL)
+				{
+					fprintf(fout, "%s\t|%s\t|Accept |\t# %s\n" , rcptDom , rcptMbox , priv->pSessionUuidStr);
+					fflush(fout);
+					fclose(fout);
+				}
+			}
+		}
+	}
+#endif
 
 	return rs;
 }

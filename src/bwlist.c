@@ -40,7 +40,9 @@
 
 static char const cvsid[] = "@(#)$Id: bwlist.c,v 1.29 2014/02/28 05:37:57 neal Exp $";
 
+#ifndef UNIT_TEST
 #include "config.h"
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -62,6 +64,10 @@ static char const cvsid[] = "@(#)$Id: bwlist.c,v 1.29 2014/02/28 05:37:57 neal E
 #include "regexapi.h"
 
 #ifdef UNIT_TEST
+#include <syslog.h>
+#endif
+/*
+#ifdef UNIT_TEST
 //#define mlfi_debug printf
 void mlfi_debug(const char *pSessionId, const char *pfmt, ...)
 {
@@ -74,6 +80,7 @@ void mlfi_debug(const char *pSessionId, const char *pfmt, ...)
 	}
 }
 #endif
+*/
 
 char *gpBwlStrs[] =
 {
@@ -114,10 +121,16 @@ bwlistCtx_t *bwlistCreate(const char *pSessionId)
 		// setup the table drivers
 #ifdef SUPPORT_TABLE_FLATFILE
 		pBwlistCtx->pTdSndr = tableDriverFlatFileCreate(pSessionId);
+#ifdef SUPPORT_AUTO_WHITELIST
+		pBwlistCtx->pTdSndrAuto = tableDriverFlatFileCreate(pSessionId);
+#endif
 		pBwlistCtx->pTdRcpt = tableDriverFlatFileCreate(pSessionId);
 #endif
 #ifdef SUPPORT_TABLE_PGSQL
 		pBwlistCtx->pTdSndr = tableDriverPsqlCreate(pSessionId);
+#ifdef SUPPORT_AUTO_WHITELIST
+		pBwlistCtx->pTdSndrAuto = NULL;
+#endif
 		pBwlistCtx->pTdRcpt = tableDriverPsqlCreate(pSessionId);
 #endif
 		pBwlistCtx->pSessionId = pSessionId;
@@ -132,6 +145,9 @@ void bwlistDestroy(bwlistCtx_t **ppBwlistCtx)
 	{
 #ifdef SUPPORT_TABLE_FLATFILE
 		tableDriverFlatFileDestroy(&(*ppBwlistCtx)->pTdSndr);
+#ifdef SUPPORT_AUTO_WHITELIST
+		tableDriverFlatFileDestroy(&(*ppBwlistCtx)->pTdSndrAuto);
+#endif
 		tableDriverFlatFileDestroy(&(*ppBwlistCtx)->pTdRcpt);
 #endif
 #ifdef SUPPORT_TABLE_PGSQL
@@ -178,6 +194,18 @@ int bwlistOpen(bwlistCtx_t *pBwlistCtx, const char *dbpath)
 #endif
 		}
 
+#ifdef SUPPORT_AUTO_WHITELIST
+		if(!tableIsOpen(pBwlistCtx->pTdSndrAuto))
+		{
+#ifdef SUPPORT_TABLE_FLATFILE
+			asprintf(&fn,"%s/db.sent",dbpath); tableOpen(pBwlistCtx->pTdSndrAuto,"table, colqty",fn,BWLIST_COL_QTY);
+			if(!tableIsOpen(pBwlistCtx->pTdSndrAuto))
+				mlfi_debug(pBwlistCtx->pSessionId,"bwlist: Unable to open Recipient file '%s'\n",fn);
+			free(fn);
+#endif
+		}
+#endif
+
 		if(!tableIsOpen(pBwlistCtx->pTdRcpt))
 		{
 #ifdef SUPPORT_TABLE_FLATFILE
@@ -214,6 +242,10 @@ void bwlistClose(bwlistCtx_t *pBwlistCtx)
 	{
 		if(tableIsOpen(pBwlistCtx->pTdSndr))
 			tableClose(pBwlistCtx->pTdSndr);
+#ifdef SUPPORT_AUTO_WHITELIST
+		if(tableIsOpen(pBwlistCtx->pTdSndrAuto))
+			tableClose(pBwlistCtx->pTdSndrAuto);
+#endif
 		if(tableIsOpen(pBwlistCtx->pTdRcpt))
 			tableClose(pBwlistCtx->pTdRcpt);
 	}
@@ -331,6 +363,10 @@ int bwlistActionQuery(bwlistCtx_t *pBwlistCtx, int list, const char *dom, const 
 		{
 			case BWL_L_SNDR:
 				rc = bwlistActionGet(pBwlistCtx->pSessionId,pBwlistCtx->pTdSndr,dom,mbox,exec);
+#ifdef SUPPORT_AUTO_WHITELIST
+				if(rc == BWL_A_NULL)
+					rc = bwlistActionGet(pBwlistCtx->pSessionId, pBwlistCtx->pTdSndrAuto, dom, mbox, exec);
+#endif
 				break;
 			case BWL_L_RCPT:
 				rc = bwlistActionGet(pBwlistCtx->pSessionId,pBwlistCtx->pTdRcpt,dom,mbox,exec);
@@ -379,13 +415,22 @@ void test1(const char *pPath, int list, const char *dom, const char *mbox)
 	}
 }
 
+void usage(void)
+{
+	printf("-p [/var/db/spamilter] -d [domain] -m [mbox] -l [sndr | rcpt]");
+	exit(0);
+}
+
 int main(int argc, char **argv)
 {	char opt;
 	const char *optflags = "p:l:d:m:";
-	const char *path = NULL;
+	const char *path = "/var/db/spamilter";//NULL;
 	int list = 0;
 	const char *dom = NULL;
 	const char *mbox = NULL;
+
+	if(argc < 3)
+		usage();
 
 	while((opt = getopt(argc,argv,optflags)) != -1)
 	{
@@ -410,6 +455,7 @@ int main(int argc, char **argv)
 	argc -= optind;
 	argv += optind;
 
+	openlog("bwlist", LOG_PERROR|LOG_NDELAY|LOG_PID, LOG_DAEMON);
 	test1(path,list,dom,mbox);
 
 	return 0;

@@ -53,6 +53,9 @@
 	typedef struct _bwlistCtx_t
 	{
 		tableDriver_t *pTdSndr;
+#ifdef SUPPORT_AUTO_WHITELIST
+		tableDriver_t *pTdSndrAuto;
+#endif
 		tableDriver_t *pTdRcpt;
 		const char *pSessionId;
 	}bwlistCtx_t;

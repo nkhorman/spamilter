@@ -58,6 +58,7 @@ Usage:
 	--with-tables-flatfile	- use ascii flat files for data tables
 	--with-tables-pgsql	- use PostgreSql for data tables ( requires --with-postgresql )
 	--with-virtuser		- compile in support for rejecting recpients not listed in virtusertable
+	--with-auto-whitelist	- compile in support for automatically white listing outbound recipients
 EOF
 	case "$os" in
 		FreeBSD)
@@ -286,6 +287,9 @@ while [ "$1" != "" ]; do
 			;;
 		--with-dbl)
 			ConfigSwitchWith "DBL" "$1"
+			;;
+		--with-auto-whitelist)
+			ConfigSwitchWith "AUTO_WHITELIST" "$1"
 			;;
 		--need-libutil)
 			ConfigSwitch "NEED_LIBUTIL_LOCAL" "$1"
