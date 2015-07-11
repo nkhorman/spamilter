@@ -49,6 +49,9 @@
 	#include "ns_compat.h"
 #endif
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <arpa/nameser.h>
 #include <resolv.h>
@@ -61,8 +64,9 @@
 	#define RES_NALLOC(s)			calloc(1,sizeof(*s))
 #endif
 
-#ifndef res_state
+#if !defined(res_state) && !defined(__res_state_defined)
 	typedef struct __res_state *res_state;
+#define __res_state_defined
 #endif
 
 #ifndef res_ninit
@@ -84,6 +88,9 @@
 #ifndef res_nupdate
 	#define res_nupdate(s,d,t)		res_update(d)
 #endif
+
+#include <string.h>
+
 
 #ifdef NEED_NSTRING
 	#include "nstring.h"

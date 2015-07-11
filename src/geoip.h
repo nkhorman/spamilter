@@ -48,7 +48,6 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <netdb.h>
 
 	enum { GEOIPLIST_A_NULL, GEOIPLIST_A_ACCEPT, GEOIPLIST_A_REJECT, GEOIPLIST_A_DISCARD, GEOIPLIST_A_TEMPFAIL, GEOIPLIST_A_TARPIT/*, GEOIPLIST_A_IPFW*/ };
 

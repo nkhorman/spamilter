@@ -416,7 +416,9 @@ int main(int argc, char **argv)
 
 		presstate = RES_NALLOC(presstate);
 
+#ifndef res_ninit
 		if(presstate != NULL)
+#endif
 		{	dblq_t dblq;
 
 			res_ninit(presstate);
@@ -442,8 +444,10 @@ int main(int argc, char **argv)
 			res_nclose(presstate);
 			free(presstate);
 		}
+#ifndef res_ninit
 		else
-			printf("enable to init resolver\n");
+			printf("unable to init resolver\n");
+#endif
 	}
 	else
 		printf("no domain specified - use -h [host/domain name]\n");
