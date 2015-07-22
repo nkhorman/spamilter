@@ -57,7 +57,7 @@ typedef struct _ov_t
 	union
 	{
 		char const *pVal;
-		uint32_t val;
+		unsigned int val;
 	};
 } ov_t; // Option Variadic Type
 
@@ -87,8 +87,9 @@ static unsigned long iniKeyHash(char const *pKeyName)
 
 	if(pKeyName != NULL && *pKeyName)
 	{       unsigned long multiple = LARGENUMBER;
+		int i,q;
 
-		for(int i=0, q=strlen(pKeyName); i<q; i++)
+		for(i=0, q=strlen(pKeyName); i<q; i++)
 		{	unsigned char ch = pKeyName[i];
 
 			if(ch != '\0')
