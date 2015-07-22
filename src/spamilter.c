@@ -53,58 +53,17 @@ static char const cvsid[] = "@(#)$Id: spamilter.c,v 1.54 2013/07/13 23:31:37 nea
 #include <pwd.h>
 
 #include "spamilter.h"
+#include "ini.h"
 #include "watcher.h"
 #include "dnsbl.h"
 #include "hndlrs.h"
 #include "misc.h"
 
 int	gDebug			= 0;
-int	gForeground		= 0;
-char	*gPolicyUrl		= "http://www.somedomain.com/policy.html";
-char	*gDbpath		= "/var/db/spamilter";
 char	*gConfpath		= PATH_CONFIG;
-char	*gMlficonn		= "inet:7726@localhost";
-int	gDnsBlChk		= 1;
-int	gSmtpSndrChk		= 1;
-char	*gSmtpSndrChkAction	= "Reject";
-int	gMtaHostChk		= 1;
-int	gMtaHostChkAsIp		= 1;
-int	gMtaHostIpfw		= 0;
-int	gMtaHostIpfwNominate	= 0;
-int	gMtaHostIpChk		= 0;
-int	gMsExtChk		= 1;
-char	*gMsExtChkAction	= "Reject";
+int	gForeground		= 0;
 char	gHostnameBuf[1024];	// hope this is big enough!
-char	*gHostname		= gHostnameBuf;
-char	*gUserName		= "nobody";
-#ifdef SUPPORT_POPAUTH
-char	*gPopAuthChk		= NULL;
-#endif
-#if defined(SUPPORT_LIBSPF) || defined(SUPPORT_LIBSPF2)
-int	gMtaSpfChk		= 0;
-int	gMtaSpfChkSoftFailAsFail	= 0;		// Reject on SPF SoftFail conditions
-#endif
-#ifdef SUPPORT_VIRTUSER
-char	*gVirtUserTableChk	= NULL;
-#endif
-#ifdef SUPPORT_ALIASES
-char	*gAliasTableChk		= NULL;
-#endif
-#ifdef SUPPORT_LOCALUSER
-int	gLocalUserTableChk	= 0;
-#endif
-#ifdef SUPPORT_GREYLIST
-int gGreyListChk		= 0;
-#endif
-#ifdef SUPPORT_FWDHOSTCHK
-int gRcptFwdHostChk		= 0;
-#endif
-int gHeaderChkReplyTo		= 0;
-int gHeaderChkReceived		= 0;
-#ifdef SUPPORT_GEOIP
-char *gpGeoipDbPath		= NULL;
-int gGeoIpCcChk			= 0;
-#endif
+const char *gHostname		= gHostnameBuf;
 
 #ifdef NEED_GETPROGNAME
 static const char *__gpProgname = NULL;
@@ -134,87 +93,94 @@ struct smfiDesc mlfi =
 	mlfi_close	// connection cleanup
 };
 
-#define SetKeyValStr(k,v,n,d) { if(strlen(k) && strlen(v) && strcasecmp((k),(n)) == 0) (d) = strdup((v)); }
-#define SetKeyValInt(k,v,n,d) { if(strlen(k) && strlen(v) && strcasecmp((k),(n)) == 0) (d) = atoi((v)); }
-
-#define ShowKeyValStr(k,v) { printf("%s = '%s'\n",(k),(v)); }
-#define ShowKeyValInt(k,v) { printf("%s = %u\n",(k),(v)); }
-
-void getconf(char *confpath)
-{	FILE	*fin = fopen(confpath,"r");
-	char	*str;
-	char	buf[1024];
-	char	key[1024];
-	char	val[1024];
-
-	if(fin != NULL)
-	{
-		while(!feof(fin))
-		{
-			fgets(buf,sizeof(buf),fin);
-			
-			str = strchr(buf,'#');
-			if(str != NULL)
-			{
-				*(str--) = '\0';
-				while(str >= buf && (*str ==' ' || *str == '\t'))
-					*(str--) = '\0';
-			}
-
-			if(strlen(buf))
-			{
-				str = mlfi_strcpyadv(key,sizeof(key),buf,'=');
-				str = mlfi_strcpyadv(val,sizeof(val),str,'=');
-
-				SetKeyValStr(key,val,"UserName",gUserName);
-				SetKeyValStr(key,val,"PolicyUrl",gPolicyUrl);
-				SetKeyValStr(key,val,"DbPath",gDbpath);
-				SetKeyValStr(key,val,"Conn",gMlficonn);
-				SetKeyValInt(key,val,"DnsBlChk",gDnsBlChk);
-				SetKeyValInt(key,val,"SmtpSndrChk",gSmtpSndrChk);
-				SetKeyValStr(key,val,"SmtpSndrChkAction",gSmtpSndrChkAction);
-				SetKeyValInt(key,val,"MtaHostChk",gMtaHostChk);
-				SetKeyValInt(key,val,"MtaHostChkAsIp",gMtaHostChkAsIp);
-				SetKeyValInt(key,val,"MtaHostIpfw",gMtaHostIpfw);
-				SetKeyValInt(key,val,"MtaHostIpfwNominate",gMtaHostIpfwNominate);
-				SetKeyValInt(key,val,"MtaHostIpChk",gMtaHostIpChk);
+ik_t gpIk[] =
+{
+	{ OVT_STR, OPT_USERNAME,			"nobody" },
+	{ OVT_STR, OPT_POLICYURL,			"http://somedomain.com/policy.html" },
+	{ OVT_STR, OPT_DBPATH,				"/var/db/spamilter" },
+	{ OVT_STR, OPT_CONN,				"inet:7726@localhost" },
+	{ OVT_BOOL, OPT_DNSBLCHK,			"yes" },
+	{ OVT_BOOL, OPT_SMTPSNDRCHK,			"yes" },
+	{ OVT_BOOL, OPT_SMTPSNDRCHKACTION,		"Reject" },
+	{ OVT_BOOL, OPT_MTAHOSTCHK,			"yes" },
+	{ OVT_BOOL, OPT_MTAHOSTCHKASIP,			"no" },
+	{ OVT_BOOL, OPT_MTAHOSTIPFW,			"no" },
+	{ OVT_BOOL, OPT_MTAHOSTIPFWNOMINATE,		"no" },
+	{ OVT_BOOL, OPT_MTAHOSTIPCHK,			"no" },
 #if defined(SUPPORT_LIBSPF) || defined(SUPPORT_LIBSPF2)
-				SetKeyValInt(key,val,"MtaSpfChk",gMtaSpfChk);
-				SetKeyValInt(key,val,"MtaSpfChkSoftFailAsFail", gMtaSpfChkSoftFailAsFail);
+	{ OVT_BOOL, OPT_MTASPFCHK,			"yes" },
+	{ OVT_BOOL, OPT_MTASPFCHKSOFTFAILASHARD,	"no" },
 #endif
-
-				SetKeyValInt(key,val,"MsExtChk",gMsExtChk);
-				SetKeyValStr(key,val,"MsExtChkAction",gMsExtChkAction);
+	{ OVT_INT, OPT_MSEXTCHK,			"2" },
+	{ OVT_BOOL, OPT_MSEXTCHKACTION,			"Reject" },
 #ifdef SUPPORT_POPAUTH
-				SetKeyValStr(key,val,"PopAuthChk",gPopAuthChk);
+	{ OVT_BOOL, OPT_POPAUTHCHK,			"" },
 #endif
 #ifdef SUPPORT_VIRTUSER
-				SetKeyValStr(key,val,"VirtUserTableChk",gVirtUserTableChk);
+	{ OVT_BOOL, OPT_VIRTUSERTABLECHK,		"/etc/mail/virtuser.db" },
 #endif
 #ifdef SUPPORT_ALIASES
-				SetKeyValStr(key,val,"AliasTableChk",gAliasTableChk);
+	{ OVT_BOOL, OPT_ALIASTABLECHK,			"/etc/mail/aliases.db" },
 #endif
 #ifdef SUPPORT_LOCALUSER
-				SetKeyValInt(key,val,"LocalUserTableChk",gLocalUserTableChk);
+	{ OVT_BOOL, OPT_LOCALUSERTABLECHK,		"yes" },
 #endif
 #ifdef SUPPORT_GREYLIST
-				SetKeyValInt(key,val,"GreyListChk",gGreyListChk);
+	{ OVT_BOOL, OPT_GREYLISTCHK,			"yes" },
 #endif
 #ifdef SUPPORT_FWDHOSTCHK
-				SetKeyValInt(key,val,"RcptFwdHostChk",gRcptFwdHostChk);
 #endif
-				SetKeyValInt(key,val,"HeaderReplyToChk",gHeaderChkReplyTo);
-				SetKeyValInt(key,val,"HeaderReceivedChk",gHeaderChkReceived);
-#ifdef SUPPORT_GEOIP
-				SetKeyValStr(key,val,"GeoIPDBPath",gpGeoipDbPath);
-				SetKeyValInt(key,val,"GeoIPChk",gGeoIpCcChk);
+	{ OVT_BOOL, OPT_HEADERREPLYTOCHK,		"yes" },
+	{ OVT_BOOL, OPT_HEADERRECEIVEDCHK,		"no" },
+#ifdef SUPPORT_FWDHOSTCHK
+	{ OVT_BOOL, OPT_GEOIPDBPATH,			"/var/db/spamilter/geoip" },
+	{ OVT_BOOL, OPT_GEOIPCHK,			"yes" },
 #endif
-			}
+//	{ OVT_, "", "" },
+	{ OVT_NONE, NULL, NULL },
+};
+
+static int callbackInvalidOptionShow(void *pCallbackData, void *pCallbackCtx)
+{
+	printf("Unused or Invalid Option '%s'\n", (char *)pCallbackData);
+
+	return 1; // again
+}
+
+static int callbackInvalidOptionFree(void *pCallbackData, void *pCallbackCtx)
+{
+	free((char *)pCallbackData);
+
+	return 1; // again
+}
+
+void getconf(char const *pFin)
+{
+	ik_t *pIk = &gpIk[0];
+	list_t *pListInvalidOptions = NULL;
+
+	iniInit(pIk);
+	pListInvalidOptions = iniRead(pFin);
+
+	while(pIk != NULL && pIk->type != OVT_NONE)
+	{
+		switch(pIk->type)
+		{
+			case OVT_STR:
+				printf("%s = '%s'\n", pIk->pName, iniGetStr(pIk->pName));
+				break;
+			case OVT_BOOL:
+				printf("%s = %s\n", pIk->pName, iniGetInt(pIk->pName) ? "yes" : "no" );
+				break;
+			case OVT_INT:
+				printf("%s = %u\n", pIk->pName, iniGetInt(pIk->pName));
+				break;
 		}
-		fclose(fin);
+		pIk++;
 	}
-	else
-		printf("Warning! Unable to open config file '%s', using compiled defaults.\n",confpath);
+
+	listForEach(pListInvalidOptions, &callbackInvalidOptionShow, NULL);
+	listDestroy(pListInvalidOptions, &callbackInvalidOptionFree, NULL);
 }
 
 void usage()
@@ -278,6 +244,7 @@ int main(int argc, char *argv[])
 #ifdef HAVE_SETPROCTITLE
 	setproctitle("startup");
 #endif
+	printf("\nStarting %s\n",mlfi.xxfi_name);
 
 	getconf(gConfpath);
 
@@ -286,15 +253,16 @@ int main(int argc, char *argv[])
 	openlog(mlfi.xxfi_name, flags|LOG_NDELAY|LOG_PID, LOG_DAEMON);
 
 	if(uid == 0) // if root, drop privs
-	{
-		if((pw = getpwnam(gUserName)) == NULL)
+	{	const char *pUserName = iniGetStr(OPT_USERNAME);
+
+		if((pw = getpwnam(pUserName)) == NULL)
 		{
-			fprintf(stderr,"Fatal error - Unable to get user '%s' identity information",gUserName);
+			fprintf(stderr,"Fatal error - Unable to get user '%s' identity information",pUserName);
 			exit(1);
 		}
 		else if(setgid(pw->pw_gid) != 0 || setuid(pw->pw_uid) != 0)
 		{
-			fprintf(stderr,"Fatal error - Unable to switch user identity to '%s'",gUserName);
+			fprintf(stderr,"Fatal error - Unable to switch user identity to '%s'",pUserName);
 			exit(2);
 		}
 		else
@@ -302,48 +270,7 @@ int main(int argc, char *argv[])
 	}
 	pw = getpwuid(uid);
 
-	printf("\nStarting %s\n",mlfi.xxfi_name);
 	printf("Running as user '%s/%s'\n",pw->pw_name,pw->pw_gecos);
-	ShowKeyValStr("PolicyUrl",gPolicyUrl);
-	ShowKeyValStr("DbPath",gDbpath);
-	ShowKeyValStr("Conn",gMlficonn);
-	ShowKeyValInt("DnsBlChk",gDnsBlChk);
-	ShowKeyValInt("SmtpSndrChk",gSmtpSndrChk);
-	ShowKeyValStr("SmtpSndrChkAction",gSmtpSndrChkAction);
-	ShowKeyValInt("MtaHostChk",gMtaHostChk);
-	ShowKeyValInt("MtaHostIpfw",gMtaHostIpfw);
-	ShowKeyValInt("MtaHostIpfwNominate",gMtaHostIpfwNominate);
-	ShowKeyValInt("MtaHostIpChk",gMtaHostIpChk);
-#if defined(SUPPORT_LIBSPF) || defined(SUPPORT_LIBSPF2)
-	ShowKeyValInt("MtaSpfChk",gMtaSpfChk);
-	ShowKeyValInt("MtaSpfChkSoftFailAsFail", gMtaSpfChkSoftFailAsFail);
-#endif
-	ShowKeyValInt("MsExtChk",gMsExtChk);
-	ShowKeyValStr("MsExtChkAction",gMsExtChkAction);
-#ifdef SUPPORT_POPAUTH
-	ShowKeyValStr("PopAuthChk",gPopAuthChk);
-#endif
-#ifdef SUPPORT_VIRTUSER
-	ShowKeyValStr("VirtUserTableChk",gVirtUserTableChk);
-#endif
-#ifdef SUPPORT_ALIASES
-	ShowKeyValStr("AliasTableChk",gAliasTableChk);
-#endif
-#ifdef SUPPORT_LOCALUSER
-	ShowKeyValInt("LocalUserTableChk",gLocalUserTableChk);
-#endif
-#ifdef SUPPORT_GREYLIST
-	ShowKeyValInt("GreyListChk",gGreyListChk);
-#endif
-#ifdef SUPPORT_FWDHOSTCHK
-	ShowKeyValInt("RcptFwdHostChk",gRcptFwdHostChk);
-#endif
-	ShowKeyValInt("HeaderReplyToChk",gHeaderChkReplyTo);
-	ShowKeyValInt("HeaderReceivedChk",gHeaderChkReceived);
-#ifdef SUPPORT_GEOIP
-	ShowKeyValStr("GeoIPDBPath",gpGeoipDbPath);
-	ShowKeyValInt("GeoIPChk",gGeoIpCcChk);
-#endif
 
 	gethostname(gHostnameBuf,sizeof(gHostnameBuf)-1);
 
@@ -359,11 +286,11 @@ int main(int argc, char *argv[])
 
 
 	// if not doing attachment checks, don't do body processing
-	if(!gMsExtChk)
+	if(!iniGetInt(OPT_MSEXTCHK))
 		mlfi.xxfi_body = NULL;
 
 	c = 0;
-	smfi_setconn(gMlficonn);
+	smfi_setconn(iniGetStr(OPT_CONN));
 	if (smfi_register(mlfi) == MI_FAILURE)
 	{
 		fprintf(stderr, "smfi_register failed\n");

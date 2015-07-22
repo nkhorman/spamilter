@@ -127,49 +127,35 @@
 	struct smfiDesc mlfi;		// forward declaration
 
 	extern int gDebug;
-	extern char *gPolicyUrl;		// policy url
-	extern char *gDbpath;			// /var/db/spamiter
-	extern char *gConfpath;			// /etc/spamilter.rc
-	extern char *gMlfiConn;			// inet:7726@localhost
-	extern int gDnsBlChk;			// dns blacklist checking
-	extern int gSmtpSndrChk;		// do smtp sender is deliverable checks
-	extern char *gSmtpSndrChkAction;	// action to take when sender deliverable checks fail
-	extern int gMtaHostChk;			// do MTA hostname checking
-	extern int gMtaHostChkAsIp;		// do MTA hostname as IP Address checking
-	extern int gMtaHostIpfw;		// do Ipfw inserts if MTA hostname check fails
-	extern int gMtaHostIpfwNominate;	// do Ipfw inserts based on connects per minute
-	extern int gMtaHostIpChk;		// do MTA hostname to connect ip address resolution checking
-	extern int gMsExtChk;			// do Microsoft File Extension vulnerablity checks
-	extern char *gMsExtChkAction;		// action to take when vulnerable Microsoft attachemnts are found
-	extern char *gHostname;			// local hostname
-#ifdef SUPPORT_POPAUTH
-	extern char *gPopAuthChk;		// path/filename of pop-before-smtp berkely db
-#endif
-#if defined(SUPPORT_LIBSPF) || defined(SUPPORT_LIBSPF2)
-	extern int gMtaSpfChk;			// do SPF MTA host checking using libspf
-	extern int gMtaSpfChkSoftFailAsFail;	// Reject on SPF SoftFail conditions
-#endif
-#ifdef SUPPORT_VIRTUSER
-	extern char *gVirtUserTableChk;		// do virtusertable reject checking
-#endif
-#ifdef SUPPORT_ALIASES
-	extern char *gAliasTableChk;		// do aliastable reject checking
-#endif
-#ifdef SUPPORT_LOCALUSER
-	extern int gLocalUserTableChk;		// do localusertable reject checking
-#endif
-#ifdef SUPPORT_GREYLIST
-	extern int gGreyListChk;
-#endif
-#ifdef SUPPORT_FWDHOSTCHK
-	extern int gRcptFwdHostChk;
-#endif
-	extern int gHeaderChkReplyTo;		// do header ReplyTo checking
-	extern int gHeaderChkReceived;		// do header Received ip checking
-#ifdef SUPPORT_GEOIP
-	extern char *gpGeoipDbPath;		// path to the GeoIP data base dir
-	extern int gGeoIpCcChk;			// do GeoIP Country Code List action checking
-#endif
+	extern const char *gConfpath;		// /etc/spamilter.rc
+	extern const char *gHostname;		// local hostname
+
+	#define OPT_USERNAME			"UserName"			// Str - user name to run as
+	#define OPT_POLICYURL			"PolicyUrl"			// Str - policy url
+	#define OPT_DBPATH			"Dbpath"			// Str - /var/db/spamiter
+	#define OPT_CONN			"Conn"				// Str - inet:7726@localhost
+	#define OPT_DNSBLCHK			"DnsBlChk"			// Bool - dns blacklist checking
+	#define OPT_SMTPSNDRCHK			"SmtpSndrChk"			// Bool - do smtp sender is deliverable checks
+	#define OPT_SMTPSNDRCHKACTION		"SmtpSndrChkAction"		// Str - action to take when sender deliverable checks fail
+	#define OPT_MTAHOSTCHK			"MtaHostChk"			// Bool - do MTA hostname checking
+	#define OPT_MTAHOSTCHKASIP		"MtaHostChkAsIp"		// Bool - do MTA hostname as IP Address checking
+	#define OPT_MTAHOSTIPFW			"MtaHostIpfw"			// Bool - do Ipfw inserts if MTA hostname check fails
+	#define OPT_MTAHOSTIPFWNOMINATE		"MtaHostIpfwNominate"		// Bool - do Ipfw inserts based on connects per minute
+	#define OPT_MTAHOSTIPCHK		"MtaHostIpChk"			// Bool - do MTA hostname to connect ip address resolution checking
+	#define OPT_MTASPFCHK			"MtaSpfChk"			// Bool - do SPF MTA host checking using libspf
+	#define OPT_MTASPFCHKSOFTFAILASHARD	"MtaSpfChkSoftFailAsHard"	// Bool - Reject on SPF SoftFail conditions
+	#define OPT_MSEXTCHK			"MsExtChk"			// Int - do Microsoft File Extension vulnerablity checks with extension sub-set
+	#define OPT_MSEXTCHKACTION		"MsExtChkAction"		// Str - action to take when vulnerable Microsoft attachemnts are found
+	#define OPT_POPAUTHCHK			"PopAuthChk"			// Str - path/filename of pop-before-smtp berkely db
+	#define OPT_VIRTUSERTABLECHK		"VirtUserTableChk"		// Bool - do virtusertable reject checking
+	#define OPT_ALIASTABLECHK		"AliasTableChk"			// Bool - do aliastable reject checking
+	#define OPT_LOCALUSERTABLECHK		"LocalUserTableChk"		// Bool - do localusertable reject checking
+	#define OPT_GREYLISTCHK			"GreyListChk"			// Bool - do connecting mta ip address greylisting
+	#define OPT_HEADERREPLYTOCHK		"HeaderReplyToChk"		// Bool - do header ReplyTo sender validation
+	#define OPT_HEADERRECEIVEDCHK		"HeaderReceivedChk"		// Bool - do header Received ip checking
+	#define OPT_RCPTFWDHOSTCHK		"RcptFwdHostChk"		// Bool - do check with an interior mta to validate the recipient
+	#define OPT_GEOIPDBPATH			"GeoIPDBPath"			// Str - where to find the GeoIP address data base
+	#define OPT_GEOIPCHK			"GeoIPChk"			// Bool - do GeoIP Country Code List action checking
 
 	enum { MSE_A_TAG, MSE_A_REJECT };
 

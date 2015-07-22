@@ -60,6 +60,7 @@ static char const cvsid[] = "@(#)$Id: hndlrs.c,v 1.185 2015/01/21 04:41:19 neal 
 
 #include "spamilter.h"
 #include "hndlrs.h"
+#include "ini.h"
 #include "smtp.h"
 #include "dns.h"
 #include "dnsbl.h"
@@ -196,7 +197,7 @@ void mlfi_MtaHostIpfwAction(mlfiPriv *priv, char *action)
 
 sfsistat mlfi_rdnsbl_reject(SMFICTX *ctx, sfsistat *rs, int stage, struct sockaddr *psa, RBLLISTHOSTS *prblhosts, RBLLISTMATCH **pprblmatch)
 {
-	if(*rs == SMFIS_CONTINUE && gDnsBlChk && psa != NULL && prblhosts != NULL && pprblmatch != NULL)
+	if(*rs == SMFIS_CONTINUE && iniGetInt(OPT_DNSBLCHK) && psa != NULL && prblhosts != NULL && pprblmatch != NULL)
 	{	mlfiPriv *priv = MLFIPRIV;
 
 		if(!priv->islocalnethost)
@@ -211,14 +212,14 @@ sfsistat mlfi_rdnsbl_reject(SMFICTX *ctx, sfsistat *rs, int stage, struct sockad
 				&& prblh->action == RBL_A_REJECT)
 			{	char *reason = NULL;
 
-				mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - DNSBL, Please see: %s#dnsbl and %s",gPolicyUrl,prblh->url);
+				mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - DNSBL, Please see: %s#dnsbl and %s",iniGetStr(OPT_POLICYURL),prblh->url);
 				asprintf(&reason,"DNSBL '%s'",prblh->url);
 				mlfi_status_debug(priv,rs,LOG_REJECTED_STR,reason,"DNSBL rejected - %s\n",priv->ipstr);
 				free(reason);
 
-				if(gMtaHostIpfw)
+				if(iniGetInt(OPT_MTAHOSTIPFW))
 					mlfi_MtaHostIpfwAction(priv,"add");
-				else if(gMtaHostIpfwNominate) // multi-penalty for RBL hits
+				else if(iniGetInt(OPT_MTAHOSTIPFWNOMINATE)) // multi-penalty for RBL hits
 					mlfi_MtaHostIpfwAction(priv,"inculpate");
 			}
 		}
@@ -263,7 +264,7 @@ sfsistat mlfi_hndlr_exec(SMFICTX *ctx, int stage)
 			switch(rc)
 			{
 				case 1:
-					mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy. Please see: %s#general",gPolicyUrl);
+					mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy. Please see: %s#general",iniGetStr(OPT_POLICYURL));
 					mlfi_status_debug(priv,&rs,LOG_REJECTED_STR,NULL,NULL);
 					break;
 				case 127:
@@ -372,19 +373,19 @@ sfsistat mlfi_connect(SMFICTX *ctx, char *hostname, _SOCK_ADDR *hostaddr)
 		priv->presstate = RES_NALLOC(priv->presstate);
 		if(priv->presstate != NULL)
 			res_ninit(priv->presstate);
-		badext_init(priv,gDbpath);
+		badext_init(priv,iniGetStr(OPT_DBPATH),iniGetInt(OPT_MSEXTCHK));
 
 		// make sure that the b/w list action files are open
-		bwlistOpen(priv->pbwlistctx,gDbpath);
-		dbl_Open(priv->pDblCtx, gDbpath);
+		bwlistOpen(priv->pbwlistctx,iniGetStr(OPT_DBPATH));
+		dbl_Open(priv->pDblCtx, iniGetStr(OPT_DBPATH));
 #ifdef SUPPORT_FWDHOSTCHK
-		fwdhostlist_open(priv,gDbpath);
+		fwdhostlist_open(priv,iniGetStr(OPT_DBPATH));
 #endif
 #ifdef SUPPORT_GEOIP
-		geoip_open(ctx,gDbpath,gpGeoipDbPath);
+		geoip_open(ctx,iniGetStr(OPT_DBPATH),gpGeoipDbPath);
 #endif
-		if (gDnsBlChk)
-			priv->pdnsrblhosts = dnsbl_create(priv->pSessionUuidStr,gDbpath);
+		if (iniGetInt(OPT_DNSBLCHK))
+			priv->pdnsrblhosts = dnsbl_create(priv->pSessionUuidStr,iniGetStr(OPT_DBPATH));
 
 		if(hostaddr != NULL)
 		{
@@ -413,7 +414,7 @@ sfsistat mlfi_connect(SMFICTX *ctx, char *hostname, _SOCK_ADDR *hostaddr)
 			case AF_INET:
 				priv->islocalnethost = ( ntohl(((struct sockaddr_in *)priv->pip)->sin_addr.s_addr) == INADDR_LOOPBACK );
 				if(!priv->islocalnethost)
-					priv->islocalnethost = ifi_islocalnetAf(priv->pip->sa_family, (char *)&((struct sockaddr_in *)priv->pip)->sin_addr);
+					priv->islocalnethost = ifi_islocalnetAf(priv->pip->sa_family, (char *)&((struct sockaddr_in *)priv->pip)->sin_addr, iniGetStr(OPT_DBPATH));
 				break;
 			case AF_INET6:
 				{	struct in6_addr *pAddr = &((struct sockaddr_in6 *)priv->pip)->sin6_addr;
@@ -422,7 +423,7 @@ sfsistat mlfi_connect(SMFICTX *ctx, char *hostname, _SOCK_ADDR *hostaddr)
 					//	|| IN6_IS_ADDR_LINKLOCAL(pAddr) // fe80:xx
 					//	|| IN6_IS_ADDR_SITELOCAL(pAddr) // fec0::xx
 					if(!priv->islocalnethost)
-						priv->islocalnethost = ifi_islocalnetAf(priv->pip->sa_family, (char *)pAddr);
+						priv->islocalnethost = ifi_islocalnetAf(priv->pip->sa_family, (char *)pAddr, iniGetStr(OPT_DBPATH));
 				}
 				break;
 		}
@@ -439,12 +440,12 @@ sfsistat mlfi_connect(SMFICTX *ctx, char *hostname, _SOCK_ADDR *hostaddr)
 		// Connection rate limititing, by the fact that the ipfwmtad daemon
 		// will firewall the source ip based on the number and rate of inculpate
 		// operations
-		if(gMtaHostIpfwNominate && !priv->islocalnethost)
+		if(iniGetInt(OPT_MTAHOSTIPFWNOMINATE) && !priv->islocalnethost)
 			mlfi_MtaHostIpfwAction(priv,"inculpate");
 
 #ifdef SUPPORT_GEOIP
 		if(!priv->islocalnethost
-			//&& gMtaHostChk ?
+			//&& iniGetInt(OPT_MTAHOSTCHK) ?
 			)
 		{	const char *pGeoipCC = NULL;
 
@@ -531,7 +532,7 @@ sfsistat mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 				// no acton specified, do other normal checks
 				if(priv->helo == NULL || !*priv->helo)
 				{
-					mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Helo or Ehlo MTA greeting expected, Please see: %s#helo",gPolicyUrl);
+					mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Helo or Ehlo MTA greeting expected, Please see: %s#helo",iniGetStr(OPT_POLICYURL));
 					mlfi_status_debug(priv,&rs,LOG_REJECTED_STR,"Missing Helo/Ehlo",
 						"mlfi_envfrom: MTA hostname not specified\n");
 				}
@@ -548,24 +549,24 @@ sfsistat mlfi_sndrchk(SMFICTX *ctx, const char *pMbox, const char *pDomain)
 {	mlfiPriv *priv = MLFIPRIV;
 	sfsistat rs = SMFIS_CONTINUE;
 
-	if(gSmtpSndrChk && priv != NULL && !priv->SmtpSndrChkFail)
+	if(iniGetInt(OPT_SMTPSNDRCHK) && priv != NULL && !priv->SmtpSndrChkFail)
 	{	int smtprc = -1;
 
 		mlfi_debug(priv->pSessionUuidStr,"mlfi_sndrchk: %s@%s\n",pMbox,pDomain);
 		priv->SmtpSndrChkFail = !smtp_email_address_is_deliverable(priv->pSessionUuidStr, priv->presstate, pMbox, pDomain, &smtprc, 0);
 
-		if(priv->SmtpSndrChkFail && strcasecmp(gSmtpSndrChkAction,"Reject") == 0)
+		if(priv->SmtpSndrChkFail && strcasecmp(iniGetStr(OPT_SMTPSNDRCHKACTION),"Reject") == 0)
 		{
 			if(smtprc == -1 || smtprc/100 == 4)
 			{
 				if(smtprc == -1)
 					smtprc = 450;
-				mlfi_setreply(ctx,smtprc,"4.7.1","Temporary failure - Unable to validate Sender address %s, Please see: %s#tempfailinvalidsender",priv->sndr,gPolicyUrl);
+				mlfi_setreply(ctx,smtprc,"4.7.1","Temporary failure - Unable to validate Sender address %s, Please see: %s#tempfailinvalidsender",priv->sndr,iniGetStr(OPT_POLICYURL));
 				mlfi_status_debug(priv,&rs,LOG_TEMPFAILED_STR,"Sender address verification",NULL);
 			}
 			else
 			{
-				mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Unable to validate Sender address %s, Please see: %s#invalidsender",priv->sndr,gPolicyUrl);
+				mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Unable to validate Sender address %s, Please see: %s#invalidsender",priv->sndr,iniGetStr(OPT_POLICYURL));
 				mlfi_status_debug(priv,&rs,LOG_REJECTED_STR,"Sender address verification",NULL);
 			}
 			mlfi_debug(priv->pSessionUuidStr,"mlfi_sndrchk: Return path '%s' not deliverable\n",priv->sndr);
@@ -620,13 +621,13 @@ sfsistat mlfi_replyto(SMFICTX *ctx)
 					// deliberate fall thru to BWL_A_REJECT 
 				case BWL_A_REJECT:
 					mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Sender '%s' has been blacklisted, Please see: %s#blacklistedsender"
-						,priv->replyto,gPolicyUrl);
+						,priv->replyto,iniGetStr(OPT_POLICYURL));
 					asprintf(&reason,"Blacklisted Sender(Reply-To) '%s'",priv->replyto);
 					rs = SMFIS_REJECT;
 					mlfi_status_debug(priv,&rs,LOG_REJECTED_STR,reason
 						,"mlfi_replyto: Blacklisted SMTP Sender(Reply-To), '%s'\n",priv->replyto);
 					free(reason);
-					if(gMtaHostIpfw)
+					if(iniGetInt(OPT_MTAHOSTIPFW))
 						mlfi_MtaHostIpfwAction(priv,"add");
 					break;
 				case BWL_A_TEMPFAIL:
@@ -658,7 +659,7 @@ sfsistat mlfi_replyto(SMFICTX *ctx)
 		else
 		{
 			mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Sender '%s' has been blacklisted, Please see: %s#blacklistedsender"
-				,priv->header_replyto,gPolicyUrl);
+				,priv->header_replyto,iniGetStr(OPT_POLICYURL));
 			asprintf(&reason,"Blacklisted Sender(Malformed Reply-To) '%s'",priv->header_replyto);
 			mlfi_status_debug(priv,&rs,LOG_REJECTED_STR,reason
 				,"mlfi_replyto: Blacklisted SMTP Sender(Malformed Reply-To), '%s'\n",priv->header_replyto);
@@ -820,10 +821,10 @@ sfsistat mlfi_envrcpt(SMFICTX *ctx, char **argv)
 					sleep(120);	// slow the bastard down!
 					// deliberate fall thru to BWL_A_REJECT
 				case BWL_A_REJECT:
-					mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Recipient has been blacklisted, Please see: %s#blacklistedrecipient",gPolicyUrl);
+					mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Recipient has been blacklisted, Please see: %s#blacklistedrecipient",iniGetStr(OPT_POLICYURL));
 					mlfi_status_debug(priv,&rs,LOG_REJECTED_STR,reason
 						,"mlfi_envrcpt: Blacklisted recipient '%s@%s'\n",pMbox,pDomain);
-					if(gMtaHostIpfw)
+					if(iniGetInt(OPT_MTAHOSTIPFW))
 						mlfi_MtaHostIpfwAction(priv,"add");
 					break;
 				case BWL_A_TEMPFAIL:
@@ -850,21 +851,21 @@ sfsistat mlfi_envrcpt(SMFICTX *ctx, char **argv)
 						int deliverableValid = 0;
 #endif
 #if defined(SUPPORT_VIRTUSER)
-						deliverable |= (gVirtUserTableChk != NULL && virtusertable_validate_rcptdom(priv->pSessionUuidStr,pMbox,pDomain,gVirtUserTableChk));
-						deliverableValid |= (gVirtUserTableChk != NULL);
+						deliverable |= (iniGetStr(OPT_VIRTUSERTABLECHK) != NULL && virtusertable_validate_rcptdom(priv->pSessionUuidStr,pMbox,pDomain,iniGetStr(OPT_VIRTUSERTABLECHK)));
+						deliverableValid |= (iniGetStr(OPT_VIRTUSERTABLECHK) != NULL);
 #endif
 #if defined(SUPPORT_ALIASES)
-						deliverable |= (gAliasTableChk != NULL && aliastable_validate(priv->pSessionUuidStr,pMbox,gAliasTableChk));
-						deliverableValid |= (gAliasTableChk != NULL);
+						deliverable |= (iniGetStr(OPT_ALIASTABLECHK) != NULL && aliastable_validate(priv->pSessionUuidStr,pMbox,iniGetStr(OPT_ALIASTABLECHK)));
+						deliverableValid |= (iniGetStr(OPT_ALIASTABLECHK) != NULL);
 #endif
 #if defined(SUPPORT_LOCALUSER)
-						deliverable |= (gLocalUserTableChk && mlfi_envrcpt_islocaluser(priv,pMbox));
-						deliverableValid |= gLocalUserTableChk;
+						deliverable |= (iniGetStr(OPT_LOCALUSERTABLECHK) && mlfi_envrcpt_islocaluser(priv,pMbox));
+						deliverableValid |= iniGetStr(OPT_LOCALUSERTABLECHK);
 #endif
 #if defined(SUPPORT_VIRTUSER) || defined(SUPPORT_ALIASES) || defined(SUPPORT_LOCALUSER)
 						if(deliverableValid && !deliverable)
 						{
-							mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Not deliverable, Please see: %s#undeliverable",gPolicyUrl);
+							mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Not deliverable, Please see: %s#undeliverable",iniGetStr(OPT_POLICYURL));
 							asprintf(&reason,"Not deliverable '%s@%s'",pMbox,pDomain);
 							mlfi_status_debug(priv,&rs,LOG_REJECTED_STR,"Missing Helo/Ehlo",
 								"mlfi_envrcpt: Not deliverable '%s@%s'\n",pMbox,pDomain);
@@ -897,15 +898,15 @@ sfsistat mlfi_header(SMFICTX *ctx, char *headerf, char *headerv)
 			priv->header_xstatus = strdup(headerv);
 		else if(strcasecmp(headerf,"Subject") == 0)
 		{
-			// TODO - add UTF-8 handling
+			// TODO - add UTF-8/US-ASCII handling
 			priv->header_subject = strdup(headerv);
 		}
-		else if(gHeaderChkReplyTo && strcasecmp(headerf,"Reply-To") == 0 && strlen(headerv))
+		else if(iniGetInt(OPT_HEADERREPLYTOCHK) && strcasecmp(headerf,"Reply-To") == 0 && strlen(headerv))
 		{
 			priv->header_replyto = strdup(headerv);
 			mlfi_debug(priv->pSessionUuidStr,"mlfi_header: Reply-To: %s\n",priv->header_replyto);
 		}
-		else if(gHeaderChkReceived
+		else if(iniGetStr(OPT_HEADERRECEIVEDCHK)
 			&& priv->sndraction != BWL_A_ACCEPT
 			&& (
 				strcasecmp(headerf,"Received") == 0
@@ -977,14 +978,14 @@ sfsistat mlfi_header(SMFICTX *ctx, char *headerf, char *headerv)
 
 		if(rs == SMFIS_CONTINUE)
 		{
-			priv->MsExtFound = (gMsExtChk &&
+			priv->MsExtFound = (iniGetInt(OPT_MSEXTCHK) &&
 				(mlfi_findBadExtHeader(priv->badextlist,priv->badextqty,headerf,"Content-Disposition:","filename=",headerv,&attachfname) ||
 				(attachfname == NULL && mlfi_findBadExtHeader(priv->badextlist,priv->badextqty,headerf,"Content-Type:","name=",headerv,&attachfname)))
 				);
 
-			if(priv->MsExtFound && strcasecmp(gMsExtChkAction,"Reject") == 0)
+			if(priv->MsExtFound && strcasecmp(iniGetStr(OPT_MSEXTCHKACTION),"Reject") == 0)
 			{
-				mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Inline executable attachement, Please see: %s#attachmentinline",gPolicyUrl);
+				mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Inline executable attachement, Please see: %s#attachmentinline",iniGetStr(OPT_POLICYURL));
 				asprintf(&reason,"Attachement name '%s'",attachfname);
 				mlfi_status_debug(priv,&rs,LOG_REJECTED_STR,reason,"mlfi_header: Attachement Reject\n");
 				free(reason);
@@ -1018,7 +1019,7 @@ int dblCheckCallbackHlo(const dblcb_t *pDblcb)
 		,pDblcb->pDbl
 		);
 
-	mlfi_setreply(ctx, 550, "5.7.1", "Rejecting due to security policy - Blacklisted host, Please see: %s#blacklistedhostdbl", gPolicyUrl);
+	mlfi_setreply(ctx, 550, "5.7.1", "Rejecting due to security policy - Blacklisted host, Please see: %s#blacklistedhostdbl", iniGetStr(OPT_POLICYURL));
 	asprintf(pcpr->ppReason, "Blacklisted host DBL '%s' via '%s'", pDblcb->pDblq->pDomain, pDblcb->pDbl);
 	mlfi_status_debug(priv, pcpr->prs, LOG_REJECTED_STR, *pcpr->ppReason, "mlfi_hndlrs: Blacklisted host DBL\n");
 	free(*pcpr->ppReason);
@@ -1053,11 +1054,11 @@ int listCallbackGeoipReject(void *pData, void *pCallbackData)
 		case GEOIPLIST_A_REJECT:
 			mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - "
 				"Country Code '%s' has been blacklisted, Please see: %s#blacklistedcountrycode"
-				,pResult->pCountryCode,gPolicyUrl
+				,pResult->pCountryCode,iniGetStr(OPT_POLICYURL)
 				);
 			*pContinueChecks = mlfi_status_debug(priv,plcgr->cpr.prs,LOG_REJECTED_STR,*plcgr->cpr.ppReason
 				,"mlfi_hndlrs: Blacklisted Country Code, '%s'\n",pResult->pCountryCode);
-			if(gMtaHostIpfw)
+			if(iniGetInt(OPT_MTAHOSTIPFW))
 				mlfi_MtaHostIpfwAction(priv,"add");
 			break;
 		case GEOIPLIST_A_TEMPFAIL:
@@ -1109,7 +1110,7 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 		// Policy enforcment
 		// Can we deliver to the recipient ?
 		if(continue_checks
-			&& gRcptFwdHostChk
+			&& iniGetInt(OPT_RCPTFWDHOSTCHK)
 			)
 		{	
 			int smtprc = -1;
@@ -1129,12 +1130,12 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 				{
 					if(smtprc == -1)
 						smtprc = 450;
-					mlfi_setreply(ctx,smtprc,"4.7.1","Temporary failure - Unable to validate recipient, Please see: %s#tempfailinvalidrecipient",gPolicyUrl);
+					mlfi_setreply(ctx,smtprc,"4.7.1","Temporary failure - Unable to validate recipient, Please see: %s#tempfailinvalidrecipient",iniGetStr(OPT_POLICYURL));
 					continue_checks = mlfi_status_debug(priv,&rs,LOG_TEMPFAILED_STR,"TempFailed","Recipient address verification",NULL);
 				}
 				else
 				{
-					mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Recipient undeliverable, Please see: %s#undeliverablerecipient",gPolicyUrl);
+					mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Recipient undeliverable, Please see: %s#undeliverablerecipient",iniGetStr(OPT_POLICYURL));
 					asprintf(&reason,"Undeliverable recipient %d",smtprc);
 					continue_checks = mlfi_status_debug(priv,&rs,LOG_REJECTED_STR,reason,NULL);
 					free(reason);
@@ -1162,7 +1163,7 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 					sleep(120);	// slow the bastard down!
 					// deliberate fall thru to BWL_A_REJECT
 				case BWL_A_REJECT:
-					mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Sender '%s' has been blacklisted, Please see: %s#blacklistedsender",priv->sndr,gPolicyUrl);
+					mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Sender '%s' has been blacklisted, Please see: %s#blacklistedsender",priv->sndr,iniGetStr(OPT_POLICYURL));
 					continue_checks = mlfi_status_debug(priv,&rs,LOG_REJECTED_STR,reason
 						,"mlfi_hndlrs: Blacklisted SMTP Sender, '%s'\n",priv->sndr);
 					ipfwMtaHostIpBanCandidate = 1;
@@ -1195,26 +1196,26 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 		// Technical enforcement
 		// The HLO MTA hostname should not be an ip address
 		if(continue_checks
-			&& (gMtaHostChk || gMtaHostChkAsIp)
+			&& (iniGetInt(OPT_MTAHOSTCHK) || iniGetInt(OPT_MTAHOSTCHKASIP))
 			&& priv->helo != NULL
 			&& inet_addr(priv->helo) != INADDR_NONE
 			)
 		{
-			mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Ip address used as MTA hostname '%s', Please see: %s#ipusedashostname",priv->helo,gPolicyUrl);
+			mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Ip address used as MTA hostname '%s', Please see: %s#ipusedashostname",priv->helo,iniGetStr(OPT_POLICYURL));
 			asprintf(&reason,"Ip address used as MTA hostname '%s'",priv->helo);
 			continue_checks = mlfi_status_debug(priv,&rs,LOG_REJECTED_STR,reason
 				,"mlfi_hndlrs: Ip address used as MTA hostname '%s'\n",priv->helo);
 			free(reason);
 
 			ipfwMtaHostIpBanCandidate = 1;
-			//if(gMtaHostIpfw)
+			//if(iniGetInt(OPT_MTAHOSTIPFW))
 			//	mlfi_MtaHostIpfwAction(priv,"add");
 		}
 
 		// Technical enforcement
 		// The HLO MTA hostname should not be that of the recipient's domain
 		if(continue_checks
-			&& gMtaHostChk
+			&& iniGetInt(OPT_MTAHOSTCHK)
 			&& priv->helo != NULL
 			)
 		{
@@ -1226,14 +1227,14 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 				&& strcmp(priv->helo,dom) == 0
 				)
 			{
-				mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Invalid source hostname '%s', Please see: %s#invalidsourcehostname",priv->helo,gPolicyUrl);
+				mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Invalid source hostname '%s', Please see: %s#invalidsourcehostname",priv->helo,iniGetStr(OPT_POLICYURL));
 				asprintf(&reason,"Invalid source MTA hostname '%s'",priv->helo);
 				continue_checks = mlfi_status_debug(priv,&rs,LOG_REJECTED_STR,reason
 					,"mlfi_hndlrs: Invalid source MTA hostname '%s'\n",priv->helo);
 				free(reason);
 
 				ipfwMtaHostIpBanCandidate = 1;
-				//if(gMtaHostIpfw)
+				//if(iniGetInt(OPT_MTAHOSTIPFW))
 				//	mlfi_MtaHostIpfwAction(priv,"add");
 			}
 
@@ -1244,26 +1245,26 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 		// Technical enforcement - in reality, this varies wildly
 		// The HLO MTA hostname should resolve to an ip address
 		if(continue_checks
-			&& gMtaHostChk
+			&& iniGetInt(OPT_MTAHOSTCHK)
 			&& !dns_query_rr(&ds, ns_t_a, priv->helo)
 			&& !dns_query_rr(&ds, ns_t_aaaa, priv->helo)
 			)
 		{
-			mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Invalid hostname '%s', Please see: %s#invalidhostname",priv->helo,gPolicyUrl);
+			mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Invalid hostname '%s', Please see: %s#invalidhostname",priv->helo,iniGetStr(OPT_POLICYURL));
 			asprintf(&reason,"Invalid MTA hostname '%s'",priv->helo);
 			continue_checks = mlfi_status_debug(priv,&rs,LOG_REJECTED_STR,reason
 				,"mlfi_hndlrs: Invalid MTA hostname '%s'\n",priv->helo);
 			free(reason);
 
 			ipfwMtaHostIpBanCandidate = 1;
-			//if(gMtaHostIpfw)
+			//if(iniGetInt(OPT_MTAHOSTIPFW))
 			//	mlfi_MtaHostIpfwAction(priv,"add");
 		}
 
 		// Policy enforcement
 		// Do BWL checking based on the HLO MTA hostname
 		if(continue_checks
-			&& gMtaHostChk
+			&& iniGetInt(OPT_MTAHOSTCHK)
 			&& (x = bwlistActionQuery(priv->pbwlistctx,BWL_L_SNDR,priv->helo,"",priv->sndractionexec)) != BWL_A_ACCEPT
 			&& x != BWL_A_NULL
 			)
@@ -1276,7 +1277,7 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 					sleep(120);	// slow the bastard down!
 					// deliberate fall thru to BWL_A_REJECT
 				case BWL_A_REJECT:
-					mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Blacklisted host, Please see: %s#blacklistedhost",gPolicyUrl);
+					mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Blacklisted host, Please see: %s#blacklistedhost",iniGetStr(OPT_POLICYURL));
 					continue_checks = mlfi_status_debug(priv,&rs,LOG_REJECTED_STR,reason
 						,"mlfi_hndlrs: Blacklisted host '%s'\n",priv->helo);
 					ipfwMtaHostIpBanCandidate = 1;
@@ -1299,7 +1300,7 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 		// Policy enforcement
 		// Do DBL checking base on the HLO MTA hostname
 		if(continue_checks
-			&& gMtaHostChk
+			&& iniGetInt(OPT_MTAHOSTCHK)
 		)
 		{	cpr_t cpr;
 			dblq_t dblq;
@@ -1324,12 +1325,12 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 		// Technical enforcement - in reality, this varies wildly
 		// The HLO MTA hostname should match the connecting ip address
 		if(continue_checks
-			&& gMtaHostIpChk
+			&& iniGetInt(OPT_MTAHOSTIPCHK)
 			&& strcmp(priv->helo,priv->iphostname) != 0
 			&& !dns_hostname_ip_match_sa(&ds, priv->helo, priv->pip)
 			)
 		{
-			mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Helo hostname/ip mismatch, Please see: %s#hostnameipmismatch",gPolicyUrl);
+			mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Helo hostname/ip mismatch, Please see: %s#hostnameipmismatch",iniGetStr(OPT_POLICYURL));
 			asprintf(&reason,"Hostname/ip mismatch '%s'",priv->helo);
 			continue_checks = mlfi_status_debug(priv,&rs,LOG_REJECTED_STR,reason
 				,"mlfi_hndlrs: Helo hostname/ip mismatch\n");
@@ -1364,7 +1365,7 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 
 		// Policy enforcement
 		// Validate the sndr return path
-		if(continue_checks && gSmtpSndrChk)
+		if(continue_checks && iniGetInt(OPT_SMTPSNDRCHK))
 		{	int isLoopBack = 0;
 
 			switch(priv->pip->sa_family)
@@ -1454,7 +1455,7 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 			}
 		}
 #endif
-		if(gMtaHostIpfw && ipfwMtaHostIpBanCandidate)
+		if(iniGetInt(OPT_MTAHOSTIPFW) && ipfwMtaHostIpBanCandidate)
 			mlfi_MtaHostIpfwAction(priv,"add");
 	}
 #ifdef SUPPORT_AUTO_WHITELIST
@@ -1547,7 +1548,7 @@ sfsistat mlfi_body(SMFICTX *ctx, u_char *bodyp, size_t bodylen)
 				break;
 		}
 
-		if(gMsExtChk)
+		if(iniGetInt(OPT_MSEXTCHK))
 		{	char	*p = (char *)realloc(priv->body, priv->bodylen + bodylen + 1);
 
 			if(p != NULL)
@@ -1611,7 +1612,7 @@ int dblCheckCallbackBody(const dblcb_t *pDblcb)
 		,pDblcb->pDblResult
 		);
 
-	mlfi_setreply(ctx, 550, "5.7.1", "Rejecting due to security policy - Blacklisted body host, Please see: %s#bodyurldbl", gPolicyUrl);
+	mlfi_setreply(ctx, 550, "5.7.1", "Rejecting due to security policy - Blacklisted body host, Please see: %s#bodyurldbl", iniGetStr(OPT_POLICYURL));
 	asprintf(pcpr->ppReason, "Body URL DBL host '%s' via '%s'", pDblcb->pDblq->pDomain, pDblcb->pDbl);
 	mlfi_status_debug(priv, pcpr->prs, LOG_REJECTED_STR, *pcpr->ppReason, "mlfi_eom: Body URL DBL host\n");
 	free(*pcpr->ppReason);
@@ -1657,7 +1658,7 @@ int listCallbackBodyHosts(void *pData, void *pCallbackData)
 				case BWL_A_REJECT:
 				case BWL_A_TARPIT:
 				case BWL_A_DISCARD:
-					mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Blacklisted body URL, Please see: %s#bodyurl",gPolicyUrl);
+					mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Blacklisted body URL, Please see: %s#bodyurl",iniGetStr(OPT_POLICYURL));
 					asprintf(pLcbh->cpr.ppReason,"Body URL host '%s'",pStr);
 					mlfi_status_debug(priv,pLcbh->cpr.prs,LOG_REJECTED_STR,*pLcbh->cpr.ppReason,"mlfi_eom: Body URL host\n");
 					free(*pLcbh->cpr.ppReason);
@@ -1705,7 +1706,7 @@ int listCallbackBodyHosts(void *pData, void *pCallbackData)
 						case GEOIPLIST_A_REJECT:
 						case GEOIPLIST_A_TARPIT:
 						case GEOIPLIST_A_DISCARD:
-							mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Blacklisted body URL Country Code, Please see: %s#bodyurlcc", gPolicyUrl);
+							mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Blacklisted body URL Country Code, Please see: %s#bodyurlcc", iniGetStr(OPT_POLICYURL));
 							asprintf(pLcbh->cpr.ppReason,"Body URL Country Code '%s' for host '%s'", pCC, pStr);
 							mlfi_status_debug(priv, pLcbh->cpr.prs, LOG_REJECTED_STR, *pLcbh->cpr.ppReason, "mlfi_eom: Body URL host Country Code\n");
 							free(*pLcbh->cpr.ppReason);
@@ -1765,19 +1766,19 @@ sfsistat mlfi_eom(SMFICTX *ctx)
 		{
 			if(rs == SMFIS_CONTINUE)
 			{
-				priv->MsExtFound |= (gMsExtChk && priv->body != NULL && mlfi_findBadExtBody(priv->badextlist,priv->badextqty,priv->body,&attachfname));
+				priv->MsExtFound |= (iniGetInt(OPT_MSEXTCHK) && priv->body != NULL && mlfi_findBadExtBody(priv->badextlist,priv->badextqty,priv->body,&attachfname));
 
 				if(priv->MsExtFound)
 				{
-					if(strcasecmp(gMsExtChkAction,"Reject") == 0)
+					if(strcasecmp(iniGetStr(OPT_MSEXTCHKACTION),"Reject") == 0)
 					{
-						mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Executable attachement, Please see: %s#attachmentbody",gPolicyUrl);
+						mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Executable attachement, Please see: %s#attachmentbody",iniGetStr(OPT_POLICYURL));
 						asprintf(&reason,"Attachement name '%s'",attachfname);
 						mlfi_status_debug(priv,&rs,LOG_REJECTED_STR,reason,"mlfi_eom: Attachement Reject\n");
 						free(reason);
 						continue_checks = 0;
 					}
-					else if(strcasecmp(gMsExtChkAction,"Tag") == 0)
+					else if(strcasecmp(iniGetStr(OPT_MSEXTCHKACTION),"Tag") == 0)
 					{
 						mlfi_addhdr_printf(ctx,"X-Milter","%s DataSet=Tagged; Tag=Virus;" ,mlfi.xxfi_name);
 
@@ -1797,7 +1798,7 @@ sfsistat mlfi_eom(SMFICTX *ctx)
 
 			if(rs == SMFIS_CONTINUE)
 			{
-				if(priv->SmtpSndrChkFail && strcasecmp(gSmtpSndrChkAction,"Tag") == 0)
+				if(priv->SmtpSndrChkFail && strcasecmp(iniGetStr(OPT_SMTPSNDRCHKACTION),"Tag") == 0)
 				{	char *sndr = (priv->replyto != NULL && *priv->replyto ? priv->replyto : priv->sndr);
 
 					mlfi_addhdr_printf(ctx,"X-Milter","%s DataSet=Tagged; Tag=SmtpSndrChkFail; Sender=%s;" ,mlfi.xxfi_name ,sndr);
@@ -1882,7 +1883,7 @@ sfsistat mlfi_eom(SMFICTX *ctx)
 
 	dupe_action(ctx,priv);
 
-	if(rs == SMFIS_CONTINUE && gMtaHostIpfwNominate && !priv->islocalnethost)
+	if(rs == SMFIS_CONTINUE && iniGetInt(OPT_MTAHOSTIPFWNOMINATE) && !priv->islocalnethost)
 		mlfi_MtaHostIpfwAction(priv,"exculpate");
 
 	mlfi_cleanup(ctx);
