@@ -42,7 +42,7 @@
 #define _SPAMILTER_FWDHOSTLIST_H_
 
 	void fwdhostlist_init(mlfiPriv *priv);
-	int fwdhostlist_open(mlfiPriv *priv, char *dbpath);
+	int fwdhostlist_open(mlfiPriv *priv, const char *dbpath);
 	void fwdhostlist_close(mlfiPriv *priv);
 	int fwdhostlist_is_deliverable(mlfiPriv *priv, char *rcpt, char *dom, int *pSmtprc);
 #endif

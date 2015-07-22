@@ -41,6 +41,6 @@
 #ifndef _SPAMILER_POPAUTH_H_
 #define _SPAMILER_POPAUTH_H_
 
-	int aliastable_validate(const char *pSessionId, char *rcpt, char *dbpath);
+	int aliastable_validate(const char *pSessionId, char *rcpt, const char *dbpath);
 
 #endif

@@ -83,7 +83,7 @@ void dnsbl_free_match(RBLLISTMATCH *pmatch)
 }
 
 // Open the RBL data base, parse, and build a structure array of RBLs
-RBLLISTHOSTS *dnsbl_create(const char *pSessionId, char *dbpath)
+RBLLISTHOSTS *dnsbl_create(const char *pSessionId, const char *dbpath)
 {	RBLLISTHOSTS *prlh = calloc(1,sizeof(RBLLISTHOSTS));
 
 	if(dbpath != NULL && *dbpath)

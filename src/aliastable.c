@@ -87,7 +87,7 @@ int aliastable_validate_key(char *rcpt, DB *pdb)
 	return(rc==0);
 }
 
-int aliastable_validate(const char *pSessionId, char *rcpt, char *dbpath)
+int aliastable_validate(const char *pSessionId, char *rcpt, const char *dbpath)
 {	int	rc  = 0;
 
 	if(rcpt != NULL)

@@ -61,7 +61,7 @@ void fwdhostlist_init(mlfiPriv *priv)
 		priv->fwdhostlistfd = -1;
 }
 
-int fwdhostlist_open(mlfiPriv *priv, char *dbpath)
+int fwdhostlist_open(mlfiPriv *priv, const char *dbpath)
 {
 	if(priv != NULL && dbpath != NULL)
 	{	char	*fn;

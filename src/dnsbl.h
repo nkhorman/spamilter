@@ -75,5 +75,5 @@
 
 	void dnsbl_free_match(RBLLISTMATCH *pmatch);
 	void dnsbl_free_hosts(RBLLISTHOSTS *plist);
-	RBLLISTHOSTS *dnsbl_create(const char *pSessionId, char *dbpath);
+	RBLLISTHOSTS *dnsbl_create(const char *pSessionId, const char *dbpath);
 #endif
