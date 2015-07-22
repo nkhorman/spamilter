@@ -85,9 +85,9 @@ strcasestr(s, find)
 }
 #endif
 
-void badext_init(mlfiPriv *priv, char *dbpath)
+void badext_init(mlfiPriv *priv, const char *dbpath, int level)
 {
-	if(gMsExtChk > 0 && priv != NULL && priv->badextlist == NULL && dbpath != NULL)
+	if(level > 0 && priv != NULL && priv->badextlist == NULL && dbpath != NULL)
 	{	FILE	*fin;
 		char	*str,*fn;
 		char	buf[8192];
@@ -123,7 +123,7 @@ void badext_init(mlfiPriv *priv, char *dbpath)
 						if(sep != NULL)
 						{
 							*sep = '\0';
-							if(atoi(str) == gMsExtChk)
+							if(atoi(str) == level)
 							{	char	*s,*d;
 
 								str = sep+1;

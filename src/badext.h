@@ -41,7 +41,7 @@
 #ifndef _SPAMILTER_BADEXT_H_
 #define _SPAMILTER_BADEXT_H_
 
-	void badext_init(mlfiPriv *priv, char *dbpath);
+	void badext_init(mlfiPriv *priv, const char *dbpath, int level);
 	void badext_close(mlfiPriv *priv);
 
 	int mlfi_findBadExtHeader(char *badexts, int badextqty, char *headerf, char *headerftype, char *headerv, char *headervtype, char **attachfname);
