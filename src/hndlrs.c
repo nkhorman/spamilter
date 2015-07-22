@@ -382,7 +382,7 @@ sfsistat mlfi_connect(SMFICTX *ctx, char *hostname, _SOCK_ADDR *hostaddr)
 		fwdhostlist_open(priv,iniGetStr(OPT_DBPATH));
 #endif
 #ifdef SUPPORT_GEOIP
-		geoip_open(ctx,iniGetStr(OPT_DBPATH),gpGeoipDbPath);
+		geoip_open(ctx,iniGetStr(OPT_DBPATH),iniGetStr(OPT_GEOIPDBPATH));
 #endif
 		if (iniGetInt(OPT_DNSBLCHK))
 			priv->pdnsrblhosts = dnsbl_create(priv->pSessionUuidStr,iniGetStr(OPT_DBPATH));
@@ -702,7 +702,7 @@ int mlfi_greylist(SMFICTX *ctx)
 {	mlfiPriv	*priv = MLFIPRIV;
 	int rc = 0;
 
-	if(gGreyListChk)
+	if(iniGetInt(OPT_GREYLISTCHK))
 	{	int sd = NetSockOpenUdp(0,0);
 
 		if(sd != INVALID_SOCKET)
@@ -860,7 +860,7 @@ sfsistat mlfi_envrcpt(SMFICTX *ctx, char **argv)
 #endif
 #if defined(SUPPORT_LOCALUSER)
 						deliverable |= (iniGetStr(OPT_LOCALUSERTABLECHK) && mlfi_envrcpt_islocaluser(priv,pMbox));
-						deliverableValid |= iniGetStr(OPT_LOCALUSERTABLECHK);
+						deliverableValid |= (iniGetStr(OPT_LOCALUSERTABLECHK) != NULL);
 #endif
 #if defined(SUPPORT_VIRTUSER) || defined(SUPPORT_ALIASES) || defined(SUPPORT_LOCALUSER)
 						if(deliverableValid && !deliverable)
@@ -1341,8 +1341,8 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 		// Policy enforcement
 		// The MTA should pass SPF tests
 		if(continue_checks
-			&& gMtaSpfChk
-			&& mlfi_spf_reject(priv,&rs) == SMFIS_REJECT
+			&& iniGetInt(OPT_MTASPFCHK)
+			&& mlfi_spf_reject(priv, &rs, iniGetInt(OPT_MTASPFCHKSOFTFAILASHARD)) == SMFIS_REJECT
 			)
 		{
 			mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - SPF %s - %s", priv->spf_rs, priv->spf_explain);
@@ -1396,7 +1396,7 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 		// Policy enforcement
 		// Do "Recieved by/from" header ip address resolution to GeoIP CountryCode checks
 		if(continue_checks
-			&& gGeoIpCcChk
+			&& iniGetInt(OPT_GEOIPCHK)
 			&& listQty(priv->pGeoipList) > 0
 			)
 		{	lcgr_t lcgr;
@@ -1826,7 +1826,7 @@ sfsistat mlfi_eom(SMFICTX *ctx)
 					tag++;
 				}
 #if defined(SUPPORT_LIBSPF) || defined(SUPPORT_LIBSPF2)
-				if(gMtaSpfChk && priv->spf_rs != NULL)
+				if(iniGetInt(OPT_MTASPFCHK) && priv->spf_rs != NULL)
 				{
 					mlfi_addhdr_printf(ctx,"X-Milter", "%s DataSet=SPF; receiver=%s; client-ip=%s; envelope-from=%s; helo=%s; assesment=%s (%s);"
 						,mlfi.xxfi_name,gHostname
