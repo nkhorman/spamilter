@@ -96,6 +96,6 @@
 	void free_ifi_info(struct ifi_info *);
 
 	int ifi_islocalipAf(int afType, const char *pIn);
-	int ifi_islocalnetAf(int afType, const char *pIn);
+	int ifi_islocalnetAf(int afType, const char *pIn, const char *pDbPath);
 
 #endif

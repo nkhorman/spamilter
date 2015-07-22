@@ -73,8 +73,6 @@ static char const cvsid[] = "@(#)$Id: ifi.c,v 1.14 2011/07/29 21:23:17 neal Exp 
 
 #include <ifaddrs.h>
 
-extern char *gDbpath;
-
 #ifdef _UNIT_TEST_IFI
 
 #include <arpa/inet.h>
@@ -255,11 +253,11 @@ int ifi_islocalipAf(int afType, const char *pIn)
 	return (iil.match && iil.matchAllow);
 }
 
-int ifi_islocalnetAf(int afType, const char *pIn)
+int ifi_islocalnetAf(int afType, const char *pIn, const char *pDbPath)
 {	iil_t iil;
 	ifiDbCtx_t *pIfiDbCtx = ifiDb_Create("");
 
-	if(ifiDb_Open(pIfiDbCtx, gDbpath))
+	if(ifiDb_Open(pIfiDbCtx, pDbPath))
 	{
 		ifiDb_BuildList(pIfiDbCtx);
 		ifiDb_Close(pIfiDbCtx);
@@ -296,7 +294,7 @@ int main(int argc, char **argv)
 			{	struct hostent *phostent = gethostbyname(*(argv+1));
 
 				if(phostent != NULL)
-					printf("%s is localnet %u\n", *(argv+1), ifi_islocalnetAf(phostent->h_addrtype, (char *)phostent->h_addr));
+					printf("%s is localnet %u\n", *(argv+1), ifi_islocalnetAf(phostent->h_addrtype, (char *)phostent->h_addr), gDbpath);
 				else
 				{	struct in_addr ipv4;
 					struct in6_addr ipv6;
@@ -308,7 +306,7 @@ int main(int argc, char **argv)
 						afType = AF_INET6;
 
 					if(afType != AF_UNSPEC)
-						printf("%s is localnet %u\n", *(argv+1), ifi_islocalnetAf(afType, (afType == AF_INET ? (char *)&ipv4 :  (char *)&ipv6)));
+						printf("%s is localnet %u\n", *(argv+1), ifi_islocalnetAf(afType, (afType == AF_INET ? (char *)&ipv4 :  (char *)&ipv6), gDbpath));
 					else
 						printf("%s unable to gethostbyname\n", *(argv+1));
 				}
