@@ -859,8 +859,8 @@ sfsistat mlfi_envrcpt(SMFICTX *ctx, char **argv)
 						deliverableValid |= (iniGetStr(OPT_ALIASTABLECHK) != NULL);
 #endif
 #if defined(SUPPORT_LOCALUSER)
-						deliverable |= (iniGetStr(OPT_LOCALUSERTABLECHK) && mlfi_envrcpt_islocaluser(priv,pMbox));
-						deliverableValid |= (iniGetStr(OPT_LOCALUSERTABLECHK) != NULL);
+						deliverable |= (iniGetInt(OPT_LOCALUSERTABLECHK) && mlfi_envrcpt_islocaluser(priv,pMbox));
+						deliverableValid |= iniGetInt(OPT_LOCALUSERTABLECHK);
 #endif
 #if defined(SUPPORT_VIRTUSER) || defined(SUPPORT_ALIASES) || defined(SUPPORT_LOCALUSER)
 						if(deliverableValid && !deliverable)
