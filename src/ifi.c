@@ -294,7 +294,7 @@ int main(int argc, char **argv)
 			{	struct hostent *phostent = gethostbyname(*(argv+1));
 
 				if(phostent != NULL)
-					printf("%s is localnet %u\n", *(argv+1), ifi_islocalnetAf(phostent->h_addrtype, (char *)phostent->h_addr), gDbpath);
+					printf("%s is localnet %u\n", *(argv+1), ifi_islocalnetAf(phostent->h_addrtype, (char *)phostent->h_addr, gDbpath));
 				else
 				{	struct in_addr ipv4;
 					struct in6_addr ipv6;
