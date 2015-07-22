@@ -41,7 +41,7 @@
 #ifndef _SPAMILTER_SPFAPI_H_
 #define _SPAMILTER_SPFAPI_H_
 
-	sfsistat mlfi_spf_reject(mlfiPriv *priv, sfsistat *rs);
+	sfsistat mlfi_spf_reject(mlfiPriv *priv, sfsistat *rs, int bSoftFailAsHard);
 
 	enum {
 		SSPF_PASS,

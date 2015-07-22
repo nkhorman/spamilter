@@ -101,7 +101,7 @@ static char *printfEscapeAndTrim(char *pSrc)
 }
 #endif
 
-sfsistat mlfi_spf_reject(mlfiPriv *priv, sfsistat *rs)
+sfsistat mlfi_spf_reject(mlfiPriv *priv, sfsistat *rs, int bSoftFailAsHard)
 {
 	if (priv != NULL)
 	{
@@ -206,7 +206,7 @@ sfsistat mlfi_spf_reject(mlfiPriv *priv, sfsistat *rs)
 		switch(priv->spf_rc)
 		{
 			case SSPF_S_FAIL:
-				if(!gMtaSpfChkSoftFailAsFail) // if soft fail != reject
+				if(!bSoftFailAsHard) // if soft fail != reject
 					break;
 			case SSPF_H_FAIL:
 				*rs = SMFIS_REJECT;
