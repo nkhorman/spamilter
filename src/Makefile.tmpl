@@ -11,7 +11,7 @@
 <ALL> #--------------------------------------------------------------------*
 <ALL>
 #<ALL>CC =		gcc
-<ALL>SRCS =		dns.c <WITH_DBL dbl.c> dnsbl.c hndlrs.c misc.c smisc.c mx.c smtp.c inet.c ifi.c ifidb.c bwlist.c badext.c dupe.c regexapi.c regexmisc.c md5api.c <WITH_ALIASES aliastable.c> <WITH_VIRTUSER virtusertable.c> <WITH_POPAUTH popauth.c><WITH_LIBSPF spfapi.c> <WITH_VASPRINTF nstring.c> <WITH_FWDHOSTCHK fwdhostlist.c> <WITH_GEOIP geoip.c> list.c table.c <WITH_TABLE_FLATFILE tableDriverFlatFile.c> <WITH_TABLE_PGSQL pgsql.c tableDriverPsql.c> <WITH_AUTO_WHITELIST relaydomain.c>
+<ALL>SRCS =		ini.c dns.c <WITH_DBL dbl.c> dnsbl.c hndlrs.c misc.c smisc.c mx.c smtp.c inet.c ifi.c ifidb.c bwlist.c badext.c dupe.c regexapi.c regexmisc.c md5api.c <WITH_ALIASES aliastable.c> <WITH_VIRTUSER virtusertable.c> <WITH_POPAUTH popauth.c><WITH_LIBSPF spfapi.c> <WITH_VASPRINTF nstring.c> <WITH_FWDHOSTCHK fwdhostlist.c> <WITH_GEOIP geoip.c> list.c table.c <WITH_TABLE_FLATFILE tableDriverFlatFile.c> <WITH_TABLE_PGSQL pgsql.c tableDriverPsql.c> <WITH_AUTO_WHITELIST relaydomain.c>
 <NEED_LIBUTIL_LOCAL>SRCS +=		libutil/pidfile.c libutil/flopen.c
 <NOT_BSD>SRCS +=		md5c.c md5hl.c
 <NOT_BSD>SRCS +=		setproctitle.c
@@ -155,7 +155,7 @@
 <ALL>	${CC} ${CFLAGS} -o spamilter spamilter.o ${WATCHEROBJS} ${OBJS} <WITH_NSCOMPAT ${NROBJS}> <WITH_LIBSPF ${LIBSPFDIR}/${LIBSPF}> <WITH_GEOIP ${LIBGEOIPDIR}/libGeoIP.a> ${LIBDIRS} ${LIBS} <WITH_TABLE_PGSQL ${LIBPGSQL}>
 <ALL>
 <ALL>dnsblchk: Makefile ${SRCS} <WITH_NSCOMPAT ${NRSRCS}> <WITH_VASPRINTF nstring.c> dnsblchk.o ${OBJS} <WITH_NSCOMPAT ${NROBJS}> <WITH_VASPRINTF nstring.o> ${INCLUDES} dnsblchk.c
-<ALL>	${CC} ${CFLAGS} -o dnsblchk dnsblchk.o dnsbl.o dns.o smisc.o misc.o mx.o smtp.o inet.o ifi.o ifidb.o list.o table.o <WITH_TABLE_FLATFILE tableDriverFlatFile.o> <WITH_TABLE_PGSQL pgsql.c tableDriverPsql.c> <WITH_NSCOMPAT ${NROBJS}> <WITH_VASPRINTF nstring.o> ${LIBDIRS} ${LIBS}
+<ALL>	${CC} ${CFLAGS} -o dnsblchk dnsblchk.o dnsbl.o ini.o regexapi.o dns.o smisc.o misc.o mx.o smtp.o inet.o ifi.o ifidb.o list.o table.o <WITH_TABLE_FLATFILE tableDriverFlatFile.o> <WITH_TABLE_PGSQL pgsql.c tableDriverPsql.c> <WITH_NSCOMPAT ${NROBJS}> <WITH_VASPRINTF nstring.o> ${LIBDIRS} ${LIBS}
 <ALL>
 <FreeBSD># dnsblupd is for use with the companion shell script blupd as an Exec action
 <FreeBSD>dnsblupd: Makefile dnsblupd.c dnsupdate.c dns.c dnsblupd.o dnsupdate.o dns.o  dnsupdate.h dns.h config.h misc.o misc.h <WITH_NSCOMPAT ${NRSRCS} ${NROBJS}>
