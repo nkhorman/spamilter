@@ -101,7 +101,7 @@ ik_t gpIk[] =
 	{ OVT_STR, OPT_CONN,				"inet:7726@localhost" },
 	{ OVT_BOOL, OPT_DNSBLCHK,			"yes" },
 	{ OVT_BOOL, OPT_SMTPSNDRCHK,			"yes" },
-	{ OVT_BOOL, OPT_SMTPSNDRCHKACTION,		"Reject" },
+	{ OVT_STR, OPT_SMTPSNDRCHKACTION,		"Reject" },
 	{ OVT_BOOL, OPT_MTAHOSTCHK,			"yes" },
 	{ OVT_BOOL, OPT_MTAHOSTCHKASIP,			"no" },
 	{ OVT_BOOL, OPT_MTAHOSTIPFW,			"no" },
@@ -112,15 +112,15 @@ ik_t gpIk[] =
 	{ OVT_BOOL, OPT_MTASPFCHKSOFTFAILASHARD,	"no" },
 #endif
 	{ OVT_INT, OPT_MSEXTCHK,			"2" },
-	{ OVT_BOOL, OPT_MSEXTCHKACTION,			"Reject" },
+	{ OVT_STR, OPT_MSEXTCHKACTION,			"Reject" },
 #ifdef SUPPORT_POPAUTH
 	{ OVT_BOOL, OPT_POPAUTHCHK,			"" },
 #endif
 #ifdef SUPPORT_VIRTUSER
-	{ OVT_BOOL, OPT_VIRTUSERTABLECHK,		"/etc/mail/virtuser.db" },
+	{ OVT_STR, OPT_VIRTUSERTABLECHK,		"/etc/mail/virtuser.db" },
 #endif
 #ifdef SUPPORT_ALIASES
-	{ OVT_BOOL, OPT_ALIASTABLECHK,			"/etc/mail/aliases.db" },
+	{ OVT_STR, OPT_ALIASTABLECHK,			"/etc/mail/aliases.db" },
 #endif
 #ifdef SUPPORT_LOCALUSER
 	{ OVT_BOOL, OPT_LOCALUSERTABLECHK,		"yes" },
@@ -129,11 +129,12 @@ ik_t gpIk[] =
 	{ OVT_BOOL, OPT_GREYLISTCHK,			"yes" },
 #endif
 #ifdef SUPPORT_FWDHOSTCHK
+	{ OVT_BOOL,  OPT_RCPTFWDHOSTCHK			"no"	 },
 #endif
 	{ OVT_BOOL, OPT_HEADERREPLYTOCHK,		"yes" },
 	{ OVT_BOOL, OPT_HEADERRECEIVEDCHK,		"no" },
-#ifdef SUPPORT_FWDHOSTCHK
-	{ OVT_BOOL, OPT_GEOIPDBPATH,			"/var/db/spamilter/geoip" },
+#ifdef SUPPORT_GEOIP
+	{ OVT_STR, OPT_GEOIPDBPATH,			"/var/db/spamilter/geoip" },
 	{ OVT_BOOL, OPT_GEOIPCHK,			"yes" },
 #endif
 //	{ OVT_, "", "" },
@@ -142,7 +143,7 @@ ik_t gpIk[] =
 
 static int callbackInvalidOptionShow(void *pCallbackData, void *pCallbackCtx)
 {
-	printf("Unused or Invalid Option '%s'\n", (char *)pCallbackData);
+	printf("*** Unused or Invalid Option '%s'\n", (char *)pCallbackData);
 
 	return 1; // again
 }
