@@ -54,6 +54,10 @@ static char const cvsid[] = "@(#)$Id: hndlrs.c,v 1.185 2015/01/21 04:41:19 neal 
 #include <ctype.h>
 #include <pthread.h>
 
+#ifdef OS_Darwin
+#include <uuid/uuid.h>
+#endif
+
 #include "spamilter.h"
 #include "hndlrs.h"
 #include "smtp.h"
@@ -293,29 +297,40 @@ sfsistat mlfi_connect(SMFICTX *ctx, char *hostname, _SOCK_ADDR *hostaddr)
 		priv = calloc(1,sizeof(mlfiPriv));
 
 	if(priv != NULL)
-	{
-#ifdef OS_FreeBSD
-		struct uuid sessionUuid;
-#endif
-		char *pSessionUuidStr = NULL;
+	{	char *pSessionUuidStr = NULL;
 
 		smfi_setpriv(ctx, priv);
 
-#ifdef OS_FreeBSD
 		// session uuid
-		if(uuidgen(&sessionUuid,1) == 0)
-		{	uint32_t status = 0;
+#ifdef OS_FreeBSD
+		{	struct uuid sessionUuid;
 
-			uuid_to_string(&sessionUuid,&pSessionUuidStr,&status);
-			if(status != uuid_s_ok && pSessionUuidStr != NULL)
-			{
-				free(pSessionUuidStr);
-				pSessionUuidStr = NULL;
+			if(uuidgen(&sessionUuid,1) == 0)
+			{	uint32_t status = 0;
+
+				uuid_to_string(&sessionUuid,&pSessionUuidStr,&status);
+				if(status != uuid_s_ok && pSessionUuidStr != NULL)
+				{
+					free(pSessionUuidStr);
+					pSessionUuidStr = NULL;
+				}
 			}
 		}
-
-		if(pSessionUuidStr == NULL)
 #endif
+#ifdef OS_Darwin
+		{	uuid_t uuidBin;
+			char uuidStr[40];
+
+			memset(uuidBin, 0, sizeof(uuidBin));
+			memset(uuidStr, 0, sizeof(uuidStr));
+			uuid_generate(uuidBin);
+			uuid_unparse_upper(uuidBin, uuidStr);
+
+			if(strlen(uuidStr))
+				pSessionUuidStr = strdup(uuidStr);
+		}
+#endif
+		if(pSessionUuidStr == NULL)
 			asprintf(&pSessionUuidStr,"%04X",(unsigned int)pthread_self());
 
 		if(pSessionUuidStr != NULL)
