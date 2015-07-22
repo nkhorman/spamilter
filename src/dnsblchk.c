@@ -61,7 +61,7 @@ static char const cvsid[] = "@(#)$Id: dnsblchk.c,v 1.22 2012/11/23 03:54:13 neal
 #include "dnsbl.h"
 
 char	gHostnameBuf[1024];
-char	*gHostname = gHostnameBuf;
+const char	*gHostname = gHostnameBuf;
 
 int gDebug = 0;
 

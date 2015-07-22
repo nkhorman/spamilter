@@ -60,7 +60,7 @@ static char const cvsid[] = "@(#)$Id: spamilter.c,v 1.54 2013/07/13 23:31:37 nea
 #include "misc.h"
 
 int	gDebug			= 0;
-char	*gConfpath		= PATH_CONFIG;
+const char	*gConfpath		= PATH_CONFIG;
 int	gForeground		= 0;
 char	gHostnameBuf[1024];	// hope this is big enough!
 const char *gHostname		= gHostnameBuf;
