@@ -332,10 +332,7 @@ int main(int argc, char **argv)
 				break;
 			case 'i':
 				if(optarg != NULL && *optarg)
-				{
-					if(testipstr(optarg,gDbpath) == 0)
-						printf("\t\tPassed\n");
-				}
+					printf("\t\t%s\n", (testipstr(optarg,gDbpath) == 0 ? "Passed - Not Listed" : "Failed - Listed"));
 				else
 					printf("Bogus/Missing command line arguement\n");
 				break;
