@@ -62,22 +62,24 @@ typedef struct _ov_t
 } ov_t; // Option Variadic Type
 
 static list_t *gpListOptions = NULL;
+static ik_t *gpIk = NULL;
 
 #define PAT "[ \t]{0,}([a-zA-Z][a-zA-Z0-9_-]{0,})[ \t]{0,}=[ \t]{0,}([^\r\n]*)[\r\n]{0,2}$"
 
-static int iniKeyNameType(char const *pKeyName, ik_t *pIk)
-{	int keyType = OVT_NONE;
+static ik_t *iniKeyFind(char const *pKeyName)
+{	ik_t *pIk = gpIk;
 
-	while(pIk && pIk->type != OVT_NONE && pIk->pName != NULL && keyType == OVT_NONE)
-	{
-		if(strcasecmp(pKeyName, pIk->pName) == 0)
-			keyType = pIk->type;
-		else
-			pIk++;
-	}
+	while(pIk && pIk->pName != NULL && strcasecmp(pKeyName, pIk->pName) != 0)
+		pIk++;
 
-	return keyType;
-};
+	return (pIk && pIk->pName != NULL && strcasecmp(pKeyName, pIk->pName) == 0 ? pIk : NULL);
+}
+
+static int iniKeyNameType(char const *pKeyName)
+{	ik_t *pIk = iniKeyFind(pKeyName);
+
+	return (pIk != NULL ? pIk->type : OVT_NONE);
+}
 
 static unsigned long iniKeyHash(char const *pKeyName)
 {	unsigned long keyHash = 0;
@@ -100,6 +102,30 @@ static unsigned long iniKeyHash(char const *pKeyName)
 	return keyHash;
 }
 
+static void iniListItemValSet(ov_t *pOv, char const *pVal)
+{
+	switch(pOv->type)
+	{
+		case OVT_STR:
+			if(pOv->pVal != NULL)
+				free((void *)pOv->pVal);
+			pOv->pVal = strdup(pVal);
+			break;
+
+		case OVT_BOOL:
+			pOv->val = (strcasecmp(pVal, "1") == 0
+				|| strcasecmp(pVal, "on") == 0
+				|| strcasecmp(pVal, "true") == 0
+				|| strcasecmp(pVal, "yes") == 0
+				);
+			break;
+
+		case OVT_INT:
+			pOv->val = atoi(pVal);
+			break;
+	}
+}
+
 static ov_t *iniListItemAlloc(int type, char const *pKey, char const *pVal)
 {	ov_t *pOv = calloc(1, sizeof(ov_t));
 
@@ -108,25 +134,7 @@ static ov_t *iniListItemAlloc(int type, char const *pKey, char const *pVal)
 		pOv->type = type;
 		pOv->keyHash = iniKeyHash(pKey);
 		pOv->pKeyName = strdup(pKey);
-
-		switch(type)
-		{
-			case OVT_STR:
-				pOv->pVal = strdup(pVal);
-				break;
-
-			case OVT_BOOL:
-				pOv->val = (strcasecmp(pVal, "1") == 0
-					|| strcasecmp(pVal, "on") == 0
-					|| strcasecmp(pVal, "true") == 0
-					|| strcasecmp(pVal, "yes") == 0
-					);
-				break;
-
-			case OVT_INT:
-				pOv->val = atoi(pVal);
-				break;
-		}
+		iniListItemValSet(pOv, pVal);
 	}
 
 	return pOv;
@@ -154,12 +162,22 @@ void iniFree(void)
 	}
 }
 
-list_t *iniRead(char const *pFname, ik_t *pIk)
-{	list_t *pListInvalidOptions = NULL;
-	FILE *fin = fopen(pFname,"r");
-
+void iniInit(ik_t *pIk)
+{
 	iniFree();
 	gpListOptions = listCreate();
+	gpIk = pIk;
+
+	while(pIk != NULL && pIk->type != OVT_NONE)
+	{
+		listAdd(gpListOptions, iniListItemAlloc(pIk->type, pIk->pName, pIk->pValueDefault));
+		pIk++;
+	}
+}
+
+list_t *iniRead(char const *pFname)
+{	list_t *pListInvalidOptions = NULL;
+	FILE *fin = fopen(pFname,"r");
 
 	if(fin != NULL)
 	{	char buf[1024];
@@ -179,18 +197,18 @@ list_t *iniRead(char const *pFname, ik_t *pIk)
 				}
 
 				// If something left, grok it out, and validate the option keyname.
-				// If validated, add the key value pair to the list of options
+				// If validated, set the value of the key
 				if(strlen(buf))
 				{	regexapi_t *prat = regexapi_exec(buf, PAT, REGEX_DEFAULT_CFLAGS, 1);
 
-					if(regexapi_matches(prat))
-					{	int q = regexapi_nsubs(prat,0);
+					if(regexapi_matches(prat) && regexapi_nsubs(prat,0) == 2)
+					{
 						const char *pKey = regexapi_sub(prat,0,0);
 						const char *pVal = regexapi_sub(prat,0,1);
-						int keyType = iniKeyNameType(pKey, pIk);
+						int keyType = iniKeyNameType(pKey);
 
 						if(keyType != OVT_NONE)
-							listAdd(gpListOptions, iniListItemAlloc(keyType, pKey, pVal));
+							iniSet(pKey, pVal);
 						else
 						{
 							if(pListInvalidOptions == NULL)
@@ -223,6 +241,18 @@ static int callbackIniOvKeyNameMatch(void *pCallbackData, void *pCallbackCtx)
 		pIoc->pOv = pOv;
 
 	return (pIoc->pOv == NULL); // again ?
+}
+
+void iniSet(char const *pKey, char const *pVal)
+{	ioc_t ioc;
+
+	ioc.keyHash = iniKeyHash(pKey);
+	ioc.pOv = NULL;
+
+	listForEach(gpListOptions, &callbackIniOvKeyNameMatch, &ioc);
+
+	if(ioc.pOv != NULL)
+		iniListItemValSet(ioc.pOv, pVal);
 }
 
 char const *iniGetStr(char const *pKey)

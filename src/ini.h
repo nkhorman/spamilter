@@ -49,11 +49,15 @@
 	{
 		int type;
 		char const *pName;
+		char const *pValueDefault;
 	} ik_t; // Ini Key Type
 
+	void iniInit(ik_t *pIk);
 	void iniFree(void);
-	list_t *iniRead(char const *pFname, ik_t *pIk);
 
+	list_t *iniRead(char const *pFname);
+
+	void iniSet(char const *pKey, char const *pVal);
 	char const *iniGetStr(char const *pKey);
 	int iniGetInt(char const *pKey);
 
