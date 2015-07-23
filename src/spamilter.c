@@ -129,7 +129,7 @@ ik_t gpIk[] =
 	{ OVT_BOOL, OPT_GREYLISTCHK,			"yes" },
 #endif
 #ifdef SUPPORT_FWDHOSTCHK
-	{ OVT_BOOL,  OPT_RCPTFWDHOSTCHK			"no"	 },
+	{ OVT_BOOL,  OPT_RCPTFWDHOSTCHK,		"no"	 },
 #endif
 	{ OVT_BOOL, OPT_HEADERREPLYTOCHK,		"yes" },
 	{ OVT_BOOL, OPT_HEADERRECEIVEDCHK,		"no" },
