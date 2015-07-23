@@ -1,4 +1,7 @@
 Changelog;
+	20150722
+	* add - implement spamilter.rc option KeyName validation
+
 	20150710
 	* add - add support for auto whitelisting outbound recipients
 

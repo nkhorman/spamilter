@@ -1,10 +1,11 @@
 near term;
-	ipv6
+	~~ipv6 - spamilter daemon~~ done
+	ipv6 - ipfwmtad
 	fix / use libspf2
-	spamilter.rc options validation
+	~~spamilter.rc options validation~~ done
 	add config options;
 		RBL dns retry
-		recieved by header checking
+		~~recieved by header checking~~ done
 	documentation using man pages;
 		add man page for all supporting applcaitons
 		elaborate on the usage of each of the applications
