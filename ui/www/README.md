@@ -64,6 +64,8 @@ You'll need to add a periodic cron job, likely to your www user, something like
 
 And, you'll probably need to run it once, manually after installation, to see the charts.
 
+Also, you'll need to change totals.php to reflect the htdocs path.
+
 
 ## Files and Permissions
 This app expects to be able to write to the /var/db/spamilter/db.sndr file,
@@ -72,7 +74,7 @@ as well as read the other /var/db/spamilter/db.xxxx files.
 It also expects to be able to read the syslog generated files, which are
 presumed to be /var/log/spam.log* and /var/log/spam.info*
 
-If the files are elsewhere, or named elsewise, change index.php
+If the files are elsewhere, or named elsewise, change index.php and totals.php
 
 Both today's log files, and past days log files are read.
 Past days files are expected to be compressed as .gz files.
