@@ -72,7 +72,7 @@ hr {width: 600px; background-color: #cccccc; border: 0px; height: 1px; color: #0
 function chartLoad(url, srcmap, id, hash)
 {
 	x = url + "?map=" + srcmap;
-	if(hash != '')
+	if(hash != '' && hash !== undefined)
 		x = x + "&hash=" + hash;
 
 	$("#map_" + id).html("<img src=\"" + x + "&action=img\" id=\"" + id +"\" alt=\"\" class=\"pChartPicture\"/>");

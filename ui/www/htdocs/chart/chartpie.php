@@ -16,7 +16,8 @@ require("pChart.2/pPie.class.php");
 
 function getDataSet($ImageName, $dirs, $hash)
 {
-	$data = unserialize(file_get_contents($dirs['totals'].'/'.$ImageName.'.ser'));
+	$filename = $ImageName;
+	$data = unserialize(file_get_contents($dirs['totals'].'/'.$filename.'.ser'));
 
 	// Dataset definition 
 	$DataSet = new pData;
@@ -26,10 +27,25 @@ function getDataSet($ImageName, $dirs, $hash)
 	$href = array();
 	foreach($data as $k => $v)
 	{
-		$points[] = $v['count'];
-		$labels[] = $k;
-		//$href[] = 'href=detail.php?map='.$ImageName.'&hash='.md5($k);
-		$href[] = 'onclick=chartDetailLoad("'.$ImageName.'", "'.md5($k).'");';
+		// no hash = info for non-detail
+		if(!isset($hash) || strlen($hash) == 0)
+		{
+			$points[] = $v['count'];
+			$labels[] = $k;
+			$href[] = 'onclick=chartDetailLoad("'.$filename.'", "'.md5($k).'");';
+		}
+		else if(md5($k) == $hash) // hash = info for detail
+		{
+			foreach($v as $dk => $dv)
+			{
+				if($dk != 'count')
+				{
+					$points[] = $dv;
+					$labels[] = $dk;
+					//$href[] = 'onclick=chartDetailLoad("'.$filename.'", "'.md5($k).'");';
+				}
+			}
+		}
 	}
 
 	$DataSet->addPoints($points, 'Detail');
@@ -41,20 +57,23 @@ function getDataSet($ImageName, $dirs, $hash)
 	return $DataSet;
 }
 
-function imgrender($ImageName, $DataSet, $dirs)
+function imgrender($ImageName, $DataSet, $dirs, $hash)
 {
+	$filename = $ImageName;
+	if(isset($hash) && strlen($hash))
+		$filename = $filename.$hash;
 	// Initialise the graph
 	$ImgCache = new pCache(array('CacheFolder'=>$dirs['cache']));
 	$ImgHash = $ImgCache->getHash($DataSet);
 
-//	if ($ImgCache->isInCache($ImgHash) && file_exists($dirs['imgmaps'].'/'.$ImageName.'.map'))
+//	if ($ImgCache->isInCache($ImgHash) && file_exists($dirs['imgmaps'].'/'.$filenaem.'.map'))
 //		$ImgCache->strokeFromCache($ImgHash);
 //	else
 	{
 		$v = 800;
 		$size = array('w'=>$v, 'h'=> (($v/16) * 9 ));
 		$Img = new pImage($size['w'],$size['h'], $DataSet);
-		$Img->initialiseImageMap($ImageName, IMAGE_MAP_STORAGE_FILE, $ImageName, $dirs['imgmaps']);
+		$Img->initialiseImageMap($filename, IMAGE_MAP_STORAGE_FILE, $filename, $dirs['imgmaps']);
 
 		//$Img->drawGradientArea(0,0, $size['w'], $size['h'],DIRECTION_VERTICAL,array("StartR"=>180,"StartG"=>180,"StartB"=>180,"EndR"=>180,"EndG"=>180,"EndB"=>180,"Alpha"=>255));
 		$Img->drawGradientArea(0,0, $size['w'], $size['h'],DIRECTION_VERTICAL);
@@ -82,18 +101,21 @@ function imgrender($ImageName, $DataSet, $dirs)
 		$Pie->drawPieLegend(15,40,array("Alpha"=>20));
 
 		$ImgCache->writeToCache($ImgHash,$Img);
-		//$Img->render(getcwd().'/images/'.$ImageName);
+		//$Img->render(getcwd().'/images/'.$filename);
 		$Img->stroke();
 	}
 }
 
-function imgmap($ImageName, $dirs)
+function imgmap($ImageName, $dirs, $hash)
 {
-	$Img = new pImage();
-	$Img->dumpImageMap($ImageName, IMAGE_MAP_STORAGE_FILE, $ImageName, $dirs['imgmaps']);
+	$filename = $ImageName;
+	if(isset($hash) && strlen($hash))
+		$filename = $filename.$hash;
+	$Img = new pImage(1,1);
+	$Img->dumpImageMap($filename, IMAGE_MAP_STORAGE_FILE, $filename, $dirs['imgmaps']);
 }
 
-function html($map)
+function html($map, $hash)
 {
 	$self = $_SERVER["PHP_SELF"];
 	echo "<html> <head></head> <body>\n";
@@ -107,17 +129,17 @@ function html($map)
 
 $action = $_REQUEST['action'];
 $map = $_REQUEST['map'];
-$hash = $_REQUEST['hash'];
+@$hash = $_REQUEST['hash'];
 switch($action)
 {
 	case 'imgmap':
-		imgmap($map, $dirs);
+		imgmap($map, $dirs, $hash);
 		break;
 	case 'img':
-		imgrender($map, getDataSet($map, $dirs, $hash), $dirs);
+		imgrender($map, getDataSet($map, $dirs, $hash), $dirs, $hash);
 		break;
 	default:
-		html($map);
+		html($map, $hash);
 		break;
 }
 
