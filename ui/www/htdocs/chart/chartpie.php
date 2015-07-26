@@ -66,7 +66,7 @@ function imgrender($ImageName, $DataSet, $dirs, $hash)
 	$ImgCache = new pCache(array('CacheFolder'=>$dirs['cache']));
 	$ImgHash = $ImgCache->getHash($DataSet);
 
-//	if ($ImgCache->isInCache($ImgHash) && file_exists($dirs['imgmaps'].'/'.$filenaem.'.map'))
+//	if ($ImgCache->isInCache($ImgHash) && file_exists($dirs['imgmaps'].'/'.$filename.'.map'))
 //		$ImgCache->strokeFromCache($ImgHash);
 //	else
 	{
@@ -75,33 +75,34 @@ function imgrender($ImageName, $DataSet, $dirs, $hash)
 		$Img = new pImage($size['w'],$size['h'], $DataSet);
 		$Img->initialiseImageMap($filename, IMAGE_MAP_STORAGE_FILE, $filename, $dirs['imgmaps']);
 
-		//$Img->drawGradientArea(0,0, $size['w'], $size['h'],DIRECTION_VERTICAL,array("StartR"=>180,"StartG"=>180,"StartB"=>180,"EndR"=>180,"EndG"=>180,"EndB"=>180,"Alpha"=>255));
 		$Img->drawGradientArea(0,0, $size['w'], $size['h'],DIRECTION_VERTICAL);
 
 		$fonts = array('Bedizen.ttf', 'GeosansLight.ttf', 'MankSans.ttf', 'calibri.ttf', 'verdana.ttf' );
 		$Img->setFontProperties(array("FontName"=>$dirs['fonts'].'/'.$fonts[4],"FontSize"=>10, 'R'=>255, 'G'=>255, 'B'=>255));
 
 		$Pie = new pPie($Img, $DataSet);
-		$Pie->draw2DPie($size['w']/2, $size['h']/2,
-			array(
-				'Radius' => 100,
-				//'DrawLabels'=>TRUE,
-				//'ValuePosition' => PIE_VALUE_INSIDE,
-				'LabelStacked'=>TRUE,
-				'Border'=>TRUE,
-				'LabelR' => 255,
-				'LabelG' => 255,
-				'LabelB' => 255,
-				'WriteValues' => PIE_VALUE_PERCENTAGE,
-				"DataGapAngle"=>10,"DataGapRadius"=>6,
-				'ValuePadding' => 25,
-				'RecordImageMap' => TRUE,
-				)
-			);
+		$options = array(
+			'Radius' => 100,
+			//'DrawLabels'=>TRUE,
+			//'ValuePosition' => PIE_VALUE_INSIDE,
+			'LabelStacked'=>TRUE,
+			'LabelR' => 255,
+			'LabelG' => 255,
+			'LabelB' => 255,
+			'WriteValues' => PIE_VALUE_PERCENTAGE,
+			'ValuePadding' => 25,
+			'RecordImageMap' => TRUE,
+				);
+		if(count($DataSet->Data['Series']['Detail']['Data']) < 50)
+		{
+			//$options['Border'] = TRUE;
+			$options['DataGapAngle'] = 5;
+			$options['DataGapRadius'] = 5;
+		}
+		$Pie->draw2DPie($size['w']/2, $size['h']/2, $options);
 		$Pie->drawPieLegend(15,40,array("Alpha"=>20));
 
 		$ImgCache->writeToCache($ImgHash,$Img);
-		//$Img->render(getcwd().'/images/'.$filename);
 		$Img->stroke();
 	}
 }
