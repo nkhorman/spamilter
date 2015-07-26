@@ -168,7 +168,7 @@
         }
 
        $this->pChartObject->drawPolygon($Plots,$Settings);
-       if ( $RecordImageMap && !$Shadow ) { $this->pChartObject->addToImageMap("POLY",$this->arraySerialize($Plots),$this->pChartObject->toHTMLColor($Palette[$ID]["R"],$Palette[$ID]["G"],$Palette[$ID]["B"]),$Data["Series"][$Data["Abscissa"]]["Data"][$Key],$Value,TRUE,$Data['Series'][$DataSerie]['Href'][$Key]); }
+       if ( $RecordImageMap && !$Shadow ) { @$this->pChartObject->addToImageMap("POLY",$this->arraySerialize($Plots),$this->pChartObject->toHTMLColor($Palette[$ID]["R"],$Palette[$ID]["G"],$Palette[$ID]["B"]),$Data["Series"][$Data["Abscissa"]]["Data"][$Key],$Value,TRUE,$Data['Series'][$DataSerie]['Href'][$Key]); }
 
        if ( $DrawLabels && !$Shadow && !$SecondPass )
         {

@@ -4865,7 +4865,7 @@
                if ( ($Rounded || $BorderR != -1) && ($Pos == "+" && $Y1 != $YZero) ) { $YSpaceUp = 1; } else { $YSpaceUp = 0; }
                if ( ($Rounded || $BorderR != -1) && ($Pos == "-" && $Y1 != $YZero) ) { $YSpaceDown = 1; } else { $YSpaceDown = 0; }
 
-               if ( $RecordImageMap ) { $this->addToImageMap("RECT",floor($X+$XOffset).",".floor($Y1-$YSpaceUp+$YSpaceDown).",".floor($X+$XOffset+$XSize).",".floor($Y2),$this->toHTMLColor($R,$G,$B),$SerieDescription,$this->scaleFormat($Serie["Data"][$Key],$Mode,$Format,$Unit),TRUE,$Serie["Href"][$Key]); }
+               if ( $RecordImageMap ) { @$this->addToImageMap("RECT",floor($X+$XOffset).",".floor($Y1-$YSpaceUp+$YSpaceDown).",".floor($X+$XOffset+$XSize).",".floor($Y2),$this->toHTMLColor($R,$G,$B),$SerieDescription,$this->scaleFormat($Serie["Data"][$Key],$Mode,$Format,$Unit),TRUE,$Serie["Href"][$Key]); }
 
                if ( $Rounded )
                 $this->drawRoundedFilledRectangle($X+$XOffset,$Y1-$YSpaceUp+$YSpaceDown,$X+$XOffset+$XSize,$Y2,$RoundRadius,$Color);

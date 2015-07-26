@@ -88,9 +88,9 @@
 
      if ( $DataSet != NULL ) { $this->DataSet = $DataSet; }
 
-     $this->XSize   = $XSize;
-     $this->YSize   = $YSize;
-     $this->Picture = imagecreatetruecolor($XSize,$YSize);
+     @$this->XSize   = $XSize;
+     @$this->YSize   = $YSize;
+     @$this->Picture = imagecreatetruecolor($XSize,$YSize);
 
      if ( $this->TransparentBackground )
       {
