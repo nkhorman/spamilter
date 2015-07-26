@@ -4,7 +4,7 @@
  *
  * Developed by;
  *	Neal Horman - neal@wanlink.com - http://www.wanlink.com
- *	Copyright by Neal Horman. All Rights Reserved
+ *	Copyright (c) 2010-2015 by Neal Horman, All Rights Reserved
  *
  *      License;
  *      Redistribution and use in source and binary forms, with or without
