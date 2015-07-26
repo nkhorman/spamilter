@@ -39,7 +39,7 @@ require('varlog.php');
 class totalsLog
 {
 	protected $logpath = '/var/log';
-	protected $dstpath = '/usr/local/apache2/apps/spamilter/htdocs/chart';
+	protected $dstpath = '/usr/local/www/apache24/apps/spamilter/htdocs/chart';
 	protected $reasons = array('Accepted', 'Rejected', 'TempFailed');
 
 	function buildOne($src)
