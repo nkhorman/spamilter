@@ -32,11 +32,9 @@ function getDataSet($ImageName, $dirs)
 			switch($reason)
 			{
 				case 'Rejected':
-					//$href[$dayk] = 'href=chart/chartpie.php?map=reject.'.$dayk;
 					$href[$dayk] = 'onclick=chartDrilldownLoad("reject.'.$dayk.'");';
 					break;
 				case 'TempFailed':
-					//$href[$dayk] = 'href=chart/chartpie.php?map=tempfailed.'.$dayk;
 					$href[$dayk] = 'onclick=chartDrilldownLoad("tempfailed.'.$dayk.'");';
 					break;
 			}
