@@ -143,7 +143,7 @@
        $Plots = "";
        $EndAngle = $Offset+($Value*$ScaleFactor); if ( $EndAngle > 360 ) { $EndAngle = 360; }
 
-       $Angle = ($EndAngle - $Offset)/2 + $Offset;
+       $Angle = ((360+$EndAngle - $Offset)%360)/2 + $Offset;
        if ($DataGapAngle == 0)
         { $X0 = $X; $Y0 = $Y; }
        else
@@ -177,7 +177,7 @@
          else
           { $Settings = array("FillR"=>$LabelR,"FillG"=>$LabelG,"FillB"=>$LabelB,"Alpha"=>$LabelAlpha); }
 
-         $Angle = ($EndAngle - $Offset)/2 + $Offset;
+         $Angle = ((360+$EndAngle - $Offset)%360)/2 + $Offset;
          $Xc = cos(($Angle-90)*PI/180) * $Radius + $X;
          $Yc = sin(($Angle-90)*PI/180) * $Radius + $Y;
 
@@ -216,7 +216,7 @@
           { $X0 = $X; $Y0 = $Y; }
          else
           {
-           $Angle = ($EndAngle - $Offset)/2 + $Offset;
+           $Angle = ((360+$EndAngle - $Offset)%360)/2 + $Offset;
            $X0 = cos(($Angle-90)*PI/180) * $DataGapRadius + $X;
            $Y0 = sin(($Angle-90)*PI/180) * $DataGapRadius + $Y;
           }
@@ -240,7 +240,7 @@
            else
             { $Settings = array("FillR"=>$LabelR,"FillG"=>$LabelG,"FillB"=>$LabelB,"Alpha"=>$LabelAlpha); }
 
-           $Angle = ($EndAngle - $Offset)/2 + $Offset;
+           $Angle = ((360+$EndAngle - $Offset)%360)/2 + $Offset;
            $Xc = cos(($Angle-90)*PI/180) * $Radius + $X;
            $Yc = sin(($Angle-90)*PI/180) * $Radius + $Y;
 
@@ -263,7 +263,7 @@
        $Settings = array("Align"=>TEXT_ALIGN_MIDDLEMIDDLE,"R"=>$ValueR,"G"=>$ValueG,"B"=>$ValueB,"Alpha"=>$ValueAlpha);
        foreach($Values as $Key => $Value)
         {
-         $EndAngle = ($Value*$ScaleFactor) + $Offset; if ( (int)$EndAngle > 360 ) { $EndAngle = 0; }
+         $EndAngle = ($Value*$ScaleFactor) + $Offset; if ( (int)$EndAngle > 360 ) { $EndAngle = 360; }
          $Angle    = ($EndAngle - $Offset)/2 + $Offset;
 
          if ( $ValuePosition == PIE_VALUE_OUTSIDE )
@@ -388,7 +388,7 @@
         { $X0 = $X; $Y0 = $Y; }
        else
         {
-         $Angle = ($EndAngle - $Offset)/2 + $Offset;
+         $Angle = ((360+$EndAngle - $Offset)%360)/2 + $Offset;
          $X0 = cos(($Angle-90)*PI/180) * $DataGapRadius + $X;
          $Y0 = sin(($Angle-90)*PI/180) * $DataGapRadius*$SkewFactor + $Y;
         }
@@ -603,7 +603,7 @@
           { $X0 = $X; $Y0 = $Y- $SliceHeight; }
          else
           {
-           $Angle = ($EndAngle - $Offset)/2 + $Offset;
+           $Angle = ((360+$EndAngle - $Offset)%360)/2 + $Offset;
            $X0 = cos(($Angle-90)*PI/180) * $DataGapRadius + $X;
            $Y0 = sin(($Angle-90)*PI/180) * $DataGapRadius*$SkewFactor + $Y - $SliceHeight;
           }
@@ -634,7 +634,7 @@
         {
          $EndAngle = $Offset-($Value*$ScaleFactor); if ( $EndAngle < 0 ) { $EndAngle = 0; }
 
-         $Angle = ($EndAngle - $Offset)/2 + $Offset;
+         $Angle = ((360+$EndAngle - $Offset)%360)/2 + $Offset;
 
          if ( $ValuePosition == PIE_VALUE_OUTSIDE )
           {
@@ -671,7 +671,7 @@
 
          $EndAngle = $Offset-($Value*$ScaleFactor); if ( $EndAngle < 0 ) { $EndAngle = 0; }
 
-         $Angle = ($EndAngle - $Offset)/2 + $Offset;
+         $Angle = ((360+$EndAngle - $Offset)%360)/2 + $Offset;
          $Xc = cos(($Angle-90)*PI/180) * $Radius + $X;
          $Yc = sin(($Angle-90)*PI/180) * $Radius*$SkewFactor + $Y - $SliceHeight;
 
@@ -1030,7 +1030,7 @@
          else
           { $Settings = array("FillR"=>$LabelR,"FillG"=>$LabelG,"FillB"=>$LabelB,"Alpha"=>$LabelAlpha); }
 
-         $Angle = ($EndAngle - $Offset)/2 + $Offset;
+         $Angle = ((360+$EndAngle - $Offset)%360)/2 + $Offset;
          $Xc = cos(($Angle-90)*PI/180) * $OuterRadius + $X;
          $Yc = sin(($Angle-90)*PI/180) * $OuterRadius + $Y;
 
@@ -1425,7 +1425,7 @@
          else
           { $Settings = array("FillR"=>$LabelR,"FillG"=>$LabelG,"FillB"=>$LabelB,"Alpha"=>$LabelAlpha); }
 
-         $Angle = ($EndAngle - $Offset)/2 + $Offset;
+         $Angle = ((360+$EndAngle - $Offset)%360)/2 + $Offset;
          $Xc = cos(($Angle-90)*PI/180) * ($OuterRadius+$DataGapRadius) + $X;
          $Yc = sin(($Angle-90)*PI/180) * ($OuterRadius+$DataGapRadius)*$SkewFactor + $Y;
 
