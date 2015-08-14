@@ -1,4 +1,7 @@
 Changelog;
+	20150814
+	* add - implement IPFW as an action for db.rcpt
+
 	20150722
 	* add - implement spamilter.rc option KeyName validation
 
