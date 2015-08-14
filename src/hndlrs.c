@@ -1138,6 +1138,8 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 					mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Recipient undeliverable, Please see: %s#undeliverablerecipient",iniGetStr(OPT_POLICYURL));
 					asprintf(&reason,"Undeliverable recipient %d",smtprc);
 					continue_checks = mlfi_status_debug(priv,&rs,LOG_REJECTED_STR,reason,NULL);
+					if(!continue_checks && iniGetInt(OPT_MTAHOSTIPFWNOMINATE))
+						mlfi_MtaHostIpfwAction(priv,"inculpate");
 					free(reason);
 				}
 			}
@@ -1208,8 +1210,6 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 			free(reason);
 
 			ipfwMtaHostIpBanCandidate = 1;
-			//if(iniGetInt(OPT_MTAHOSTIPFW))
-			//	mlfi_MtaHostIpfwAction(priv,"add");
 		}
 
 		// Technical enforcement
@@ -1234,8 +1234,6 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 				free(reason);
 
 				ipfwMtaHostIpBanCandidate = 1;
-				//if(iniGetInt(OPT_MTAHOSTIPFW))
-				//	mlfi_MtaHostIpfwAction(priv,"add");
 			}
 
 			free(mbox);
@@ -1257,8 +1255,6 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 			free(reason);
 
 			ipfwMtaHostIpBanCandidate = 1;
-			//if(iniGetInt(OPT_MTAHOSTIPFW))
-			//	mlfi_MtaHostIpfwAction(priv,"add");
 		}
 
 		// Policy enforcement
@@ -1298,7 +1294,7 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 
 #ifdef SUPPORT_DBL
 		// Policy enforcement
-		// Do DBL checking base on the HLO MTA hostname
+		// Do DBL checking based on the HLO MTA hostname
 		if(continue_checks
 			&& iniGetInt(OPT_MTAHOSTCHK)
 		)
@@ -1455,8 +1451,13 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 			}
 		}
 #endif
-		if(iniGetInt(OPT_MTAHOSTIPFW) && ipfwMtaHostIpBanCandidate)
-			mlfi_MtaHostIpfwAction(priv,"add");
+		if(ipfwMtaHostIpBanCandidate)
+		{
+			if(iniGetInt(OPT_MTAHOSTIPFW))
+				mlfi_MtaHostIpfwAction(priv,"add");
+			else if(iniGetInt(OPT_MTAHOSTIPFWNOMINATE))
+				mlfi_MtaHostIpfwAction(priv,"inculpate");
+		}
 	}
 #ifdef SUPPORT_AUTO_WHITELIST
 	else
