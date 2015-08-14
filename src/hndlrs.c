@@ -820,11 +820,18 @@ sfsistat mlfi_envrcpt(SMFICTX *ctx, char **argv)
 				case BWL_A_TARPIT:
 					sleep(120);	// slow the bastard down!
 					// deliberate fall thru to BWL_A_REJECT
+				case BWL_A_IPFW:
+					// deliberate fall thru to BWL_A_REJECT
 				case BWL_A_REJECT:
 					mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Recipient has been blacklisted, Please see: %s#blacklistedrecipient",iniGetStr(OPT_POLICYURL));
 					mlfi_status_debug(priv,&rs,LOG_REJECTED_STR,reason
 						,"mlfi_envrcpt: Blacklisted recipient '%s@%s'\n",pMbox,pDomain);
-					if(iniGetInt(OPT_MTAHOSTIPFW))
+					if(priv->rcptaction == BWL_A_IPFW)
+					{
+						mlfi_debug(priv->pSessionUuidStr,"mlfi_envrcpt: BWL_A_IPFW - add %s\n" ,priv->ipstr);
+						mlfi_MtaHostIpfwAction(priv,"add");
+					}
+					else if(iniGetInt(OPT_MTAHOSTIPFW))
 						mlfi_MtaHostIpfwAction(priv,"add");
 					break;
 				case BWL_A_TEMPFAIL:

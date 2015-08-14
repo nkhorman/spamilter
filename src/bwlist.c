@@ -90,7 +90,8 @@ char *gpBwlStrs[] =
 	"Discard",
 	"TempFail",
 	"TarPit",
-	"Exec"
+	"Exec",
+	"IPFW"
 };
 
 enum
@@ -287,7 +288,7 @@ static int bwlistCallbackRow(void *pCallbackCtx, list_t *pRow)
 				strcasecmp(aaction,"fail") == 0		? BWL_A_TEMPFAIL :
 				strcasecmp(aaction,"tarpit") == 0	? BWL_A_TARPIT :
 				strcasecmp(aaction,"exec") == 0		? BWL_A_EXEC :
-				//strcasecmp(aaction,"ipfw") == 0		? BWL_A_IPFW :
+				strcasecmp(aaction,"ipfw") == 0		? BWL_A_IPFW :
 				BWL_A_NULL
 				);
 
@@ -299,8 +300,11 @@ static int bwlistCallbackRow(void *pCallbackCtx, list_t *pRow)
 				// match any dom
 				|| strcmp(adom,".") == 0
 				)
-			{
-				if(strcasecmp(ambox,pbga->mbox) == 0 || regexapi(pbga->mbox,ambox, REGEX_DEFAULT_CFLAGS))
+			{	char *pregpat = NULL;
+
+				asprintf(&pregpat, "^%s$", ambox);
+				printf("mbox %d regex %d\n", strcasecmp(ambox,pbga->mbox) == 0, (pregpat != NULL ? regexapi(pbga->mbox, pregpat, REGEX_DEFAULT_CFLAGS) : 0) );
+				if(strcasecmp(ambox,pbga->mbox) == 0 || (pregpat != NULL ? regexapi(pbga->mbox, pregpat, REGEX_DEFAULT_CFLAGS) : 0) )
 				{
 					pbga->action = action;
 					if(pbga->action == BWL_A_EXEC && strlen(aexec) && pbga->exec != NULL)
@@ -314,6 +318,8 @@ static int bwlistCallbackRow(void *pCallbackCtx, list_t *pRow)
 						strcpy(pbga->exec,aexec);
 					mlfi_debug(((bga_t *)pCallbackCtx)->pSessionId,"bwlistActionGet match: '%s' - action = '%s'\n",adom,aaction);
 				}
+				if(pregpat != NULL)
+					free(pregpat);
 			}
 		}
 	}
@@ -380,6 +386,8 @@ int bwlistActionQuery(bwlistCtx_t *pBwlistCtx, int list, const char *dom, const 
 
 #ifdef UNIT_TEST
 
+#include <pthread.h>
+
 void test1(const char *pPath, int list, const char *dom, const char *mbox)
 {
 	if(pPath != NULL && dom != NULL && mbox != NULL)
@@ -393,10 +401,10 @@ void test1(const char *pPath, int list, const char *dom, const char *mbox)
 		{
 			if(bwlistOpen(pbwl,pPath))
 			{	char exec[1024];
-				int rc = bwlistActionQuery(pbwl,list,dom,mbox,(char *)&exec);
+				int rc = bwlistActionQuery(pbwl, list, dom, mbox, (char *)&exec);
 
 				printf("action query rc %d/'%s'\n", rc, gpBwlStrs[rc]);
-				printf("\texec '%s'\n",exec);
+				printf("\texec '%s'\n", exec);
 				bwlistClose(pbwl);
 			}
 			else
