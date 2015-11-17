@@ -801,7 +801,7 @@ void childShutdown()
 	closelog();
 }
 
-int childMain(short port)
+int childMain(unsigned long ip, unsigned short port)
 {	int	quit	= 0;
 	int	rc = -1;
 	int	mtaUpdateInterval = 1;
@@ -821,7 +821,7 @@ int childMain(short port)
 
 	memset(&gChildClients,0,sizeof(gChildClients));
 
-	gSdTcp	= NetSockOpenTcpListen(INADDR_LOOPBACK,port);
+	gSdTcp= NetSockOpenTcpListen(ip,port);
 
 	if(gSdTcp != INVALID_SOCKET)
 	{
@@ -858,7 +858,7 @@ int childMain(short port)
 	return(rc);
 }
 
-void childStart(short port, int count, int forked)
+void childStart(unsigned long ip, unsigned short port, int count, int forked)
 {	int	flags = 0;
 
 	if(forked)
@@ -873,7 +873,7 @@ void childStart(short port, int count, int forked)
 	while(count--)
 	{
 		openlog("ipfwmtad",flags|LOG_NDELAY|LOG_PID,LOG_DAEMON);
-		if(childMain(port) == -1)
+		if(childMain(ip,port) == -1)
 		{
 			syslog(LOG_ERR,"Error starting child, sleeping 30 seconds, %u retries left.",count);
 			sleep(30000);
@@ -881,10 +881,8 @@ void childStart(short port, int count, int forked)
 	}
 }
 
-void cliIpfwAction(char *ipstr, char *action)
-{	int sd = NetSockOpenTcpPeer(INADDR_LOOPBACK,4739);
-	char	*user = "neal";
-	char	*pass = "neal";
+void cliIpfwAction(unsigned long ip, unsigned short port, char const *user, char const *pass, char *ipstr, char *action)
+{	int sd = NetSockOpenTcpPeer(ip,port);
 
 	if(sd != INVALID_SOCKET)
 	{	char	buf[8192];
@@ -947,28 +945,33 @@ void cliIpfwAction(char *ipstr, char *action)
 
 void usage()
 {
-	printf("usage: [-d] [-p -n fname] [-u rule number] | [-i fname] | [-r ipaddress] | [-q ipaddress]\n"
+	printf("usage: [-d] [-I server ip address] [-p port number] [-n fname] [-u rule number] [-U auth user name ] [-P auth user password] | [-i fname] | [-a ipaddress] | [-r ipaddress] | [-q ipaddress]\n"
 		"\t-d - debug mode\n"
-		"\t-p - server tcp port number\n"
+		"\t-I - server mode ip address to bind to, imeadiate mode server ip address - default 127.0.0.1\n"
+		"\t-p - server tcp port number - default 4739\n"
 		"\t-n - server mode - ip database file name\n"
 		"\t-u - server mode - ipfw rule number\n"
-		"\t-p - server mode - ipfw port number\n"
-		"\t-b - server mode - ipfw action (add/deny)\n"
+//		"\t-b - server mode - ipfw action (add/deny)\n"
 		"\t-i - imeadiate mode - ipfw resync using the ip database file name\n"
 		"\t-r - imeadiate mode - queue ipaddress for removal\n"
 		"\t-a - imeadiate mode - queue ipaddress for addition\n"
 		"\t-q - imeadiate mode - query ipaddress\n"
+		"\t-U - imeadiate mode - auth user name\n"
+		"\t-P - imeadiate mode - auth user password\n"
 		"\t-? - man page or options summary\n"
 		);
 }
 
 int main(int argc, char **argv)
 {	int	count = 3;
-	short	port = (short)4739;
+	unsigned long ip = INADDR_LOOPBACK;
+	unsigned short port = (short)4739;
 	int	forking = 1;
 	int	servermode = 1;
 	char	opt;
-	char	*optflags = "d:p:n:u:i:r:a:q:o:b:";
+	char	*optflags = "d:p:n:u:i:r:a:q:o:b:I:U:P:";
+	char	*username = "";
+	char	*userpass = "";
 
 	if(getuid() != 0)
 	{
@@ -1027,21 +1030,37 @@ int main(int argc, char **argv)
 				if(optarg != NULL && *optarg)
 				{
 					servermode = 0;
-					cliIpfwAction(optarg, "add");
+					cliIpfwAction(ip, port, username, userpass, optarg, "add");
 				}
 				break;
 			case 'r':
 				if(optarg != NULL && *optarg)
 				{
 					servermode = 0;
-					cliIpfwAction(optarg, "del");
+					cliIpfwAction(ip, port, username, userpass, optarg, "del");
 				}
 				break;
 			case 'q':
 				if(optarg != NULL && *optarg)
 				{
 					servermode = 0;
-					cliIpfwAction(optarg, "status");
+					cliIpfwAction(ip, port, username, userpass, optarg, "status");
+				}
+				break;
+			case 'U':
+				if(optarg != NULL && *optarg)
+					username = optarg;
+				break;
+			case 'P':
+				if(optarg != NULL && *optarg)
+					userpass = optarg;
+				break;
+			case 'I':
+				if(optarg != NULL && *optarg)
+				{	struct hostent *pHostent = gethostbyname(optarg);
+
+					if(pHostent != NULL && pHostent->h_addrtype == AF_INET)
+						ip = ntohl(pHostent->h_addr_list[0]);
 				}
 				break;
 			case '?':
@@ -1065,10 +1084,10 @@ int main(int argc, char **argv)
 		if(forking)
 		{
 			if(fork() == 0)
-				childStart(port,count,1);
+				childStart(ip,port,count,1);
 		}
 		else
-			childStart(port,count,0);
+			childStart(ip,port,count,0);
 	}
 
 	return 0;

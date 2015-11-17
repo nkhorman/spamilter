@@ -28,3 +28,8 @@ HeaderReplyToChk	= 1
 HeaderReceivedChk	= 1
 GeoIPDBPath		= /var/db/spamilter/geoip
 GeoIPChk		= 1
+
+IpfwHost		= 127.0.0.1
+IpfwPort		= 4739
+GreyListHost		= 127.0.0.1
+GeryListPort		= 7892

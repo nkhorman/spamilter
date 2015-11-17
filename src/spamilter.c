@@ -137,6 +137,12 @@ ik_t gpIk[] =
 	{ OVT_STR, OPT_GEOIPDBPATH,			"/var/db/spamilter/geoip" },
 	{ OVT_BOOL, OPT_GEOIPCHK,			"yes" },
 #endif
+	{ OVT_STR, OPT_IPFWHOST,			"127.0.0.1" },
+	{ OVT_STR, OPT_IPFWPORT,			"4739" },
+#ifdef SUPPORT_GREYLIST
+	{ OVT_STR, OPT_GREYLISTHOST,			"127.0.0.1" },
+	{ OVT_STR, OPT_GREYLISTPORT,			"7892" },
+#endif
 //	{ OVT_, "", "" },
 	{ OVT_NONE, NULL, NULL },
 };

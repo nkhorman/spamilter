@@ -156,6 +156,10 @@
 	#define OPT_RCPTFWDHOSTCHK		"RcptFwdHostChk"		// Bool - do check with an interior mta to validate the recipient
 	#define OPT_GEOIPDBPATH			"GeoIPDBPath"			// Str - where to find the GeoIP address data base
 	#define OPT_GEOIPCHK			"GeoIPChk"			// Bool - do GeoIP Country Code List action checking
+	#define OPT_IPFWHOST			"IpfwHost"			// Str - IpfwMtaD hostname / ip address
+	#define OPT_IPFWPORT			"IpfwPort"			// Int - IpfwMtaD host port
+	#define OPT_GREYLISTHOST		"GreyListHost"			// Str - GreyList (greydbd) hostname / ip address
+	#define OPT_GREYLISTPORT		"GreyListPort"			// Int - GreyList (greydbd) host port
 
 	enum { MSE_A_TAG, MSE_A_REJECT };
 

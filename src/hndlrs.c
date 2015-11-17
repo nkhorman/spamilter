@@ -182,7 +182,9 @@ int mlfi_status_debug(mlfiPriv *priv, sfsistat *prs, const char *statusstr, cons
 }
 
 void mlfi_MtaHostIpfwAction(mlfiPriv *priv, char *action)
-{	int sd = NetSockOpenTcpPeer(INADDR_LOOPBACK,4739);
+{	struct hostent *pHostent = gethostbyname(iniGetStr(OPT_IPFWHOST));
+	unsigned short port = iniGetInt(OPT_IPFWPORT); // 4739
+	int sd = (pHostent != NULL ? NetSockOpenTcpPeerAf(pHostent->h_addrtype, pHostent->h_addr_list[0], port) : INVALID_SOCKET);
 
 	if(sd != INVALID_SOCKET)
 	{	char	buf[1024];
@@ -710,7 +712,9 @@ int mlfi_greylist(SMFICTX *ctx)
 			int inAfType = priv->pip->sa_family;
 			char *pInAddr = NULL;
 			struct in_addr in4_addr;
+#ifdef OS_FreeBSD
 			struct in6_addr in6_addr;
+#endif
 			char *pipstr = priv->ipstr;
 
 			switch(inAfType)
@@ -737,9 +741,10 @@ int mlfi_greylist(SMFICTX *ctx)
 			}
 
 			if(pInAddr != NULL && (pipstr = mlfi_inet_ntopAF(inAfType, pInAddr)) != NULL)
-			{
-				// TODO - add greylist host and port to config options
-				if(NetSockPrintfTo(sd, 0x7f000001, 7892, "<%s> %s %s", pipstr, priv->sndr, priv->rcpt) != SOCKET_ERROR
+			{	struct hostent *pHostent = gethostbyname(iniGetStr(OPT_GREYLISTHOST));
+				unsigned short port = iniGetInt(OPT_GREYLISTPORT); // 7892
+
+				if(NetSockPrintfToAf(sd, pHostent->h_addrtype, pHostent->h_addr_list[0], port, "<%s> %s %s", pipstr, priv->sndr, priv->rcpt) != SOCKET_ERROR
 					&& NetSockSelectOne(sd, 30000)
 				)
 				{	unsigned long ip;
