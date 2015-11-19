@@ -120,7 +120,7 @@ CheckDir()
 
 SedifyDir()
 {
-	$echobin $1|sed -e's/[\./ ]/\\&/g'
+	$echobin "$@" | sed -e's/[\./ ]/\\&/g'
 }
 
 CFlags()
@@ -210,7 +210,7 @@ while [ "$1" != "" ]; do
 			libspfdir="libspf/build"
 			TagLine "PKGLIBSPF" ALL
 			x="`SedifyDir ${libspfdir}`"
-			TagLine "LIBSPFDIR" $x
+			TagLine "LIBSPFDIR" "$x"
 			ConfigSwitchWith "LIBSPF" "$1"
 			;;
 		--with-libspf2-builtin)
@@ -218,7 +218,7 @@ while [ "$1" != "" ]; do
 			libspfdir="libspf/build2/src"
 			TagLine "PKGLIBSPF2" ALL
 			x="`SedifyDir ${libspfdir}`"
-			TagLine "LIBSPF2DIR" $x
+			TagLine "LIBSPF2DIR" "$x"
 			ConfigSwitchWith "LIBSPF2" "$1"
 			;;
 		--with-pam)
@@ -251,16 +251,41 @@ while [ "$1" != "" ]; do
 			shift
 			;;
 		--with-postgresql)
-			if [ "$2" = "" ]; then
+			case "$2" in
+				-[a-z]*|"")
+					# find pg_config
+					OS="`uname -s`"
+					PG_CONFIG="`which pg_config`"
+					FIND_ROOTPATH="/"
+					if [ "$OS" == "Darwin" -a -d "/Applications" ]; then
+						FIND_ROOTPATH="/Applications";
+					fi
+					if [ -z "$PG_CONFIG" -a ! -e "pg_config.loc" ]; then
+						find $FIND_ROOTPATH -name pg_config > pg_config.loc;
+					fi
+					if [ -e "pg_config.loc" ]; then
+						psql_dir="`cat pg_config.loc`"
+						psql_dir="`dirname $psql_dir`"
+						psql_dir="`dirname $psql_dir`"
+					fi
+					arg2=""
+					;;
+				*)
+					psql_dir="$2"
+					arg2="$2"
+					shift
+					;;
+			esac
+
+			if [ -z "$psql_dir" ]; then
 				$echobin "Missing --with-postgresql directory paramater";
 				exit 1;
 			fi
-			x="`SedifyDir $2`"
-			TagLine "PGSQLDIR" $x
-			CheckDir "$1" "$2/include"
-			CheckDir "$1" "$2/lib"
-			ConfigSwitchWith "PGSQL" "$1 $2"
-			shift
+			x="`SedifyDir $psql_dir`"
+			TagLine "PGSQLDIR" "$x"
+			CheckDir "$1" "$psql_dir/include"
+			CheckDir "$1" "$psql_dir/lib"
+			ConfigSwitchWith "PGSQL" "$1 $arg2"
 			;;
 		--with-greylist)
 			ConfigSwitchWith "GREYLIST" "$1"
@@ -406,14 +431,14 @@ cp $log config.log
 rm -f $log
 
 smdir="`SedifyDir $smdir`"
-TagLine "SMDIR" $smdir
+TagLine "SMDIR" "$smdir"
 
 x="`SedifyDir ${rcfilepath}`"
-TagLine "RCFILEPATH" $x
+TagLine "RCFILEPATH" "$x"
 
-TagLine "INCDIRS" $incdirs
-TagLine "LIBDIRS" $libdirs
-TagLine "LIBS" $libs
+TagLine "INCDIRS" "$incdirs"
+TagLine "LIBDIRS" "$libdirs"
+TagLine "LIBS" "$libs"
 
 Include $os
 
@@ -425,11 +450,11 @@ s/<NOT_\([^>]*\)>//g
 s/<INC_\([^>]*\)>//g
 s/<WITH_\([^>]*\)>//g
 /^<ALL>/{
-s/^<[^>]*>//
+s/<[^>]*>//g
 p
 }
 /^<$os>/{
-s/^<[^>]*>//
+s/<[^>]*>//g
 p
 }
 EOF
