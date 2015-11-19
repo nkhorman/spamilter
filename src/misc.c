@@ -277,7 +277,7 @@ char *mlfi_inet_ntopSA(const struct sockaddr *psa)
 
 		switch(psa->sa_family)
 		{
-			case AF_INET: in = (char *) &((struct sockaddr_in *)psa)->sin_addr; break;
+			case AF_INET: in = (const char *)&((struct sockaddr_in *)psa)->sin_addr; break;
 			case AF_INET6: in = (const char *)&((struct sockaddr_in6 *)psa)->sin6_addr; break;
 		}
 

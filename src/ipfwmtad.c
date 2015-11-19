@@ -65,8 +65,10 @@ static char const cvsid[] = "@(#)$Id: ipfwmtad.c,v 1.22 2011/10/27 18:16:53 neal
 
 #include "inet.h"
 #include "misc.h"
-#include "ipfw_direct.h"
 #include "key.h"
+
+#include "ipfw_direct.h"
+#include "ipfw_mtacli.h"
 
 #ifdef SUPPORT_PAM
 #include "pam.h"
@@ -881,68 +883,6 @@ void childStart(unsigned long ip, unsigned short port, int count, int forked)
 	}
 }
 
-void cliIpfwAction(unsigned long ip, unsigned short port, char const *user, char const *pass, char *ipstr, char *action)
-{	int sd = NetSockOpenTcpPeer(ip,port);
-
-	if(sd != INVALID_SOCKET)
-	{	char	buf[8192];
-		RSA	*psrvkey = key_new();
-		RSA	*pclikey = key_generate(512);
-		char	*pclikeystr = (char *)key_pubkeytoasc(pclikey);
-		char	*psrvrnd = NULL;
-		int	done = 0;
-
-		while(!done && psrvrnd == NULL && NetSockGets(sd,buf,sizeof(buf)-1,5) > 0)
-		{	char *p = buf;
-
-			/* read in the server public key, and send ours in response */
-			if(strncasecmp(buf,"220-key rsa ",12) == 0 && *(p+=12) && key_read(psrvkey,(unsigned char **)&p) && pclikeystr != NULL)
-				NetSockPrintf(sd,"key,%s\r\n",pclikeystr);
-			/* read in the server entropy and decrypt it */
-			if(strncasecmp(buf,"220-rnd ",8) == 0)
-			{	BIGNUM	*bni	= NULL;
-				BIGNUM	*bno	= BN_new();
-
-				BN_dec2bn(&bni,buf+8);
-				key_bn_decrypt(pclikey,bni,bno);
-				psrvrnd = BN_bn2hex(bno);
-			}
-			done = (*(buf+3) == ' ');
-		}
-
-		/* if we have entropy from the server, use it to login */
-		if(psrvrnd != NULL && user != NULL && pass != NULL)
-		{	char	*pkt;
-
-			asprintf(&pkt,"%s:%s;%s",user,pass,psrvrnd);
-			pkt = (char *)key_encrypttoasc(psrvkey,(unsigned char *)pkt,strlen(pkt));
-			if(pkt != NULL)
-			{
-				NetSockPrintf(sd,"auth,%s\r\n",pkt);
-				free(pkt);
-			}
-
-			memset(buf,0,sizeof(buf));
-			done = 0;
-			while(!done && NetSockGets(sd,buf,sizeof(buf)-1,5) > 0)
-				done = *(buf+3) == ' ';
-
-		}
-
-		if(done)
-			NetSockPrintf(sd,"%s,%s\r\n",action,ipstr);
-
-		memset(buf,0,sizeof(buf));
-		while(NetSockGets(sd,buf,sizeof(buf)-1,1) > 0)
-		{
-			if(debugmode>1)
-				printf("%s\n",buf);
-		}
-		NetSockPrintf(sd,"\r\n");
-		NetSockClose(&sd);
-	}
-}
-
 void usage()
 {
 	printf("usage: [-d] [-I server ip address] [-p port number] [-n fname] [-u rule number] [-U auth user name ] [-P auth user password] | [-i fname] | [-a ipaddress] | [-r ipaddress] | [-q ipaddress]\n"
@@ -1030,21 +970,21 @@ int main(int argc, char **argv)
 				if(optarg != NULL && *optarg)
 				{
 					servermode = 0;
-					cliIpfwAction(ip, port, username, userpass, optarg, "add");
+					cliIpfwActionIpv4(ip, port, username, userpass, optarg, "add", debugmode);
 				}
 				break;
 			case 'r':
 				if(optarg != NULL && *optarg)
 				{
 					servermode = 0;
-					cliIpfwAction(ip, port, username, userpass, optarg, "del");
+					cliIpfwActionIpv4(ip, port, username, userpass, optarg, "del", debugmode);
 				}
 				break;
 			case 'q':
 				if(optarg != NULL && *optarg)
 				{
 					servermode = 0;
-					cliIpfwAction(ip, port, username, userpass, optarg, "status");
+					cliIpfwActionIpv4(ip, port, username, userpass, optarg, "status", debugmode);
 				}
 				break;
 			case 'U':
@@ -1060,7 +1000,16 @@ int main(int argc, char **argv)
 				{	struct hostent *pHostent = gethostbyname(optarg);
 
 					if(pHostent != NULL && pHostent->h_addrtype == AF_INET)
-						ip = ntohl(pHostent->h_addr_list[0]);
+						ip = ntohl(*pHostent->h_addr_list[0]);
+					if(pHostent != NULL)
+					{	char *p = mlfi_inet_ntopAF(pHostent->h_addrtype, pHostent->h_addr_list[0]);
+
+						if(p != NULL)
+						{
+							printf("-I '%s' == '%s'\n", optarg, p);
+							free(p);
+						}
+					}
 				}
 				break;
 			case '?':

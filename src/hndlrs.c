@@ -2,7 +2,7 @@
  *
  * Developed by;
  *	Neal Horman - http://www.wanlink.com
- *	Copyright (c) 2003 Neal Horman. All Rights Reserved
+ *	Copyright (c) 2003-2015 Neal Horman. All Rights Reserved
  *
  *	Redistribution and use in source and binary forms, with or without
  *	modification, are permitted provided that the following conditions
@@ -187,12 +187,9 @@ void mlfi_MtaHostIpfwAction(mlfiPriv *priv, char *action)
 	int sd = (pHostent != NULL ? NetSockOpenTcpPeerAf(pHostent->h_addrtype, pHostent->h_addr_list[0], port) : INVALID_SOCKET);
 
 	if(sd != INVALID_SOCKET)
-	{	char	buf[1024];
-
+	{
 		mlfi_debug(priv->pSessionUuidStr,"mlfi_MtaHostIpfwAction: %s %s\n",priv->ipstr,action);
-		while(NetSockGets(sd,buf,sizeof(buf)-1,1) > 0)
-			;
-		NetSockPrintf(sd,"%s,%s\r\n\r\n",action,priv->ipstr);
+		cliIpfwActionSd(sd, iniGetStr(OPT_IPFWUSER), iniGetStr(OPT_IPFWPASS), priv->ipstr, action, 0);
 		NetSockClose(&sd);
 	}
 }

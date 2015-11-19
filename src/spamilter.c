@@ -139,6 +139,8 @@ ik_t gpIk[] =
 #endif
 	{ OVT_STR, OPT_IPFWHOST,			"127.0.0.1" },
 	{ OVT_STR, OPT_IPFWPORT,			"4739" },
+	{ OVT_STR, OPT_IPFWUSER,			"none" },
+	{ OVT_STR, OPT_IPFWPASS,			"" },
 #ifdef SUPPORT_GREYLIST
 	{ OVT_STR, OPT_GREYLISTHOST,			"127.0.0.1" },
 	{ OVT_STR, OPT_GREYLISTPORT,			"7892" },

@@ -158,6 +158,8 @@
 	#define OPT_GEOIPCHK			"GeoIPChk"			// Bool - do GeoIP Country Code List action checking
 	#define OPT_IPFWHOST			"IpfwHost"			// Str - IpfwMtaD hostname / ip address
 	#define OPT_IPFWPORT			"IpfwPort"			// Int - IpfwMtaD host port
+	#define OPT_IPFWUSER			"IpfwUser"			// Str - IpfwMtaD auth user name
+	#define OPT_IPFWPASS			"IpfwPass"			// Int - IpfwMtaD auth user password
 	#define OPT_GREYLISTHOST		"GreyListHost"			// Str - GreyList (greydbd) hostname / ip address
 	#define OPT_GREYLISTPORT		"GreyListPort"			// Int - GreyList (greydbd) host port
 
