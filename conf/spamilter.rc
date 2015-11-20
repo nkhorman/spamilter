@@ -31,5 +31,8 @@ GeoIPChk		= 1
 
 IpfwHost		= 127.0.0.1
 IpfwPort		= 4739
+IpfwUser		= UserName
+IpfwPass		= UserPassword
+
 GreyListHost		= 127.0.0.1
 GeryListPort		= 7892
