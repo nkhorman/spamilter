@@ -44,5 +44,6 @@
 // returns 1 susccessful
 int cliIpfwActionSd(int sd, char const *user, char const *pass, char *ipstr, char *action, int debugmode);
 int cliIpfwActionIpv4(unsigned long ip, unsigned short port, char const *user, char const *pass, char *ipstr, char *action, int debugmode);
+int cliIpfwActionAF(int afType, char const *afAddr, unsigned short port, char const *user, char const *pass, char *ipstr, char *action, int debugmode);
 
 #endif
