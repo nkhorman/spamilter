@@ -70,6 +70,7 @@ static char const cvsid[] = "@(#)$Id: hndlrs.c,v 1.185 2015/01/21 04:41:19 neal 
 #include "badext.h"
 #include "smisc.h"
 #include "ifi.h"
+#include "ipfw_mtacli.h"
 #ifdef SUPPORT_POPAUTH
 #include "popauth.h"
 #endif
@@ -183,15 +184,13 @@ int mlfi_status_debug(mlfiPriv *priv, sfsistat *prs, const char *statusstr, cons
 
 void mlfi_MtaHostIpfwAction(mlfiPriv *priv, char *action)
 {	struct hostent *pHostent = gethostbyname(iniGetStr(OPT_IPFWHOST));
+	unsigned long ip = htonl(INADDR_LOOPBACK);
+	char const *afAddr = (pHostent != NULL ? pHostent->h_addr_list[0] : (char *)&ip);
+	int afType = (pHostent != NULL ? pHostent->h_addrtype: AF_INET);
 	unsigned short port = iniGetInt(OPT_IPFWPORT); // 4739
-	int sd = (pHostent != NULL ? NetSockOpenTcpPeerAf(pHostent->h_addrtype, pHostent->h_addr_list[0], port) : INVALID_SOCKET);
 
-	if(sd != INVALID_SOCKET)
-	{
-		mlfi_debug(priv->pSessionUuidStr,"mlfi_MtaHostIpfwAction: %s %s\n",priv->ipstr,action);
-		cliIpfwActionSd(sd, iniGetStr(OPT_IPFWUSER), iniGetStr(OPT_IPFWPASS), priv->ipstr, action, 0);
-		NetSockClose(&sd);
-	}
+	mlfi_debug(priv->pSessionUuidStr,"mlfi_MtaHostIpfwAction: %s %s\n",priv->ipstr,action);
+	cliIpfwActionAF(afType, afAddr, port, iniGetStr(OPT_IPFWUSER), iniGetStr(OPT_IPFWPASS), priv->ipstr, action, 0);
 }
 
 sfsistat mlfi_rdnsbl_reject(SMFICTX *ctx, sfsistat *rs, int stage, struct sockaddr *psa, RBLLISTHOSTS *prblhosts, RBLLISTMATCH **pprblmatch)
