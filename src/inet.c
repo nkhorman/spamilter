@@ -223,22 +223,22 @@ int NetSockOpenTcpPeer(unsigned long ip, unsigned short port)
 }
 
 int NetSockOpenTcpListenAf(int afType, const char *in, unsigned short port)
-{	int			sd,ok;
+{	int			sd=-1;
 	unsigned long		arg_on	= 1;
 	struct sockaddr *	pSa = NetSockInitAf(NULL, afType, in, port);
-
 #ifdef HAVE_SOCKADDR_SA_LEN
 #define SALEN pSa->sa_len
 #else
 #define SALEN (afType == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6))
 #endif
-	ok = (pSa != NULL) &&
-		((sd = socket(AF_INET, SOCK_STREAM, 0)) != INVALID_SOCKET) &&
-		NetSockOptNoLinger(sd) &&
-		NetSockOpt(sd, SO_REUSEADDR, 1) &&
-		(ioctl(sd, FIONBIO, &arg_on) == 0) &&
-		(bind(sd, pSa, SALEN) != SOCKET_ERROR) &&
-		(listen(sd, 1) != SOCKET_ERROR);
+	int ok = (pSa != NULL
+		&& (sd = socket(afType, SOCK_STREAM, 0)) != INVALID_SOCKET
+		&& NetSockOptNoLinger(sd)
+		&& NetSockOpt(sd, SO_REUSEADDR, 1)
+		&& ioctl(sd, FIONBIO, &arg_on) == 0
+		&& bind(sd, pSa, SALEN) != SOCKET_ERROR
+		&& listen(sd, 1) != SOCKET_ERROR
+		);
 
 	if(!ok)
 		NetSockClose(&sd);
