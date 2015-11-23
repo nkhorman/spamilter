@@ -188,9 +188,13 @@ void mlfi_MtaHostIpfwAction(mlfiPriv *priv, char *action)
 	char const *afAddr = (pHostent != NULL ? pHostent->h_addr_list[0] : (char *)&ip);
 	int afType = (pHostent != NULL ? pHostent->h_addrtype: AF_INET);
 	unsigned short port = iniGetInt(OPT_IPFWPORT); // 4739
+	char *pIpStr = mlfi_inet_ntopAF(afType, afAddr);
 
-	mlfi_debug(priv->pSessionUuidStr,"mlfi_MtaHostIpfwAction: %s %s\n",priv->ipstr,action);
+	mlfi_debug(priv->pSessionUuidStr,"mlfi_MtaHostIpfwAction: %s:%s --> ipfwmtad %s:%u\n", action, priv->ipstr, pIpStr, port);
 	cliIpfwActionAF(afType, afAddr, port, iniGetStr(OPT_IPFWUSER), iniGetStr(OPT_IPFWPASS), priv->ipstr, action, 0);
+
+	if(pIpStr != NULL)
+		free(pIpStr);
 }
 
 sfsistat mlfi_rdnsbl_reject(SMFICTX *ctx, sfsistat *rs, int stage, struct sockaddr *psa, RBLLISTHOSTS *prblhosts, RBLLISTMATCH **pprblmatch)
