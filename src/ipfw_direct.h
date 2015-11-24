@@ -41,7 +41,7 @@
 #ifndef _SPAMILTER_IPFW_DIRECT_H_
 #define _SPAMILTER_IPFW_DIRECT_H_
 
-	int ipfw_add(int rulenum, int afType, const char *pAfAddr, short port, int action);
+	int ipfw_add(int rulenum, const char *pIpStr, unsigned short port, int action);
 	int ipfw_del(int rulenum);
 
 	void ipfw_startup();

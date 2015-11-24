@@ -60,15 +60,23 @@
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
 
+#include "misc.h"
+
 extern int debugmode;
 
 int ipfw_sd = -1;
 
-int ipfw_add(int rulenum, int afType, const char *pAfAddr, short port, int action)
+int ipfw_add(int rulenum, const char *pIpStr, unsigned short port, int action)
 {	int rc = -1;
+	int afType = AF_UNSPEC;
+	char *pAfAddr = NULL;
+
 
 #if defined(IPFW2) || (__FreeBSD_version >= 600000)
-	if(ipfw_sd != -1 && (afType == AF_INET || afType == AF_INET6))
+	if(ipfw_sd != -1
+		&& mlfi_inet_ptonAF(&afType, &pAfAddr, pIpStr)
+		&& (afType == AF_INET || afType == AF_INET6)
+		)
 	{	socklen_t socklen;
 		uint32_t rulebuf[255];
 		struct ip_fw *rule = (struct ip_fw *)rulebuf;
@@ -86,10 +94,10 @@ int ipfw_add(int rulenum, int afType, const char *pAfAddr, short port, int actio
 		bzero(cmd, sizeof(*cmd));
 
 		// source IP
-		((ipfw_insn_ip *)cmd)->o.len &= ~F_LEN_MASK;	// zero len
 		switch(afType)
 		{
 			case AF_INET:
+				((ipfw_insn_ip *)cmd)->o.len &= ~F_LEN_MASK;	// zero len
 				{	uint32_t *da = ((ipfw_insn_u32 *)cmd)->d;
 
 					da[0] = *(unsigned long *)pAfAddr;//htonl(ip);
@@ -101,14 +109,15 @@ int ipfw_add(int rulenum, int afType, const char *pAfAddr, short port, int actio
 				cmd->opcode = O_IP_SRC;//O_IP_SRC_MASK;
 				break;
 			case AF_INET6:
-				{	struct in6_addr *d = &(cmd->addr6);
+				((ipfw_insn_ip6 *)cmd)->o.len &= ~F_LEN_MASK;	// zero len
+				{	struct in6_addr *d = &((ipfw_insn_ip6 *)cmd)->addr6;
 
-					memcpy(&d[0], pAfAddr, sizeof(struct in6_addr));
+					memcpy(d, pAfAddr, sizeof(struct in6_addr));
 					// since /128, this is unessecary
 					//memset(&d[1], 0xFF, sizeof(struct in6_addr)); // force /128
 					//APPLY_MASK(&d[0], &d[1]);
 				}
-				((ipfw_insn_ip6 *)cmd)->o.len |= F_INSN_SIZE(struct in6_addr);//*2;
+				((ipfw_insn_ip6 *)cmd)->o.len |= F_INSN_SIZE(ipfw_insn) + F_INSN_SIZE(struct in6_addr);//*2;
 				cmd->opcode = O_IP6_SRC;//O_IP6_SRC_MASK;
 				break;
 		}
@@ -146,11 +155,14 @@ int ipfw_add(int rulenum, int afType, const char *pAfAddr, short port, int actio
 		socklen = (char *)cmd - (char *)rule;
 		rc = getsockopt(ipfw_sd, IPPROTO_IP, IP_FW_ADD, rule, &socklen);
 #else
-	if(ipfw_sd != -1 && afType == AF_INET)
+	if(ipfw_sd != -1
+		&& mlfi_inet_ptonAF(&afType, &pAfAddr, pIpStr)
+		&& afType == AF_INET
+		)
 	{	socklen_t socklen;
 		struct ip_fw rule;
 	
-		memset(&rule,0,sizeof(rule));
+		memset(&rule, 0, sizeof(rule));
 		rule.fw_number	= rulenum;
 		rule.fw_flg	|= (action==1? IP_FW_F_ACCEPT : IP_FW_F_DENY);
 		rule.fw_prot	= IPPROTO_TCP;
@@ -175,9 +187,15 @@ int ipfw_add(int rulenum, int afType, const char *pAfAddr, short port, int actio
 #endif
 
 		if(debugmode > 1)
-			printf("ipfw_add: %u.%u.%u.%u port %u = %d/%s errno %d\n",
-				(int)((ip&0xff000000)>>24),(int)((ip&0x00ff0000)>>16),(int)((ip&0x0000ff00)>>8),(int)(ip&0xff),port,rc,(rc == 0 ? "Success":"Fail"),errno);
+			printf("ipfw_add: %s port %u = %d/%s errno %d\n", pIpStr, port, rc, (rc == 0 ? "Success":"Fail"), errno);
 	}
+#ifdef _UNIT_TEST
+	else
+		printf("ip address '%s' invalid\n", pIpStr);
+#endif
+
+	if(pAfAddr != NULL)
+		free(pAfAddr);
 
 	return(rc == 0);
 }
@@ -205,6 +223,10 @@ void ipfw_startup()
 {	
 	if(ipfw_sd == -1)
 		ipfw_sd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+#ifdef _UNIT_TEST
+	else
+		printf("Unable to open ipfw socket\n");
+#endif
 }
 
 void ipfw_shutdown()
@@ -218,7 +240,7 @@ void ipfw_shutdown()
 
 #ifdef _UNIT_TEST
 int debugmode=1;
-main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {	char *ipaddr_add = NULL;
 	int ipaddr_del = 0;
 	int ip_rule = 70;
@@ -242,22 +264,21 @@ main(int argc, char *argv[])
 
 	if(ipaddr_add != NULL || ipaddr_del)
 	{
-		ipfw_startup();
+		if(getuid() == 0)
+		{
+			ipfw_startup();
 
-		if(ipaddr_add != NULL)
-		{	long ip = 0;
-			int a,b,c,d;
+			if(ipaddr_add != NULL)
+				ipfw_add(ip_rule, ipaddr_add, 25, 0);
+			else if(ipaddr_del)
+				ipfw_del(ip_rule);
 
-			if(sscanf(ipaddr_add,"%u.%u.%u.%u",&a,&b,&c,&d) == 4)
-			{
-				ip = (a<<24) | (b<<16) | (c<<8) | d;
-				ipfw_add(ip_rule,ip, 25);
-			}
+			ipfw_shutdown();
 		}
-		else if(ipaddr_del)
-			ipfw_del(ip_rule);
-
-		ipfw_shutdown();
+		else
+			printf("Must be root user\n");
 	}
+
+	return 0;
 }
 #endif
