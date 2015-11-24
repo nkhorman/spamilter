@@ -262,7 +262,7 @@ char *mlfi_inet_ntopAF(int afType, const char *in)
 			case AF_INET6: s = INET6_ADDRSTRLEN; break;
 		}
 
-		if(s > 0 && (pstr = calloc(1,s)) != NULL)
+		if(s > 0 && (pstr = calloc(1,s+1)) != NULL)
 			pstr = (char *)inet_ntop(afType, in, pstr, s);
 	}
 
@@ -307,6 +307,39 @@ int mlfi_systemPrintf(char *fmt, ...)
 			free(str);
 		}
 		va_end(vl);
+	}
+
+	return rc;
+}
+
+// Convert ip address string to struct in_addr* or struct in6_addr*
+//	pAfType - out var - AF_UNSPEC, AF_INET, AF_INET6
+//	ppAfAddr - out var - NULL *, struct in_addr*, struct in6_addr*
+//	pIpStr - in var - ip address string
+// returns;
+//	0 = fail
+//	1 = success
+// Caller must free(*ppAfAddr) if return = success
+int mlfi_inet_ptonAF(int *pAfType, char **ppAfAddr, const char *pIpStr)
+{	int rc = 0;
+
+	if(pAfType != NULL && ppAfAddr != NULL)
+	{
+		*pAfType = AF_UNSPEC;
+		*ppAfAddr = calloc(1, sizeof(struct in6_addr));
+
+		if(*ppAfAddr != NULL)
+		{
+			if(inet_pton(AF_INET, pIpStr, (struct in_addr *)*ppAfAddr))
+				*pAfType = AF_INET;
+			else if(inet_pton(AF_INET6, pIpStr, (struct in6_addr *)*ppAfAddr))
+				*pAfType = AF_INET6;
+			if(!rc)
+			{
+				free(*ppAfAddr);
+				*ppAfAddr = NULL;
+			}
+		}
 	}
 
 	return rc;

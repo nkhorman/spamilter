@@ -70,5 +70,7 @@
 	char *mlfi_inet_ntopAF(int afType, const char *in);
 	char *mlfi_inet_ntopSA(const struct sockaddr *psa);
 
+	int mlfi_inet_ptonAF(int *pAfType, char **ppAfAddr, const char *pIpStr);
+
 	int mlfi_systemPrintf(char *fmt, ...);
 #endif
