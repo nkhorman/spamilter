@@ -55,7 +55,7 @@
 #include <netinet/ip.h>
 #include <netinet/ip_icmp.h>
 #include <netinet/ip_fw.h>
-#include <net/route.h> /* def. of struct route */
+#include <net/route.h> // def. of struct route
 #include <netinet/ip_dummynet.h>
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
@@ -64,12 +64,12 @@ extern int debugmode;
 
 int ipfw_sd = -1;
 
-int ipfw_add(int rulenum, long ip, short port, int action)
+int ipfw_add(int rulenum, int afType, const char *pAfAddr, short port, int action)
 {	int rc = -1;
 
-	if(ipfw_sd != -1)
-	{	socklen_t socklen;
 #if defined(IPFW2) || (__FreeBSD_version >= 600000)
+	if(ipfw_sd != -1 && (afType == AF_INET || afType == AF_INET6))
+	{	socklen_t socklen;
 		uint32_t rulebuf[255];
 		struct ip_fw *rule = (struct ip_fw *)rulebuf;
 		ipfw_insn *cmd = rule->cmd;
@@ -86,20 +86,37 @@ int ipfw_add(int rulenum, long ip, short port, int action)
 		bzero(cmd, sizeof(*cmd));
 
 		// source IP
-		((ipfw_insn_ip *)cmd)->o.len &= ~F_LEN_MASK;	/* zero len */
-		{	uint32_t *da = ((ipfw_insn_u32 *)cmd)->d;
+		((ipfw_insn_ip *)cmd)->o.len &= ~F_LEN_MASK;	// zero len
+		switch(afType)
+		{
+			case AF_INET:
+				{	uint32_t *da = ((ipfw_insn_u32 *)cmd)->d;
 
-			da[0] = htonl(ip);
-			da[1] = htonl(~0);	/* force /32 */
-			da[0] &= da[1];		/* mask base address with mask */
+					da[0] = *(unsigned long *)pAfAddr;//htonl(ip);
+					// since /32, this is unessecary
+					//da[1] = htonl(~0);	// force /32
+					//da[0] &= da[1];		// mask base address with mask
+				}
+				((ipfw_insn_ip *)cmd)->o.len |= F_INSN_SIZE(ipfw_insn_u32);//*2;
+				cmd->opcode = O_IP_SRC;//O_IP_SRC_MASK;
+				break;
+			case AF_INET6:
+				{	struct in6_addr *d = &(cmd->addr6);
+
+					memcpy(&d[0], pAfAddr, sizeof(struct in6_addr));
+					// since /128, this is unessecary
+					//memset(&d[1], 0xFF, sizeof(struct in6_addr)); // force /128
+					//APPLY_MASK(&d[0], &d[1]);
+				}
+				((ipfw_insn_ip6 *)cmd)->o.len |= F_INSN_SIZE(struct in6_addr);//*2;
+				cmd->opcode = O_IP6_SRC;//O_IP6_SRC_MASK;
+				break;
 		}
-		((ipfw_insn_ip *)cmd)->o.len |= F_INSN_SIZE(ipfw_insn_u32);
-		cmd->opcode = O_IP_SRC;
 		cmd += F_LEN(cmd);
 		bzero(cmd, sizeof(*cmd));
 
 		// destination IP
-		((ipfw_insn_ip *)cmd)->o.len &= ~F_LEN_MASK;	/* zero len */
+		((ipfw_insn_ip *)cmd)->o.len &= ~F_LEN_MASK;	// zero len
 		cmd->opcode = O_IP_DST;
 		cmd += F_LEN(cmd);
 		bzero(cmd, sizeof(*cmd));
@@ -109,7 +126,7 @@ int ipfw_add(int rulenum, long ip, short port, int action)
 			uint16_t *p = cmd16->ports;
 
 			p[0] = p[1] = port;
-			cmd16->o.len |= 2; /* leave F_NOT and F_OR untouched */
+			cmd16->o.len |= 2; // leave F_NOT and F_OR untouched
 		}
 		cmd->opcode = O_IP_DSTPORT;
 		cmd += F_LEN(cmd);
@@ -129,26 +146,28 @@ int ipfw_add(int rulenum, long ip, short port, int action)
 		socklen = (char *)cmd - (char *)rule;
 		rc = getsockopt(ipfw_sd, IPPROTO_IP, IP_FW_ADD, rule, &socklen);
 #else
-		struct ip_fw	rule;
+	if(ipfw_sd != -1 && afType == AF_INET)
+	{	socklen_t socklen;
+		struct ip_fw rule;
 	
 		memset(&rule,0,sizeof(rule));
 		rule.fw_number	= rulenum;
 		rule.fw_flg	|= (action==1? IP_FW_F_ACCEPT : IP_FW_F_DENY);
 		rule.fw_prot	= IPPROTO_TCP;
 
-		/* from */
-		rule.fw_src.s_addr	= htonl(ip);
+		// from
+		rule.fw_src.s_addr	= *(unsigned long *)pAfAddr;//htonl(ip);
 		rule.fw_smsk.s_addr	= htonl(~0);
 
-		/* to */
+		// to
 		rule.fw_dst.s_addr	= 0;
 		rule.fw_dmsk.s_addr	= 0;
 
-		/* dst port */
+		// dst port
 		*(rule.fw_uar.fw_pts+IP_FW_GETNSRCP(&rule)) = port;
 		IP_FW_SETNDSTP(&rule, 1);
 
-		/* No direction specified -> do both directions */
+		// No direction specified -> do both directions
 		rule.fw_flg |= (IP_FW_F_OUT|IP_FW_F_IN);
 
 		i = sizeof(rule);
