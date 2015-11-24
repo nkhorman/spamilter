@@ -334,6 +334,8 @@ int mlfi_inet_ptonAF(int *pAfType, char **ppAfAddr, const char *pIpStr)
 				*pAfType = AF_INET;
 			else if(inet_pton(AF_INET6, pIpStr, (struct in6_addr *)*ppAfAddr))
 				*pAfType = AF_INET6;
+
+			rc = (*pAfType == AF_INET || *pAfType == AF_INET6);
 			if(!rc)
 			{
 				free(*ppAfAddr);
