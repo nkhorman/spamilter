@@ -78,7 +78,7 @@ static char const cvsid[] = "@(#)$Id: ipfwmtad.c,v 1.22 2011/10/27 18:16:53 neal
 
 typedef struct _MTAINFO
 {
-	long	ip;
+	char	ip[INET6_ADDRSTRLEN+1];
 	time_t	timeFirst;
 	time_t	timeExpire;
 	long	timeInterval;
@@ -120,7 +120,10 @@ CLIENT	gChildClients[FD_SETSIZE];
 #define TIME24HOURS (60 * 60 * 24)
 
 void MtaInfoIpfwSync(int needDelete)
-{	PMTAINFO	pinfo = gpMtaInfo;
+{	PMTAINFO pinfo = gpMtaInfo;
+	unsigned short mask = 0;
+	char tmp[sizeof(struct in6_addr)+1];
+
 #if defined(USEIPFWDIRECT) && defined(OS_FreeBSD)
 	ipfw_startup();
 #endif
@@ -141,13 +144,16 @@ void MtaInfoIpfwSync(int needDelete)
 	/* add/remove the mta rules */
 	while(pinfo != NULL)
 	{
+		mask = (inet_pton(AF_INET, pinfo->ip, &tmp) ? 32 :
+			inet_pton(AF_INET6, pinfo->ip, &tmp) ? 128 :
+			0
+			);
+
 		switch(pinfo->opcode)
 		{
 			case OPCODE_PENDING_FWREMOVE:
 #ifdef OS_Linux
-				mlfi_systemPrintf("iptables -D SPAMILTER -s %u.%u.%u.%u/32 -j DROP (or -j REJECT)\n",
-					((pinfo->ip&0xff000000)>>24), ((pinfo->ip&0xff0000)>>16), ((pinfo->ip&0xff00)>>8), (pinfo->ip&0xff)
-					);
+				mlfi_systemPrintf("iptables -D SPAMILTER -s %s/%u -j DROP (or -j REJECT)\n", pinfo->ip, mask);
 #endif
 				pinfo->opcode = OPCODE_FWREMOVED;
 				break;
@@ -161,14 +167,11 @@ void MtaInfoIpfwSync(int needDelete)
 #if defined(USEIPFWDIRECT)
 					ipfw_add(gRuleNum, pinfo->ip, gPortNum, gAction);
 #else
-					mlfi_systemPrintf("ipfw -q add %u deny tcp from %u.%u.%u.%u to any %u\n", gRuleNum,
-						((pinfo->ip&0xff000000)>>24), ((pinfo->ip&0xff0000)>>16), ((pinfo->ip&0xff00)>>8), (pinfo->ip&0xff), gPortNum);
+					mlfi_systemPrintf("ipfw -q add %u deny tcp from %s to any %u\n", gRuleNum, pinfo->ip, gPortNum);
 #endif
 #endif
 #ifdef OS_Linux
-				mlfi_systemPrintf("iptables -I SPAMILTER -s %u.%u.%u.%u/32 -j DROP (or -j REJECT)\n",
-					((pinfo->ip&0xff000000)>>24), ((pinfo->ip&0xff0000)>>16), ((pinfo->ip&0xff00)>>8), (pinfo->ip&0xff)
-					);
+					mlfi_systemPrintf("iptables -I SPAMILTER -s %u.%u.%u.%u/%u -j DROP (or -j REJECT)\n", pinfo->ip, mask);
 #endif
 					pinfo->needAdd = 0;
 				}
@@ -185,7 +188,6 @@ void MtaInfoWriteDb(char *fname)
 {	PMTAINFO	pinfo = gpMtaInfo;
 	int		fdout;
 	FILE		*fout;
-	long		ip;
 	char		*oldfname;
 	char		tempfname[1024];
 
@@ -198,13 +200,12 @@ void MtaInfoWriteDb(char *fname)
 			printf("MtaInfoWriteDb\n");
 		while(pinfo != NULL)
 		{
-			ip = pinfo->ip;
 			if(pinfo->opcode != OPCODE_NONE)
 			{
-				fprintf(fout, "%u.%u.%u.%u %lu %lu %lu %u\n",
-					(int)((ip&0xff000000)>>24), (int)((ip&0xff0000)>>16), (int)((ip&0xff00)>>8), (int)(ip&0xff),
-					(long)pinfo->timeFirst, (long)pinfo->timeExpire, pinfo->count, pinfo->opcode);
+				fprintf(fout, "%s %lu %lu %lu %u\n"
+					, pinfo->ip, (long)pinfo->timeFirst, (long)pinfo->timeExpire, pinfo->count, pinfo->opcode);
 			}
+
 			pinfo = pinfo->next;
 		}
 		fflush(fout);
@@ -232,15 +233,13 @@ void MtaInfoDumpItem(PMTAINFO pinfo)
 		strcpy(timestr, ctime(&pinfo->timeExpire));
 		*(timestr+strlen(timestr)-1) = '\0';
 		
-		printf("%03u.%03u.%03u.%03u\t%lu\t%s\t%s\n",
-			(int)((pinfo->ip&0xff000000)>>24), (int)((pinfo->ip&0xff0000)>>16), (int)((pinfo->ip&0xff00)>>8), (int)(pinfo->ip&0xff),
-			pinfo->count, timestr, opcodes[pinfo->opcode]);
+		printf("%s\t%lu\t%s\t%s\n", pinfo->ip, pinfo->count, timestr, opcodes[pinfo->opcode]);
 	}
 }
 
 void MtaInfoReadDb(char *fname)
 {	FILE		*fin;
-	char		buf[1024];
+	char		buf[2048];
 	char		ipbuf[1024];
 	time_t		first, expire, now = time(NULL);
 	long		count, opcode;
@@ -266,7 +265,7 @@ void MtaInfoReadDb(char *fname)
 					{
 						pinfo = calloc(1, sizeof(MTAINFO));
 						pinfo->next		= gpMtaInfo;
-						pinfo->ip		= ntohl(inet_addr(ipbuf));
+						strncpy(pinfo->ip, ipbuf, sizeof(pinfo->ip));
 						pinfo->timeFirst	= first;
 						pinfo->timeExpire	= expire;
 						pinfo->count		= count;
@@ -282,7 +281,7 @@ void MtaInfoReadDb(char *fname)
 					{
 						pinfo = calloc(1, sizeof(MTAINFO));
 						pinfo->next		= gpMtaInfo;
-						pinfo->ip		= ntohl(inet_addr(ipbuf));
+						strncpy(pinfo->ip, ipbuf, sizeof(pinfo->ip));
 						pinfo->timeFirst	= now;
 						pinfo->timeExpire	= now;
 						pinfo->count		= 1;
@@ -301,27 +300,34 @@ void MtaInfoReadDb(char *fname)
 	}
 }
 
-PMTAINFO MtaInfoFind(long ip)
-{	PMTAINFO pinfo = gpMtaInfo;
+PMTAINFO MtaInfoFind(char *pIpStr)
+{	PMTAINFO pinfo = NULL;
 
-	while(pinfo != NULL && pinfo->ip != ip)
-		pinfo = pinfo->next;
+	if(pIpStr != NULL)
+	{
+		pinfo = gpMtaInfo;
+
+		while(pinfo != NULL && strcmp(pinfo->ip, pIpStr) != 0)
+			pinfo = pinfo->next;
+	}
 
 	return pinfo;
 }
 
-int MtaInfoSet(long ip, long interval, int opcode, int rate)
-{	PMTAINFO	pinfo = MtaInfoFind(ip);
-	int		rc = 500;
+int MtaInfoSet(int afType, char *pAfAddr, long interval, int opcode, int rate)
+{
+	char *pIpStr = mlfi_inet_ntopAF(afType, pAfAddr);
+	PMTAINFO pinfo = MtaInfoFind(pIpStr);
+	int rc = 500;
 
 	if(pinfo == NULL)
 	{
 		pinfo = calloc(1, sizeof(MTAINFO));
 		if(pinfo != NULL)
 		{
-			pinfo->ip		= ip;
-			pinfo->timeFirst	= time(NULL);
-			pinfo->next		= gpMtaInfo;
+			strncpy(pinfo->ip, pIpStr, sizeof(pinfo->ip));
+			pinfo->timeFirst = time(NULL);
+			pinfo->next = gpMtaInfo;
 			gpMtaInfo = pinfo;
 		}
 	}
@@ -332,20 +338,19 @@ int MtaInfoSet(long ip, long interval, int opcode, int rate)
 		{
 			case OPCODE_PENDING_ADD:
 				pinfo->count ++;
-				pinfo->timeInterval	= interval;
-				pinfo->timeExpire	= time(NULL) + interval;
-				pinfo->opcode		= opcode;
+				pinfo->timeInterval = interval;
+				pinfo->timeExpire = time(NULL) + interval;
+				pinfo->opcode = opcode;
 				if(debugmode > 0)
-					printf("MtaInfoSet: add %u.%u.%u.%u\n",
-						(int)((pinfo->ip&0xff000000)>>24), (int)((pinfo->ip&0xff0000)>>16), (int)((pinfo->ip&0xff00)>>8), (int)(pinfo->ip&0xff));
+					printf("MtaInfoSet: add %s\n", pIpStr);
+
 				rc = 220;
 				break;
 
 			case OPCODE_PENDING_DEL:
-				pinfo->opcode		= opcode;
+				pinfo->opcode = opcode;
 				if(debugmode > 0)
-					printf("MtaInfoSet: del %u.%u.%u.%u\n",
-						(int)((pinfo->ip&0xff000000)>>24), (int)((pinfo->ip&0xff0000)>>16), (int)((pinfo->ip&0xff00)>>8), (int)(pinfo->ip&0xff));
+					printf("MtaInfoSet: del %s\n", pIpStr);
 				rc = 220;
 				break;
 
@@ -353,14 +358,13 @@ int MtaInfoSet(long ip, long interval, int opcode, int rate)
 				if(pinfo->opcode == OPCODE_PENDING_INCULPATE || pinfo->opcode == OPCODE_NONE)
 				{
 					pinfo->count ++;
-					pinfo->timeInterval	= interval;
-					pinfo->timeExpire	= time(NULL) + interval;
-					pinfo->opcode		= opcode;
-					pinfo->rate		= rate;
-					pinfo->update		= 1;
+					pinfo->timeInterval = interval;
+					pinfo->timeExpire = time(NULL) + interval;
+					pinfo->opcode = opcode;
+					pinfo->rate = rate;
+					pinfo->update = 1;
 					if(debugmode > 0)
-						printf("MtaInfoSet: inculpate %u.%u.%u.%u\n",
-							(int)((pinfo->ip&0xff000000)>>24), (int)((pinfo->ip&0xff0000)>>16), (int)((pinfo->ip&0xff00)>>8), (int)(pinfo->ip&0xff));
+						printf("MtaInfoSet: inculpate %s\n", pIpStr);
 					rc = 220;
 				}
 				break;
@@ -369,20 +373,22 @@ int MtaInfoSet(long ip, long interval, int opcode, int rate)
 				if(pinfo->count > 0 && pinfo->opcode == OPCODE_PENDING_INCULPATE)
 				{
 					pinfo->count --;
-					pinfo->timeInterval	= interval;
-					pinfo->timeExpire	-= interval;
+					pinfo->timeInterval = interval;
+					pinfo->timeExpire -= interval;
 					if(pinfo->count == 0)
 						pinfo->opcode	= opcode;
-					pinfo->rate		= rate;
-					pinfo->update		= 1;
+					pinfo->rate = rate;
+					pinfo->update = 1;
 					if(debugmode > 0)
-						printf("MtaInfoSet: exculpate %u.%u.%u.%u\n",
-							(int)((pinfo->ip&0xff000000)>>24), (int)((pinfo->ip&0xff0000)>>16), (int)((pinfo->ip&0xff00)>>8), (int)(pinfo->ip&0xff));
+						printf("MtaInfoSet: exculpate %s\n", pIpStr);
 					rc = 220;
 				}
 				break;
 		}
 	}
+
+	if(pIpStr != NULL)
+		free(pIpStr);
 
 	return rc;
 }
@@ -431,8 +437,7 @@ void MtaInfoStateMachineUpdate(char *fname)
 				if(now >= pinfo->timeFirst + 15)
 				{
 					if(debugmode > 0)
-						printf("MtaInfoStateMachineUpdate: add %u.%u.%u.%u\n",
-							(int)((pinfo->ip&0xff000000)>>24), (int)((pinfo->ip&0xff0000)>>16), (int)((pinfo->ip&0xff00)>>8), (int)(pinfo->ip&0xff));
+						printf("MtaInfoStateMachineUpdate: add %s\n", pinfo->ip);
 					pinfo->opcode = OPCODE_BLOCKED;
 					pinfo->needAdd = needAdd = 1;
 				}
@@ -442,17 +447,16 @@ void MtaInfoStateMachineUpdate(char *fname)
 				if(pinfo->count > 0 && now > pinfo->timeFirst + (60 * 60))
 				{
 					if(debugmode > 0)
-						printf("MtaInfoStateMachineUpdate: reset inculpated %u.%u.%u.%u\n",
-							(int)((pinfo->ip&0xff000000)>>24), (int)((pinfo->ip&0xff0000)>>16), (int)((pinfo->ip&0xff00)>>8), (int)(pinfo->ip&0xff));
+						printf("MtaInfoStateMachineUpdate: reset inculpated %s\n", pinfo->ip);
 					needUpdate = MtaInfoDelete(pinfo);
 				}
 				/* more than 'interval' times per minute = broken server / persitent spammer / pain in the ass! */
 				else if(pinfo->count > 0 && pinfo->rate > 0 && ((60 * 60) / pinfo->count) < ((60 * 60) / pinfo->rate))
 				{
 					if(debugmode > 0)
-						printf("MtaInfoStateMachineUpdate: add inculpated %u.%u.%u.%u - calculated: %lu, rate: %u\n",
-							(int)((pinfo->ip&0xff000000)>>24), (int)((pinfo->ip&0xff0000)>>16), (int)((pinfo->ip&0xff00)>>8), (int)(pinfo->ip&0xff),
-							(60 / pinfo->count), (60 / pinfo->rate));
+						printf("MtaInfoStateMachineUpdate: add inculpated %s - calculated: %lu, rate: %u\n",
+							pinfo->ip, (60 / pinfo->count), (60 / pinfo->rate)
+							);
 					pinfo->opcode = OPCODE_INCULPATE_BLOCKED;
 					pinfo->update = 0;
 					pinfo->needAdd = needAdd = 1;
@@ -468,8 +472,7 @@ void MtaInfoStateMachineUpdate(char *fname)
 				if(pinfo->update)
 				{
 					if(debugmode > 0)
-						printf("MtaInfoStateMachineUpdate: exculpate %u.%u.%u.%u\n",
-							(int)((pinfo->ip&0xff000000)>>24), (int)((pinfo->ip&0xff0000)>>16), (int)((pinfo->ip&0xff00)>>8), (int)(pinfo->ip&0xff));
+						printf("MtaInfoStateMachineUpdate: exculpate %s\n", pinfo->ip);
 					if(pinfo->count == 0)
 					{
 						needDelete = 1;
@@ -483,8 +486,7 @@ void MtaInfoStateMachineUpdate(char *fname)
 
 			case OPCODE_PENDING_DEL:
 				if(debugmode > 0)
-					printf("MtaInfoStateMachineUpdate: delete %u.%u.%u.%u\n",
-						(int)((pinfo->ip&0xff000000)>>24), (int)((pinfo->ip&0xff0000)>>16), (int)((pinfo->ip&0xff00)>>8), (int)(pinfo->ip&0xff));
+					printf("MtaInfoStateMachineUpdate: delete %s\n", pinfo->ip);
 				needDelete = 1;
 				pinfo->opcode = OPCODE_PENDING_FWREMOVE;
 				break;
@@ -495,8 +497,7 @@ void MtaInfoStateMachineUpdate(char *fname)
 				if(now >= pinfo->timeExpire)
 				{
 					if(debugmode > 0)
-						printf("MtaInfoStateMachineUpdate: expire %u.%u.%u.%u\n",
-							(int)((pinfo->ip&0xff000000)>>24), (int)((pinfo->ip&0xff0000)>>16), (int)((pinfo->ip&0xff00)>>8), (int)(pinfo->ip&0xff));
+						printf("MtaInfoStateMachineUpdate: expire %s\n", pinfo->ip);
 					needDelete = 1;
 					pinfo->opcode = OPCODE_PENDING_FWREMOVE;
 				}
@@ -517,27 +518,31 @@ void MtaInfoStateMachineUpdate(char *fname)
 	}
 }
 
-int MtaInfoDump(int sd, long ip, int stat)
-{	PMTAINFO	pinfo = gpMtaInfo;
-	int		rc = sd != -1 && pinfo != NULL ? 220 : 500;
-	char		timestr[256];
-	int		done = 0;
+int MtaInfoDump(int sd, int afType, char *pAfAddr, int stat)
+{	PMTAINFO pinfo = gpMtaInfo;
+	char *pIpStr = mlfi_inet_ntopAF(afType, pAfAddr);
+	int rc = (sd != -1 && pinfo != NULL ? 220 : 500);
+	char timestr[256];
+	int done = 0;
 
 	while(pinfo != NULL && !done)
 	{
-		if(ip == -1 || ip == 0 || pinfo->ip == ip)
+		if(pIpStr == NULL || (pIpStr != NULL && strcmp(pinfo->ip, pIpStr) == 0))
 		{
-			done = pinfo->ip == ip;
+			done = (pIpStr != NULL && strcmp(pinfo->ip, pIpStr) == 0);
 			strcpy(timestr, ctime(&pinfo->timeExpire));
 			*(timestr+strlen(timestr)-1) = '\0';
-			NetSockPrintf(sd, "%03u%c%03u.%03u.%03u.%03u\t%u\t%s\t%s\n", stat, pinfo->next != NULL && !done ? '-' : ' ',
-				(int)((pinfo->ip&0xff000000)>>24), (int)((pinfo->ip&0xff0000)>>16), (int)((pinfo->ip&0xff00)>>8), (int)(pinfo->ip&0xff),
-				pinfo->count, timestr, opcodes[pinfo->opcode]);
+			NetSockPrintf(sd, "%03u%c%s\t%u\t%s\t%s\n", stat, pinfo->next != NULL && !done ? '-' : ' ',
+				pinfo->ip, pinfo->count, timestr, opcodes[pinfo->opcode]
+				);
 		}
 		pinfo = pinfo->next;
 	}
-	if(ip > 0 && !done)
+	if(afType != AF_UNSPEC && !done)
 		NetSockPrintf(sd, "220 Not found\n");
+
+	if(pIpStr != NULL)
+		free(pIpStr);
 
 	return rc;
 }
@@ -633,7 +638,8 @@ void clientSessionAuth(int sd, char *buf)
 
 void clientSessionReadLine(int sd, char *buf)
 {	unsigned int rc = 500;
-	long	ip = -1;
+	int	afType = AF_UNSPEC;
+	char	*pAfAddr = NULL;
 	long	interval = 2 * TIME24HOURS;
 	int	rate = 14;
 	char	bufcmd[10];
@@ -661,7 +667,7 @@ void clientSessionReadLine(int sd, char *buf)
 	buf = mlfi_strcpyadv(bufrate, sizeof(bufrate), buf, ',');
 
 	if(strlen(bufip))
-		ip = ntohl(inet_addr(bufip));
+		mlfi_inet_ptonAF(&afType, &pAfAddr, bufip);
 
 	if(strlen(bufinterval))
 		interval = TIME24HOURS * atoi(bufinterval);
@@ -671,16 +677,16 @@ void clientSessionReadLine(int sd, char *buf)
 
 	if(gChildClients[sd].authlevel == AL_FULL)
 	{
-		if(ip != -1 && ip != 0)
+		if(afType != AF_UNSPEC)
 		{
 			if(strcasecmp(bufcmd, "add") == 0)
-				rc = MtaInfoSet(ip, interval, OPCODE_PENDING_ADD, 0);
+				rc = MtaInfoSet(afType, pAfAddr, interval, OPCODE_PENDING_ADD, 0);
 			else if(strcasecmp(bufcmd, "del") == 0)
-				rc = MtaInfoSet(ip, interval, OPCODE_PENDING_DEL, 0);
+				rc = MtaInfoSet(afType, pAfAddr, interval, OPCODE_PENDING_DEL, 0);
 			else if(strcasecmp(bufcmd, "inculpate") == 0 || strcasecmp(bufcmd, "nominate") == 0)
-				rc = MtaInfoSet(ip, interval, OPCODE_PENDING_INCULPATE, rate);
+				rc = MtaInfoSet(afType, pAfAddr, interval, OPCODE_PENDING_INCULPATE, rate);
 			else if(strcasecmp(bufcmd, "exculpate") == 0)
-				rc = MtaInfoSet(ip, interval, OPCODE_PENDING_EXCULPATE, rate);
+				rc = MtaInfoSet(afType, pAfAddr, interval, OPCODE_PENDING_EXCULPATE, rate);
 
 			if(rc != 500)
 				NetSockPrintf(sd, "%03u %s\r\n", rc, bufcmd);
@@ -690,7 +696,7 @@ void clientSessionReadLine(int sd, char *buf)
 		NetSockPrintf(sd, "221 error - unauthorized\r\n");
 
 	if(strcasecmp(bufcmd, "status") == 0)
-		rc = MtaInfoDump(sd, ip, 250);
+		rc = MtaInfoDump(sd, afType, pAfAddr, 250);
 }
 
 void clientSessionReadLines(int i, fd_set *fds)
