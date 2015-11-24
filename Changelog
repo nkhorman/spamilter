@@ -1,4 +1,17 @@
 Changelog;
+	20151023
+	* mod - ipfwmtad is now ipv6 enabled
+	* mod - ipfwmtad will now bind to ipv4 and ipv6 addresses, not just 127.0.0.1
+	* mod - spamilter - add config knobs in spamilter.rc for ipfwmtad host, port, user, and user password
+
+	20151018
+	* mod - spamilter - will now auth ipfwmtad for of 127.0.0.1 connections
+	* fix - ipfwmtad client auth
+	* mod - teach configure to try and find pg_config to and locate postgresql's client headers and lib
+
+	20150924
+	* mod - do not ipfw block an mx host when the recipient is blacklisted, if the came from a whitelisted sender
+
 	20150814
 	* add - implement IPFW as an action for db.rcpt
 
