@@ -697,6 +697,9 @@ void clientSessionReadLine(int sd, char *buf)
 
 	if(strcasecmp(bufcmd, "status") == 0)
 		rc = MtaInfoDump(sd, afType, pAfAddr, 250);
+
+	if(pAfAddr != NULL)
+		free(pAfAddr);
 }
 
 void clientSessionReadLines(int i, fd_set *fds)
