@@ -572,7 +572,7 @@ char *pgsql_RegReplace(char *pattern, char *replace, char *string)
 	err = regcomp(&re, pattern, 0);
 	if(err) {
 		len = regerror(err, &re, erbuf, sizeof(erbuf));
-		printf("Regex error %s, %d/%d `%s'\n", pgsql_reg_eprint(err), len, sizeof(erbuf), erbuf);
+		printf("Regex error %s, %d/%lu `%s'\n", pgsql_reg_eprint(err), len, sizeof(erbuf), erbuf);
 		return((char *)-1);
 	}	
 
@@ -602,7 +602,7 @@ char *pgsql_RegReplace(char *pattern, char *replace, char *string)
 #endif
 		if(err && err!=REG_NOMATCH) {
 			len = regerror(err, &re, erbuf, sizeof(erbuf));
-			printf("Regex error %s, %d/%d `%s'\n", pgsql_reg_eprint(err), len, sizeof(erbuf), erbuf);
+			printf("Regex error %s, %d/%lu `%s'\n", pgsql_reg_eprint(err), len, sizeof(erbuf), erbuf);
 			regfree(&re);
 			return((char *)-1);
 		}
