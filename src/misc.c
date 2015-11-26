@@ -347,3 +347,23 @@ int mlfi_inet_ptonAF(int *pAfType, char **ppAfAddr, const char *pIpStr)
 	return rc;
 }
 
+unsigned short mlfi_inet_ntosSA(struct sockaddr *pSa)
+{	unsigned short port = 0;
+
+	switch(pSa->sa_family)
+	{
+		case AF_INET: port = ntohs(((struct sockaddr_in *)pSa)->sin_port); break;
+		case AF_INET6: port = ntohs(((struct sockaddr_in6 *)pSa)->sin6_port); break;
+	}
+
+	return port;
+}
+
+void mlfi_inet_ntopsSA(struct sockaddr *pSa, char **ppIpStr, unsigned short *pPort)
+{
+	if(ppIpStr != NULL)
+		*ppIpStr = mlfi_inet_ntopSA(pSa);
+
+	if(pPort != NULL)
+		*pPort = mlfi_inet_ntosSA(pSa);
+}
