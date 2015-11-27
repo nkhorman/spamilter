@@ -96,6 +96,8 @@ typedef struct _CLIENTINFO
 	BIGNUM		*pchallenge;
 	char		*pchallengestr;
 	RSA		*pclikey;
+	char		*pIpStr;
+	unsigned short	ipPort;
 } CLIENT, *PCLIENT;
 
 enum { AL_NONE, AL_FULL };
@@ -104,7 +106,7 @@ char *opcodes[] = {"None\t", "Pending Add", "Inculpate", "Pending Del", "Blocked
 
 enum { OPCODE_NONE, OPCODE_PENDING_ADD, OPCODE_PENDING_INCULPATE, OPCODE_PENDING_DEL, OPCODE_BLOCKED, OPCODE_INCULPATE_BLOCKED, OPCODE_PENDING_EXCULPATE, OPCODE_PENDING_FWREMOVE, OPCODE_FWREMOVED, };
 
-int	gAction		= 0;	/* deny = 0, add = 1*/
+int	gAction		= 0;	// deny = 0, add = 1
 int	gPortNum	= 25;
 int	gRuleNum	= 90;
 int	gDebug		= 0;
@@ -132,7 +134,7 @@ void MtaInfoIpfwSync(int needDelete)
 		printf("MtaInfoIpfwSync %s delete\n", needDelete ? "with" : "no");
 
 #if defined(OS_FreeBSD)
-	/* delete the mta rules */
+	// delete the mta rules
 	if(needDelete)
 #if defined(USEIPFWDIRECT)
 		ipfw_del(gRuleNum);
@@ -141,7 +143,7 @@ void MtaInfoIpfwSync(int needDelete)
 #endif
 #endif
 
-	/* add/remove the mta rules */
+	// add/remove the mta rules
 	while(pinfo != NULL)
 	{
 		mask = (inet_pton(AF_INET, pinfo->ip, &tmp) ? 32 :
@@ -159,7 +161,7 @@ void MtaInfoIpfwSync(int needDelete)
 				break;
 
 			case OPCODE_INCULPATE_BLOCKED:
-				/* deliberate fall thru to OPCODE_BLOCKED */
+				// deliberate fall thru to OPCODE_BLOCKED
 			case OPCODE_BLOCKED:
 				if(pinfo->needAdd || needDelete)
 				{
@@ -193,7 +195,7 @@ void MtaInfoWriteDb(char *fname)
 
 	strcpy(tempfname, "/tmp/ipfwmtadXXXXXXXX");
 
-	/* create a new db from scratch */
+	// create a new db from scratch
 	if((fdout = mkstemp(tempfname)) > -1 && (fout = fdopen(fdout, "w")) != NULL)
 	{
 		if(debugmode > 2)
@@ -211,7 +213,7 @@ void MtaInfoWriteDb(char *fname)
 		fflush(fout);
 		fclose(fout);
 
-		/* save the existing db in case things go wrong */
+		// save the existing db in case things go wrong
 		asprintf(&oldfname, "%s.bak", fname);
 		if(oldfname != NULL && strlen(oldfname))
 		{
@@ -258,7 +260,7 @@ void MtaInfoReadDb(char *fname)
 				*(buf+strlen(buf)-1) = '\0';
 				opcode = OPCODE_NONE;
 				rc = sscanf(buf, "%s %lu %lu %lu %lu", ipbuf, (long *)&first, (long *)&expire, &count, &opcode);
-				/* serialize the disk cache into memory */
+				// serialize the disk cache into memory
 				if(opcode != OPCODE_NONE && (rc == 1 || rc == 4 || rc ==5))
 				{
 					if(rc == 4 || rc == 5)
@@ -399,7 +401,7 @@ int MtaInfoDelete(PMTAINFO pinfodel)
 
 	while(pinfo != NULL && !needDelete)
 	{
-		/* if the current mta host matches the one to be deleted, then delete it */
+		// if the current mta host matches the one to be deleted, then delete it
 		if(pinfodel != NULL && pinfo == pinfodel)
 		{
 			pinfo = gpMtaInfo = pinfo->next;
@@ -427,7 +429,7 @@ void MtaInfoStateMachineUpdate(char *fname)
 	int		needAdd = 0;
 	int		needUpdate = 0;
 
-	/* handle MTAs in the list based on rules */
+	// handle MTAs in the list based on rules
 	pinfo = gpMtaInfo;
 	while(pinfo != NULL)
 	{
@@ -450,7 +452,7 @@ void MtaInfoStateMachineUpdate(char *fname)
 						printf("MtaInfoStateMachineUpdate: reset inculpated %s\n", pinfo->ip);
 					needUpdate = MtaInfoDelete(pinfo);
 				}
-				/* more than 'interval' times per minute = broken server / persitent spammer / pain in the ass! */
+				// more than 'interval' times per minute = broken server / persitent spammer / pain in the ass!
 				else if(pinfo->count > 0 && pinfo->rate > 0 && ((60 * 60) / pinfo->count) < ((60 * 60) / pinfo->rate))
 				{
 					if(debugmode > 0)
@@ -492,7 +494,7 @@ void MtaInfoStateMachineUpdate(char *fname)
 				break;
 
 			case OPCODE_INCULPATE_BLOCKED:
-				/* deliberate fall thru to OPCODE_BLOCKED */
+				// deliberate fall thru to OPCODE_BLOCKED
 			case OPCODE_BLOCKED:
 				if(now >= pinfo->timeExpire)
 				{
@@ -550,11 +552,11 @@ int MtaInfoDump(int sd, int afType, char *pAfAddr, int stat)
 void clientSessionAuth(int sd, char *buf)
 {	PCLIENT	pclient = &gChildClients[sd];
 
-	/* read the client key, and respond with encrypted challenge */
+	// read the client key, and respond with encrypted challenge
 	if(strncasecmp(buf, "key,rsa ", 8) == 0)
 	{	char	*p = buf+8;
 
-		/* setup for the client key */
+		// setup for the client key
 		if(pclient->pclikey == NULL)
 			pclient->pclikey = key_new();
 
@@ -562,14 +564,14 @@ void clientSessionAuth(int sd, char *buf)
 		{	char	*pkt = NULL;
 			BN_CTX	*pbnctx = BN_CTX_new();
 
-			/* generate challenge for the client session */
+			// generate challenge for the client session
 			if(pbnctx != NULL)
 			{	BIGNUM *pencchallenge = BN_new();
 
-				/* clear/free old */
+				// clear/free old
 				if(pclient->pchallenge != NULL)
 					BN_clear_free(pclient->pchallenge);
-				/* new challenge */
+				// new challenge
 				if(pclient->pchallengestr != NULL)
 				{
 					free(pclient->pchallengestr);
@@ -582,9 +584,9 @@ void clientSessionAuth(int sd, char *buf)
 					pclient->pchallengestr = BN_bn2hex(pclient->pchallenge);
 				}
 
-				/* encrypted */
+				// encrypted
 				if(pencchallenge != NULL && pclient->pchallenge != NULL && key_bn_encrypt(pclient->pclikey, pclient->pchallenge, pencchallenge))
-					/* in ascii form */
+					// in ascii form
 					pkt = BN_bn2dec(pencchallenge);
 				BN_clear_free(pencchallenge);
 			}
@@ -646,9 +648,10 @@ void clientSessionReadLine(int sd, char *buf)
 	char	bufip[50];
 	char	bufinterval[50];
 	char	bufrate[50];
+	PCLIENT	pclient = &gChildClients[sd];
 
 	if(debugmode > 1)
-		printf("clientReadLine: %u '%s'\n", sd, buf);
+		printf("clientReadLine: %u/%s:%u '%s'\n", sd, pclient->pIpStr, pclient->ipPort, buf);
 
 	/* syntax;
 	 *	cmd, ip address [, interval [, rate]]
@@ -706,15 +709,15 @@ void clientSessionReadLines(int i, fd_set *fds)
 {	char	buff[1024];
 	int	rc;
 
-	/* this loop gives opportunity for a DOS that would starve other clients */
+	// this loop gives opportunity for a DOS that would starve other clients
 	while((rc = NetSockGets(i, buff, sizeof(buff), 1)) > 0)
 		clientSessionReadLine(i, buff);
 
-	if(rc == 0)	/* remove the peer from the socket list */
+	if(rc == 0)	// remove the peer from the socket list
 	{	PCLIENT	pclient = &gChildClients[i];
 
 		if(debugmode>1)
-			printf("clientReadSessionLines: client disconnect: %u\n", i);
+			printf("clientReadSessionLines: client disconnect: %u/%s:%u\n", i, pclient->pIpStr, pclient->ipPort);
 		FD_CLR(i, fds);
 		shutdown(i, SHUT_RDWR);
 		close(i);
@@ -725,38 +728,63 @@ void clientSessionReadLines(int i, fd_set *fds)
 			free(pclient->pchallengestr);
 		if(pclient->pclikey != NULL)
 			key_free(pclient->pclikey);
+		if(pclient->pIpStr != NULL)
+			free(pclient->pIpStr);
 
-		/* clean up for next use */
+		// clean up for next use
 		memset(pclient, 0, sizeof(CLIENT));
 	}
 }
 
 void clientSessionAccept(int sdTcp, fd_set *fds)
-{	struct sockaddr_in	sin;
-	socklen_t		sinlen = sizeof(sin);
-	int			rc;
+{	struct sockaddr_in6	sa;
+	socklen_t		salen = sizeof(sa);
+	int			sd = accept(sdTcp, (struct sockaddr *)&sa, &salen);
 
-	rc = accept(sdTcp, (struct sockaddr *)&sin, &sinlen);
-	if(rc != SOCKET_ERROR)
-	{	PCLIENT	pclient = &gChildClients[rc];
+	if(sd != SOCKET_ERROR)
+	{	PCLIENT	pclient = &gChildClients[sd];
+		pclient->ipPort = 0;
+		mlfi_inet_ntopsSA((struct sockaddr *)&sa, &pclient->pIpStr, &pclient->ipPort);
+		int reject = 0;
 		
-		/* socket setup */
-		/*NetSockOpt(rc, TCP_NODELAY, 1); */
-		NetSockOptNoLinger(rc);
-		NetSockOpt(rc, SO_KEEPALIVE, 1);
-		FD_SET(rc, fds);
+		// socket setup
+		NetSockOptNoLinger(sd);
+		NetSockOpt(sd, SO_KEEPALIVE, 1);
+
 		if(debugmode>1)
-			printf("clientAccept: client connect: %u\n", rc);
+			printf("clientAccept: reject %u %u/%s:%u\n", reject, sd, pclient->pIpStr, pclient->ipPort);
 
-		/* set authentictation level */
-		pclient->authlevel = (sin.sin_family == AF_INET && ntohl(sin.sin_addr.s_addr) == INADDR_LOOPBACK) ? AL_FULL : AL_NONE;
-		/*pclient->authlevel = AL_NONE;*/
+		if(!reject)
+		{
+			FD_SET(sd, fds);
+			if(debugmode>1)
+				printf("clientAccept: client connect: %u/%s:%u\n", sd, pclient->pIpStr, pclient->ipPort);
 
-		if(pclient->authlevel == AL_NONE)
-			NetSockPrintf(rc, "220-agent ipfwmtad/0.4\r\n220-key %s\r\n", gChildRsaPKey);
+			// set authentictation level
+			pclient->authlevel = AL_NONE;
+			switch(((struct sockaddr *)&sa)->sa_family)
+			{
+				case AF_INET:
+					pclient->authlevel = (ntohl(((struct sockaddr_in *)&sa)->sin_addr.s_addr) == INADDR_LOOPBACK) ? AL_FULL : AL_NONE;
+					break;
+				case AF_INET6:
+					pclient->authlevel = (IN6_ARE_ADDR_EQUAL(&((struct sockaddr_in6 *)&sa)->sin6_addr, &in6addr_loopback) ? AL_FULL : AL_NONE);
+					break;
+			}
+
+			if(pclient->authlevel == AL_NONE)
+				NetSockPrintf(sd, "220-agent ipfwmtad/0.4\r\n220-key %s\r\n", gChildRsaPKey);
+			else
+				NetSockPrintf(sd, "220-agent ipfwmtad/0.4\r\n");
+			NetSockPrintf(sd, "220 OK\r\n");
+		}
 		else
-			NetSockPrintf(rc, "220-agent ipfwmtad/0.4\r\n");
-		NetSockPrintf(rc, "220 OK\r\n");
+		{
+			if(debugmode>1)
+				printf("clientAccept: connection rejected from: %u/%s:%u\n", sd, pclient->pIpStr, pclient->ipPort);
+			NetSockPrintf(sd, "221 Connection not allowed.\r\n");
+			NetSockClose(&sd);
+		}
 	}
 }
 
@@ -770,14 +798,14 @@ void socketScan(fd_set *fds, int sdTcp)
 	memcpy(&sfds, fds, sizeof(sfds));
 	rc = select(FD_SETSIZE, &sfds, NULL, NULL, &tv);
 
-	/* find a socket that needs attention */
+	// find a socket that needs attention
 	for(i=0; rc != SOCKET_ERROR && i<FD_SETSIZE; i++)
 	{
 		if(FD_ISSET(i, &sfds))
 		{
-			if(i == sdTcp)	/* add a connecting peer to the socket list */
+			if(i == sdTcp)	// add a connecting peer to the socket list
 				clientSessionAccept(sdTcp, fds);
-			else	/* service a connected peer */
+			else	// service a connected peer
 				clientSessionReadLines(i, fds);
 		}
 	}
@@ -807,7 +835,7 @@ void child_signal_hndlr(int signo)
 void childShutdown()
 {	int	i;
 
-	/* close all open ports */
+	// close all open ports
 	for(i=0; i<FD_SETSIZE; i++)
 	{
 		if(FD_ISSET(i, &gChildFds))
@@ -953,7 +981,7 @@ int main(int argc, char **argv)
 					printf("debug mode\n");
 				break;
 
-			/* server mode stuff */
+			// server mode stuff
 			case 'p':
 				if(optarg != NULL && *optarg)
 					port = (short)atoi(optarg);
@@ -975,7 +1003,7 @@ int main(int argc, char **argv)
 					gAction = (strcasecmp("add", optarg) == 0);
 				break;
 
-			/* imeadiate mode stuff */
+			// imeadiate mode stuff
 			case 'i':
 				if(optarg != NULL && *optarg)
 					gpMtaDbFname = optarg;
