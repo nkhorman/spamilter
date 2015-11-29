@@ -116,6 +116,7 @@
 <ALL>install-config:
 <ALL>	if [ ! -d ${CONFDIR} ]; then \
 <ALL>		install -p -m 0664 ../conf/spamilter.rc ${RCFILEPATH}; \
+<ALL>		install -p -m 0664 ../conf/ipfwmtad.acl ${RCFILEPATH}; \
 <ALL>		install -d -C -m 0664 ${CONFDIR}; \
 <ALL>		for i in db.extensions db.fwdhost db.geocc db.rcpt db.rdnsbl db.sndr db.dbl db.ifi db.sent; do \
 <ALL>			install -p -m 0664 ../conf/$${i} ${CONFDIR}; \
@@ -161,8 +162,9 @@
 <FreeBSD>dnsblupd: Makefile dnsblupd.c dnsupdate.c dns.c dnsblupd.o dnsupdate.o dns.o  dnsupdate.h dns.h config.h misc.o misc.h <WITH_NSCOMPAT ${NRSRCS} ${NROBJS}>
 <FreeBSD>	${CC} ${CFLAGS} -o dnsblupd dnsblupd.o dnsupdate.o dns.o misc.o <WITH_NSCOMPAT ${NROBJS}> ${LIBDIRS} ${LIBS}
 <FreeBSD>
-<ALL>ipfwmtad: Makefile ipfwmtad.c ipfw_mtacli.c <INC_FreeBSD ipfw_direct.c> inet.c misc.c <WITH_PAM pam.o> uam.o ipfwmtad.o ipfw_mtacli.o <INC_FreeBSD ipfw_direct.o> inet.o misc.o <WITH_PAM pam.o> uam.o key.o inet.h misc.h ipfw_mtacli.h <WITH_PAM pam.h> uam.h key.h config.h
-<ALL>	${CC} ${CFLAGS} -o ipfwmtad ipfwmtad.o ipfw_mtacli.o <INC_FreeBSD ipfw_direct.o> inet.o misc.o <WITH_PAM pam.o> uam.o key.o <WITH_PAM -lpam> -lcrypto <BSD -lcrypt>
+<ALL>ipfwmtad: Makefile ipfwmtad.o ipfw_mtacli.o <INC_FreeBSD ipfw_direct.o> inet.o misc.o <WITH_PAM pam.o> uam.o key.o ifidb.o list.o table.o tableDriverFlatFile.o ipfwmtad.c ipfw_mtacli.c <INC_FreeBSD ipfw_direct.c> inet.c misc.c <WITH_PAM pam.c> uam.c key.c ifidb.c list.c table.c tableDriverFlatFile.c ipfw_mtacli.h <INC_FreeBSD ipfw_direct.h> inet.h misc.h <WITH_PAM pam.h> uam.h key.h ifidb.h list.h table.h tableDriverFlatFile.h config.h
+<ALL>	${CC} ${CFLAGS} -o ipfwmtad ipfwmtad.o ipfw_mtacli.o <INC_FreeBSD ipfw_direct.o> inet.o misc.o <WITH_PAM pam.o> uam.o key.o ifidb.o list.o table.o tableDriverFlatFile.o <WITH_PAM -lpam> -lcrypto <BSD -lcrypt>
+
 <ALL>
 <ALL>mxlookup: Makefile mxlookup.c mx.c <WITH_NSCOMPAT ${NRSRCS}> mxlookup.o mx.o mx.h dns.o dns.h misc.o misc.h <WITH_NSCOMPAT ${NROBJS}>
 <ALL>	${CC} ${CFLAGS} -o mxlookup mxlookup.o mx.o dns.o misc.o ${LIBDIRS} ${LIBS} <WITH_NSCOMPAT ${NROBJS}> <NOT_BSD -lresolv>

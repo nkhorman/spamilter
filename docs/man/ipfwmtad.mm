@@ -10,9 +10,10 @@ dnl --------------------------------------------------------------------*
 dnl
 DMpage(ipfwmtad, `8', `0.60', ``May 30, 2012'', `Neal Horman <spamilter@wanlink.com>', `ipfw firewall rule injection daemon')
 MANsection(`synopsis')
-ipfwmtad [-d] [[-I server ip address] [-p port] [-n fname] [-u rule number]] [[-U auth user name] [-P auth user password] [-i fname] | [-r ipaddress] | [-q ipaddress] | [-a ipaddress] | [-q ipaddress]] [-?]
+ipfwmtad [-d] [[-A client ACL config file] [-I server ip address] [-p port] [-n fname] [-u rule number]] [[-U auth user name] [-P auth user password] [-i fname] | [-r ipaddress] | [-q ipaddress] | [-a ipaddress] | [-q ipaddress]] [-?]
 MANsection(`options')
 DMoption(`d',`debug mode')
+DMoption(`A',`client ACL config file - [/usr/local/etc/spamilter/ipfwmtad.acl]')
 DMoption(`I',`server ip address - [127.0.0.1]')
 DMoption(`p',`server mode - tcp port number - [4739]')
 DMoption(`n',`server mode - ip database file name - [/tmp/ipfwmtad.db]')
@@ -39,7 +40,9 @@ By default,
 MANbold(`ipfwmtad')
 starts in server mode, unless one of the imediate mode arguments are provided.
 MANsection(`files')
-/tmp/ipfwmtad.db - The ip address database
+/tmp/ipfwmtad.db - The ip address database cache
+MANlinebreak()
+/usr/local/etc/spamilter/ipfwmtad.acl - Client ACL config file
 MANsection(`see also')
 spamilter, ipfwmtad
 spamilter, greydbd

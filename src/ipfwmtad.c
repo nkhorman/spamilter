@@ -62,10 +62,11 @@ static char const cvsid[] = "@(#)$Id: ipfwmtad.c,v 1.22 2011/10/27 18:16:53 neal
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
-
 #include "inet.h"
 #include "misc.h"
 #include "key.h"
+#include "list.h"
+#include "ifidb.h"
 
 #include "ipfw_direct.h"
 #include "ipfw_mtacli.h"
@@ -113,11 +114,14 @@ int	gDebug		= 0;
 int	debugmode	= 0;
 int	gSdTcp		= INVALID_SOCKET;
 MTAINFO	*gpMtaInfo	= NULL;
-char	*gpMtaDbFname	= "/tmp/ipfwmtad.db";
+const char *gpMtaDbFname	= "/tmp/ipfwmtad.db";
 RSA	*gChildRsa	= NULL;
 char	*gChildRsaPKey	= NULL;
 fd_set	gChildFds;
 CLIENT	gChildClients[FD_SETSIZE];
+
+ifiDbCtx_t *gpClientACLCtx = NULL;
+const char *gpClientACLFname = "/usr/local/etc/spamilter/ipfwmtad.acl";
 
 #define TIME24HOURS (60 * 60 * 24)
 
@@ -186,7 +190,7 @@ void MtaInfoIpfwSync(int needDelete)
 #endif
 }
 
-void MtaInfoWriteDb(char *fname)
+void MtaInfoWriteDb(const char *fname)
 {	PMTAINFO	pinfo = gpMtaInfo;
 	int		fdout;
 	FILE		*fout;
@@ -239,7 +243,7 @@ void MtaInfoDumpItem(PMTAINFO pinfo)
 	}
 }
 
-void MtaInfoReadDb(char *fname)
+void MtaInfoReadDb(const char *fname)
 {	FILE		*fin;
 	char		buf[2048];
 	char		ipbuf[1024];
@@ -422,7 +426,7 @@ int MtaInfoDelete(PMTAINFO pinfodel)
 	return needDelete;
 }
 
-void MtaInfoStateMachineUpdate(char *fname)
+void MtaInfoStateMachineUpdate(const char *fname)
 {	PMTAINFO	pinfo = gpMtaInfo;
 	time_t		now = time(NULL);
 	int		needDelete = 0;
@@ -695,11 +699,11 @@ void clientSessionReadLine(int sd, char *buf)
 				NetSockPrintf(sd, "%03u %s\r\n", rc, bufcmd);
 		}
 	}
-	else
-		NetSockPrintf(sd, "221 error - unauthorized\r\n");
-
 	if(strcasecmp(bufcmd, "status") == 0)
 		rc = MtaInfoDump(sd, afType, pAfAddr, 250);
+
+	if(gChildClients[sd].authlevel != AL_FULL && rc == 500)
+		NetSockPrintf(sd, "221 error - unauthorized\r\n");
 
 	if(pAfAddr != NULL)
 		free(pAfAddr);
@@ -745,20 +749,20 @@ void clientSessionAccept(int sdTcp, fd_set *fds)
 	{	PCLIENT	pclient = &gChildClients[sd];
 		pclient->ipPort = 0;
 		mlfi_inet_ntopsSA((struct sockaddr *)&sa, &pclient->pIpStr, &pclient->ipPort);
-		int reject = 0;
+		int allow = 0;
+		int match = ifiDb_CheckAllowSA((struct sockaddr *)&sa, gpClientACLCtx->pIfiDb, &allow, 1);
+		int reject = !(match && allow);
 		
 		// socket setup
 		NetSockOptNoLinger(sd);
 		NetSockOpt(sd, SO_KEEPALIVE, 1);
 
 		if(debugmode>1)
-			printf("clientAccept: reject %u %u/%s:%u\n", reject, sd, pclient->pIpStr, pclient->ipPort);
+			printf("clientAccept: client connect %u/%s:%u reject %u\n", sd, pclient->pIpStr, pclient->ipPort, reject);
 
 		if(!reject)
 		{
 			FD_SET(sd, fds);
-			if(debugmode>1)
-				printf("clientAccept: client connect: %u/%s:%u\n", sd, pclient->pIpStr, pclient->ipPort);
 
 			// set authentictation level
 			pclient->authlevel = AL_NONE;
@@ -773,15 +777,13 @@ void clientSessionAccept(int sdTcp, fd_set *fds)
 			}
 
 			if(pclient->authlevel == AL_NONE)
-				NetSockPrintf(sd, "220-agent ipfwmtad/0.4\r\n220-key %s\r\n", gChildRsaPKey);
+				NetSockPrintf(sd, "220-agent ipfwmtad/0.5\r\n220-key %s\r\n", gChildRsaPKey);
 			else
-				NetSockPrintf(sd, "220-agent ipfwmtad/0.4\r\n");
+				NetSockPrintf(sd, "220-agent ipfwmtad/0.5\r\n");
 			NetSockPrintf(sd, "220 OK\r\n");
 		}
 		else
 		{
-			if(debugmode>1)
-				printf("clientAccept: connection rejected from: %u/%s:%u\n", sd, pclient->pIpStr, pclient->ipPort);
 			NetSockPrintf(sd, "221 Connection not allowed.\r\n");
 			NetSockClose(&sd);
 		}
@@ -882,6 +884,13 @@ int childMain(int afType, char const *afAddr, unsigned short port)
 #endif
 		MtaInfoIpfwSync(1);
 
+		gpClientACLCtx = ifiDb_Create("");
+		if(ifiDb_Open(gpClientACLCtx, gpClientACLFname))
+		{
+			ifiDb_BuildList(gpClientACLCtx);
+			ifiDb_Close(gpClientACLCtx);
+		}
+
 		while(!quit)
 		{
 			socketScan(&gChildFds, gSdTcp);
@@ -891,6 +900,9 @@ int childMain(int afType, char const *afAddr, unsigned short port)
 				mtaUpdate = time(NULL) + mtaUpdateInterval;
 			}
 		}
+
+		ifiDb_Destroy(&gpClientACLCtx);
+
 		rc = 0;
 		syslog(LOG_ERR, "Child: Exiting: normal");
 	}
@@ -927,8 +939,20 @@ void childStart(int afType, char const *afAddr, unsigned short port, int count, 
 
 void usage()
 {
-	printf("usage: [-d] [-I server ip address] [-p port number] [-n fname] [-u rule number] [-U auth user name ] [-P auth user password] | [-i fname] | [-a ipaddress] | [-r ipaddress] | [-q ipaddress]\n"
+	printf("usage: [-d] "
+			"[-A client ACL config file] "
+			"[-I server ip address] "
+			"[-p port number] "
+			"[-n fname] "
+			"[-u rule number] "
+			"[-U auth user name] "
+			"[-P auth user password] "
+			"| [-i fname] "
+			"| [-a ipaddress] "
+			"| [-r ipaddress] "
+			"| [-q ipaddress]\n"
 		"\t-d - debug mode\n"
+		"\t-A - server mode Client ACL config file - default /usr/local/etc/spamilter/ipfwmtad.acl\n"
 		"\t-I - server mode ip address to bind to, imeadiate mode server ip address - default 127.0.0.1\n"
 		"\t-p - server tcp port number - default 4739\n"
 		"\t-n - server mode - ip database file name - default '%s'\n"
@@ -954,7 +978,7 @@ int main(int argc, char **argv)
 	int	forking = 1;
 	int	servermode = 1;
 	char	opt;
-	char	*optflags = "d:p:n:u:i:r:a:q:o:b:I:U:P:";
+	char	*optflags = "d:p:n:u:i:r:a:q:o:b:I:U:P:A:";
 	char	*username = "";
 	char	*userpass = "";
 
@@ -1001,6 +1025,10 @@ int main(int argc, char **argv)
 			case 'b':
 				if(optarg != NULL && *optarg)
 					gAction = (strcasecmp("add", optarg) == 0);
+				break;
+			case 'A':
+				if(optarg != NULL && *optarg)
+					gpClientACLFname = optarg;
 				break;
 
 			// imeadiate mode stuff
