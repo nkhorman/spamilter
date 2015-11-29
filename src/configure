@@ -251,6 +251,7 @@ while [ "$1" != "" ]; do
 			shift
 			;;
 		--with-postgresql)
+			arg1="$1"
 			case "$2" in
 				-[a-z]*|"")
 					# find pg_config
@@ -283,9 +284,9 @@ while [ "$1" != "" ]; do
 			fi
 			x="`SedifyDir $psql_dir`"
 			TagLine "PGSQLDIR" "$x"
-			CheckDir "$1" "$psql_dir/include"
-			CheckDir "$1" "$psql_dir/lib"
-			ConfigSwitchWith "PGSQL" "$1 $arg2"
+			CheckDir "$arg1" "$psql_dir/include"
+			CheckDir "$arg1" "$psql_dir/lib"
+			ConfigSwitchWith "PGSQL" "$arg1 $arg2"
 			;;
 		--with-greylist)
 			ConfigSwitchWith "GREYLIST" "$1"
