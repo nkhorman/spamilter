@@ -1,4 +1,7 @@
 Changelog;
+	20151129
+	* mod - ipfwmtad now has client ACL support
+
 	20151023
 	* mod - ipfwmtad is now ipv6 enabled
 	* mod - ipfwmtad will now bind to ipv4 and ipv6 addresses, not just 127.0.0.1
