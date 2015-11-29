@@ -1,0 +1,40 @@
+#
+#	The following table is used to configure rules that specify which network
+#	hosts are allowed to connect to the ipfwmtad server
+#
+#	The amount, or lack of white space is not significant.
+#
+#	The fields are;
+#	action		|	match address		|	exception address
+#	allow or deny	|	address, address, ...	|	empty or address, address, ...
+#
+#	allow = DO allow clients for "address" other than those specified by "excepetion" to connect
+#	deny = Do NOT allow clients for "address" other than those specified by "excepetion" to connect
+#
+#	The ``match addrress'' and ``exception address'' fields are meant to have one, or possibly
+#	more, ipv4 or ipv6 network address and netmask specifications, that are comma spearated.
+#	They must be listed in CIDR form only. ie. 192.168.0.0/16, not 192.168.0.0/255.255.0.0
+#
+#	It is invalid to mix ipv4 and ipv6 address spcecifications on the same row
+#
+#	Valid address sytax is anything that is recognized by the system's inet_pton() function.
+#
+#	The examples listed here, are contrived, but are here to show valid syntax.
+#
+#	--- examples --
+#	An ipv4, allow single host example
+#	allow		|	10.1.2.3/32		|
+#
+#	An ipv4, allow every thing in /16 except /24
+#	allow		|	192.168.0.0/16		|	192.168.10.0/24
+#
+#	An ipv4, allow everything example	
+#	allow		|	0.0.0.0/0		|
+#
+#	An ipv6, allow everyting example
+#	allow		|	::0/0			|
+#	--- end of examples ---
+#
+#	Allow everything from localhost
+	allow		|	127.0.0.1/32		|
+	allow		|	::1/128		|
