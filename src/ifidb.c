@@ -116,7 +116,7 @@ typedef struct _ir_t
 }ir_t; // Ifi Row Type
 
 ifiDbCtx_t *ifiDb_Create(const char *pSessionId)
-{	ifiDbCtx_t *pIfiDbCtx = (ifiDbCtx_t *)calloc(1,sizeof(ifiDbCtx_t));
+{	ifiDbCtx_t *pIfiDbCtx = (ifiDbCtx_t *)calloc(1, sizeof(ifiDbCtx_t));
 
 	if(pIfiDbCtx != NULL)
 	{
@@ -148,21 +148,17 @@ void ifiDb_Destroy(ifiDbCtx_t **ppIfiDbCtx)
 	}
 }
 
-int ifiDb_Open(ifiDbCtx_t *pIfiDbCtx, const char *dbpath)
+int ifiDb_Open(ifiDbCtx_t *pIfiDbCtx, const char *fname)
 {
-	if(pIfiDbCtx != NULL && dbpath != NULL)
+	if(pIfiDbCtx != NULL && fname != NULL)
 	{
-#ifdef SUPPORT_TABLE_FLATFILE
-		char	*fn;
-#endif
-
 		if(!tableIsOpen(pIfiDbCtx->pTableDriver))
 		{
 #ifdef SUPPORT_TABLE_FLATFILE
-			asprintf(&fn,"%s/db.ifi",dbpath); tableOpen(pIfiDbCtx->pTableDriver,"table, colqty",fn,TBL_COL_QTY);
+
+			tableOpen(pIfiDbCtx->pTableDriver, "table, colqty", fname, TBL_COL_QTY);
 			if(!tableIsOpen(pIfiDbCtx->pTableDriver))
-				mlfi_debug(pIfiDbCtx->pSessionId,"ifiDb: Unable to open file '%s'\n",fn);
-			free(fn);
+				mlfi_debug(pIfiDbCtx->pSessionId, "ifiDb: Unable to open file '%s'\n", fname);
 #endif
 #ifdef SUPPORT_TABLE_PGSQL
 			tableOpen(pIfiDbCtx->pTableDriver
@@ -171,13 +167,13 @@ int ifiDb_Open(ifiDbCtx_t *pIfiDbCtx, const char *dbpath)
 				",host" ",hostPort"
 				",Device" ",userName" ",userPass"
 
-				,"ifiDb",TBL_COL_QTY
-				,"allowdeny,address,exception,localforeign"
-				,"localhost" ,"5432"
-				,"spamilter" ,"spamilter" ,""
+				, "ifiDb", TBL_COL_QTY
+				, "allowdeny,address,exception,localforeign"
+				, "localhost", "5432"
+				, "spamilter", "spamilter", ""
 				);
 			if(!tableIsOpen(pIfiDbCtx->pTableDriver))
-				mlfi_debug(pIfiDbCtx->pSessionId,"ifiDb: Unable to open\n");
+				mlfi_debug(pIfiDbCtx->pSessionId, "ifiDb: Unable to open\n");
 #endif
 		}
 	}
@@ -222,7 +218,7 @@ static list_t* ifiDb_IrBuildAddressList(char *pStr, int *pAfType)
 		while((p1 = mlfi_stradvtok(&pStr, ',')) != NULL && *p1)
 		{
 			p2 = p1;
-			p1 = mlfi_stradvtok(&p2,'/');
+			p1 = mlfi_stradvtok(&p2, '/');
 
 			if(p1 != NULL && p2 != NULL && *p1 && p2)
 			{	ira_t ira;
@@ -250,7 +246,7 @@ static list_t* ifiDb_IrBuildAddressList(char *pStr, int *pAfType)
 				}
 
 				if(ira.afType != AF_UNSPEC)
-				{	ira_t *pIra = calloc(1,sizeof(ira_t));
+				{	ira_t *pIra = calloc(1, sizeof(ira_t));
 
 					if(pIra != NULL)
 					{
@@ -262,7 +258,10 @@ static list_t* ifiDb_IrBuildAddressList(char *pStr, int *pAfType)
 		}
 
 		if(listQty(pList) == 0)
+		{
 			listDestroy(pList, NULL, NULL);
+			pList = NULL;
+		}
 	}
 
 	return pList;
@@ -383,9 +382,13 @@ static int ifiDbCallbackBuildList(void *pCallbackCtx, list_t *pRow)
 
 void ifiDb_BuildList(ifiDbCtx_t *pCtx)
 {
-	if(pCtx->pIfiDb == NULL)
-		pCtx->pIfiDb = listCreate();
-	tableForEachRow(pCtx->pTableDriver, &ifiDbCallbackBuildList, pCtx);
+	if(pCtx != NULL)
+	{
+		if(pCtx->pIfiDb == NULL)
+			pCtx->pIfiDb = listCreate();
+		if(pCtx->pIfiDb!= NULL)
+			tableForEachRow(pCtx->pTableDriver, &ifiDbCallbackBuildList, pCtx);
+	}
 }
 
 typedef struct _idc_t
@@ -397,14 +400,14 @@ typedef struct _idc_t
 	int isLocal;
 }idc_t; // Ifi Db Check Type
 
-#define BITSHIFT(a,b) \
+#define BITSHIFT(a, b) \
 { \
 	int i; \
 	for(i=0; i<(b); i++) \
 		(a) <<= 1; \
 }
 
-#define BITMASK(a,b) \
+#define BITMASK(a, b) \
 { \
 	(a).s6_addr32[0] &= (b).s6_addr32[0]; \
 	(a).s6_addr32[1] &= (b).s6_addr32[1]; \
@@ -517,25 +520,40 @@ int ifiDb_CheckRowCallback(void *pData, void *pCallbackCtx)
 }
 
 // Iterate all table rows
-int ifiDb_CheckAllow(int afType, const char *pIn, list_t *pIfiDb, int *pAllow, int isLocal)
-{	idc_t idc;
+int ifiDb_CheckAllowAF(int afType, const char *pIn, list_t *pIfiDb, int *pAllow, int isLocal)
+{	int rc = 0;
 
-	idc.afType = afType;
-	idc.pIn = pIn;
-	idc.match = 0;
-	idc.action = IFIDB_NONE;
-	idc.isLocal = isLocal;
+	if(pIn != NULL && pIfiDb != NULL && pAllow != NULL)
+	{	idc_t idc;
 
-	listForEach(pIfiDb, &ifiDb_CheckRowCallback, &idc);
+		idc.afType = afType;
+		idc.pIn = pIn;
+		idc.match = 0;
+		idc.action = IFIDB_NONE;
+		idc.isLocal = isLocal;
 
-	*pAllow = (idc.action == IFIDB_ALLOW);
+		listForEach(pIfiDb, &ifiDb_CheckRowCallback, &idc);
 
-	return idc.match;
+		*pAllow = (idc.action == IFIDB_ALLOW);
+		rc = idc.match;
+	}
+
+	return rc;
+}
+
+int ifiDb_CheckAllowSA(struct sockaddr *pSa, list_t *pIfiDb, int *pAllow, int isLocal)
+{	const char *in = NULL;
+
+	switch(pSa->sa_family)
+	{
+		case AF_INET: in = (const char *)&((struct sockaddr_in *)pSa)->sin_addr.s_addr; break;
+		case AF_INET6: in = (const char *)&((struct sockaddr_in6 *)pSa)->sin6_addr; break;
+	}
+
+	return ifiDb_CheckAllowAF(pSa->sa_family, in, pIfiDb, pAllow, isLocal);
 }
 
 #ifdef _UNIT_TEST_IFIDB
-#include <syslog.h>
-
 static int cacbAddress(void *pData, void *pCallbackCtx)
 {	ira_t *pIra = (ira_t *)pData;
 
@@ -577,19 +595,16 @@ int main(int argc, char **argv)
 	argc -= optind;
 	argv += optind;
 
-
-	openlog("ifiDb", LOG_PERROR|LOG_NDELAY|LOG_PID, LOG_DAEMON);
-
 	ifiDbCtx_t *pIfiDbCtx = ifiDb_Create("");
-	if(ifiDb_Open(pIfiDbCtx, "/var/db/spamilter"))
+	if(ifiDb_Open(pIfiDbCtx, "/var/db/spamilter/db.ifi"))
 	{
 		ifiDb_BuildList(pIfiDbCtx);
 		ifiDb_Close(pIfiDbCtx);
 		pIfiDb = pIfiDbCtx->pIfiDb;
 	}
-	ifiDb_Destroy(&pIfiDbCtx);
 
 	test1(pIfiDb);
+	ifiDb_Destroy(&pIfiDbCtx);
 
 	return 0;
 }

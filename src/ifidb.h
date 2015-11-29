@@ -51,9 +51,10 @@
 
 	ifiDbCtx_t *ifiDb_Create(const char *pSessionId);
 	void ifiDb_Destroy(ifiDbCtx_t **ppIfiDbCtx);
-	int ifiDb_Open(ifiDbCtx_t *pIfiDbCtx, const char *dbpath);
+	int ifiDb_Open(ifiDbCtx_t *pIfiDbCtx, const char *fname);
 	void ifiDb_Close(ifiDbCtx_t *pIfiDbCtx);
-
 	void ifiDb_BuildList(ifiDbCtx_t *pCtx);
-	int ifiDb_CheckAllow(int afType, const char *pIn, list_t *pIfiDb, int *pAllow, int isLocal);
+
+	int ifiDb_CheckAllowAF(int afType, const char *pIn, list_t *pIfiDb, int *pAllow, int isLocal);
+	int ifiDb_CheckAllowSA(struct sockaddr *, list_t *pIfiDb, int *pAllow, int isLocal);
 #endif
