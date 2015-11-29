@@ -152,7 +152,7 @@ static int ifi_callbackIsLocal(int afType, void *pAddr, void *pMask, void *pCtx)
 							);
 
 						if(pIil->pIfiDb != NULL)
-							pIil->match = ifiDb_CheckAllow(pIil->afType, (char *)&pIil->ipv4, pIil->pIfiDb, &pIil->matchAllow, isLocal);
+							pIil->match = ifiDb_CheckAllowAF(pIil->afType, (char *)&pIil->ipv4, pIil->pIfiDb, &pIil->matchAllow, isLocal);
 						else
 						{
 							pIil->match = isLocal;
@@ -182,7 +182,7 @@ static int ifi_callbackIsLocal(int afType, void *pAddr, void *pMask, void *pCtx)
 								);
 
 							if(pIil->pIfiDb != NULL)
-								pIil->match = ifiDb_CheckAllow(pIil->afType, (char *)&pIil->ipv6, pIil->pIfiDb, &pIil->matchAllow, isLocal);
+								pIil->match = ifiDb_CheckAllowAF(pIil->afType, (char *)&pIil->ipv6, pIil->pIfiDb, &pIil->matchAllow, isLocal);
 							else
 							{
 								pIil->match = isLocal;
@@ -256,12 +256,16 @@ int ifi_islocalipAf(int afType, const char *pIn)
 int ifi_islocalnetAf(int afType, const char *pIn, const char *pDbPath)
 {	iil_t iil;
 	ifiDbCtx_t *pIfiDbCtx = ifiDb_Create("");
+	char *fn = NULL;
 
-	if(ifiDb_Open(pIfiDbCtx, pDbPath))
+	asprintf(&fn,"%s/db.ifi",pDbPath);
+	if(ifiDb_Open(pIfiDbCtx, fn))
 	{
 		ifiDb_BuildList(pIfiDbCtx);
 		ifiDb_Close(pIfiDbCtx);
 	}
+	if(fn != NULL)
+		free(fn);
 
 	iil.afType = afType;
 	switch(afType)
