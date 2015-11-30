@@ -184,6 +184,8 @@ list_t *iniRead(char const *pFname)
 	{	char buf[1024];
 		char *str;
 
+		printf("Using config file '%s'\n", pFname); fflush(stdout);
+
 		while(!feof(fin))
 		{
 			if(fgets(buf, sizeof(buf), fin) != NULL)
@@ -223,6 +225,8 @@ list_t *iniRead(char const *pFname)
 		}
 		fclose(fin);
 	}
+	else
+		{ printf("*** Unable to open config file '%s', using compiled in defaults\n", pFname); fflush(stdout); }
 
 	return pListInvalidOptions;
 }
