@@ -121,7 +121,7 @@ fd_set	gChildFds;
 CLIENT	gChildClients[FD_SETSIZE];
 
 ifiDbCtx_t *gpClientACLCtx = NULL;
-const char *gpClientACLFname = "/usr/local/etc/spamilter/ipfwmtad.acl";
+const char *gpClientACLFname = CONF_DIR"/ipfwmtad.acl";
 
 #define TIME24HOURS (60 * 60 * 24)
 

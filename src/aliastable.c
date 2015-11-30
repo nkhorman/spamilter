@@ -193,7 +193,7 @@ int gDebug=1;
 int main(int argc, char *argv[])
 {	int i,ok;
 
-	getconf(PATH_CONFIG);
+	getconf(CONF_SPAMILTER);
 
 	ShowKeyValStr("AliasTableChk",gAliasTableChk);
 

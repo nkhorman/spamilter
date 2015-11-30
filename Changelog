@@ -1,6 +1,7 @@
 Changelog;
 	20151129
 	* mod - ipfwmtad now has client ACL support
+	* mod - spamilter now uses /usr/local/etc/spamilter/spamilter.conf instead of /etc/spamilter.rc
 
 	20151023
 	* mod - ipfwmtad is now ipv6 enabled
