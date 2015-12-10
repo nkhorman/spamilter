@@ -249,7 +249,10 @@ static char *mboxRegexPrintf(const char *pFmt, int *pMboxIndex, int *pDomainInde
 	if(pStr != NULL)
 	{	char *pTmp = pStr;
 
-		#define PAT_MBOX "[a-zA-Z0-9][a-zA-Z0-9!#$%&'*+/=?^_`{|}~.-]{0,}"
+		// http://stackoverflow.com/questions/201323/using-a-regular-expression-to-validate-an-email-address/1917982#1917982
+		// [a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+ @[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)
+
+		#define PAT_MBOX "[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]{1,}"
 		#define PAT_DOMAIN "[a-zA-Z0-9][a-zA-Z0-9._-]{0,}[.][a-zA-Z]{2,}"
 
 		const char *pPatMbox = PAT_MBOX;
