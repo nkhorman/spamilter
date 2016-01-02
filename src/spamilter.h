@@ -146,9 +146,9 @@
 	#define OPT_MTASPFCHKSOFTFAILASHARD	"MtaSpfChkSoftFailAsHard"	// Bool - Reject on SPF SoftFail conditions
 	#define OPT_MSEXTCHK			"MsExtChk"			// Int - do Microsoft File Extension vulnerablity checks with extension sub-set
 	#define OPT_MSEXTCHKACTION		"MsExtChkAction"		// Str - action to take when vulnerable Microsoft attachemnts are found
-	#define OPT_POPAUTHCHK			"PopAuthChk"			// Str - path/filename of pop-before-smtp berkely db
-	#define OPT_VIRTUSERTABLECHK		"VirtUserTableChk"		// Bool - do virtusertable reject checking
-	#define OPT_ALIASTABLECHK		"AliasTableChk"			// Bool - do aliastable reject checking
+	#define OPT_POPAUTHCHK			"PopAuthChk"			// Str - path/filename of pop-before-smtp berkely db file
+	#define OPT_VIRTUSERTABLECHK		"VirtUserTableChk"		// Str - path/filename of the virtusertable berkely db file
+	#define OPT_ALIASTABLECHK		"AliasTableChk"			// Str - path/filename of the alias berkely db file
 	#define OPT_LOCALUSERTABLECHK		"LocalUserTableChk"		// Bool - do localusertable reject checking
 	#define OPT_GREYLISTCHK			"GreyListChk"			// Bool - do connecting mta ip address greylisting
 	#define OPT_HEADERREPLYTOCHK		"HeaderReplyToChk"		// Bool - do header ReplyTo sender validation
