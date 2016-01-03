@@ -126,9 +126,10 @@
 <ALL>		done; \
 <GEOIPDIR>		install -d -C -m 0664 ${CONF_DIR_DB}/geoip; \
 <GEOIPDIR>		install -p -m 0754 ../conf/geoip/fetchgeoip.sh ${CONF_DIR_DB}/geoip; \
+<GEOIPDIR>		sed -e"s;geoipdir=.*\$;geoipdir=\"${CONF_DIR_DB}/geoip\";" -i '' ${CONF_DIR_DB}/geoip/fetchgeoip.sh; \
 <GEOIPDIR>		if [ ! -e ${CONF_DIR_DB}/geoip/GeoIP.dat ]; then ${CONF_DIR_DB}/geoip/fetchgeoip.sh; fi; \
 <FreeBSD>		install -d -C -m 0664 /usr/local/etc/newsyslog.conf.d; \
-<FreeBSD>		install -p -m 0754 ../conf/geoip/spamilter.newsyslog /usr/local/etc/newsyslog.conf.d; \
+<FreeBSD>		install -p -m 0754 ../conf/spamilter.newsyslog /usr/local/etc/newsyslog.conf.d; \
 <FreeBSD>		newsyslog -CN; \
 <NOT_FreeBSD>		if [ ! -e /var/log/spam.log ]; then touch /var/log/spam.log && chmod 0644 /var/log/spam.log; fi; \
 <NOT_FreeBSD>		if [ ! -e /var/log/spam.info ]; then touch /var/log/spam.info && chmod 0644 /var/log/spam.info; fi; \
