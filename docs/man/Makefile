@@ -40,6 +40,9 @@ uninstall:
 clean:
 	for i in ${MANPAGES}; do rm -f $${i}; done
 
+superclean: clean
+	git submodule deinit ${MANDOWNDIR}
+
 ${MANDOWN}:
 	./buildmandown.sh ${MANDOWNDIR}
 
