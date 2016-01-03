@@ -15,8 +15,8 @@ MANOWN= root
 MANGRP=	wheel
 MANDIR= /usr/local/man/man8
 
-MANDOWNDIR=./hoedown.git/build
-MANDOWN=${MANDOWNDIR}/mandown
+MANDOWNDIR=./hoedown.git
+MANDOWN=${MANDOWNDIR}/build/mandown
 MANDOWNFLAGS=--markdown --man-th-e1 ${SPAMILTER_RELEASE} --man-th-e2 ${SPAMILTER_DATE}
 
 SPAMILTER_RELEASE="0.60"
