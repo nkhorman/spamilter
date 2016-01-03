@@ -12,10 +12,12 @@ fetch -4 http://geolite.maxmind.com/download/geoip/database/${geolitecity}.gz
 
 if [ -e ${geoip}.gz ]; then
 
-	# rename old db
-	t="`ls -lD%Y%m%d%H%M%S ${geoipdir}/${geoip}|awk '{print $6}'`"
-	mv ${geoipdir}/${geoip} ${geoipdir}/${geoip}.${t}
-	gzip ${geoipdir}/${geoip}.${t}
+	if [ -e ${geoipdir}/${geoip} ]; then
+		# rename old db
+		t="`ls -lD%Y%m%d%H%M%S ${geoipdir}/${geoip}|awk '{print $6}'`"
+		mv ${geoipdir}/${geoip} ${geoipdir}/${geoip}.${t}
+		gzip ${geoipdir}/${geoip}.${t}
+	fi
 
 	# install new db
 	gzcat ${geoip}.gz > ${geoipdir}/${geoip}
@@ -24,10 +26,12 @@ fi
 
 if [ -e ${geolitecity}.gz ]; then
 
-	# rename old db
-	t="`ls -lD%Y%m%d%H%M%S ${geoipdir}/${geoipcity}|awk '{print $6}'`"
-	mv ${geoipdir}/${geoipcity} ${geoipdir}/${geoipcity}.${t}
-	gzip ${geoipdir}/${geoipcity}.${t}
+	if [ -e ${geoipdir}/${geoipcity} ]; then
+		# rename old db
+		t="`ls -lD%Y%m%d%H%M%S ${geoipdir}/${geoipcity}|awk '{print $6}'`"
+		mv ${geoipdir}/${geoipcity} ${geoipdir}/${geoipcity}.${t}
+		gzip ${geoipdir}/${geoipcity}.${t}
+	fi
 
 	# install new db
 	gzcat ${geolitecity}.gz > ${geoipdir}/${geoipcity}
