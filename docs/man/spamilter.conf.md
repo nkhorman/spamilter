@@ -14,7 +14,6 @@ Each line is used to alter a compiled in default configuration option, and shoul
 	variable = value
 
 Where `variable` is one of the Switches and Knobs below.
-Also, comments can be embeded in the file starting with the `#` character to the end of the exsting line.
 
 Assuming the the compiled in defaults are great, except for two, an example of your spamilter.conf file could be as simple as
 

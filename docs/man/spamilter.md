@@ -9,7 +9,7 @@ spamilter [-d level] [-c config file path filename] [-f] [-?]
 
 ## OPTIONS
 - -d [numeric] - debug level, 1 or 2. NB. This implies -f
-- -c [string] - config file path filename - default = /etc/spamilter.rc
+- -c [string] - config file path filename - [/etc/spamilter.rc]
 - -f [boolean] - run spamilter in the foreground
 - -? show cli usage if more than one arg, or man page if no args
 
@@ -25,9 +25,9 @@ It blocks spam using the following methods;
 - SPF via libspf
 - GeoIP Country Code block listing
 
-Also;
+Also:
 - Realtime firewall blocking of MTA hosts with invalid host names via **ipfwmtad**
-- And realtime rate limited connection blocking, also via **ipfwmtad**
+- Realtime rate limited connection blocking, via **ipfwmtad**
 - Greylisting via **greydbd**
 
 All actions are logged via syslog with both the sender and the recipient.
@@ -47,8 +47,8 @@ Information is collected during the following stages;
 
 Information collected from the preceding stages is evaluated, and acted upon in the following stages;
 - End Of Header - This is a transisition point from header information to body information. The majority of Spamilter's "filter" evaluation is done here.
-- Body - This is called potentially multiple times, with chunks of the email body content.
-- End Of Message - The entierty of the email has been transfered.
+- Body - This is called potentially multiple times, with chunks of the email body content. Evaluate URLs found in the body against the DBL database. MsExtChk - Collect information about attachment filename extensions.
+- End Of Message - The entierty of the email has been transfered. MsExtChk - Evaluate the filename extensions and react appropiately based on MsExtChkAction.
 - Close - close the Databases, and if the MTA IP address was inculpated, and the email was not rejected, then the MTA IP address is IpfwMtad exculpated.
 
 ## FILTERS
