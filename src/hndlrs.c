@@ -1023,12 +1023,12 @@ typedef struct _cpr_t
 }cpr_t;
 
 #ifdef SUPPORT_DBL
-int dblCheckCallbackHlo(const dblcb_t *pDblcb)
+int dblCheckCallbackHelo(const dblcb_t *pDblcb)
 {	cpr_t *pcpr = (cpr_t *)pDblcb->pDblq->pCallbackData;
 	SMFICTX *ctx = pcpr->ctx;
 	mlfiPriv *priv = MLFIPRIV;
 
-	mlfi_debug(priv->pSessionUuidStr,"HLO dbl_check '%s' - listed - %s via '%s'\n"
+	mlfi_debug(priv->pSessionUuidStr,"HELO dbl_check '%s' - listed - %s via '%s'\n"
 		,pDblcb->pDblq->pDomain
 		,pDblcb->pDblResult
 		,pDblcb->pDbl
@@ -1211,7 +1211,7 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 		}
 
 		// Technical enforcement
-		// The HLO MTA hostname should not be an ip address
+		// The HELO MTA hostname should not be an ip address
 		if(continue_checks
 			&& (iniGetInt(OPT_MTAHOSTCHK) || iniGetInt(OPT_MTAHOSTCHKASIP))
 			&& priv->helo != NULL
@@ -1228,7 +1228,7 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 		}
 
 		// Technical enforcement
-		// The HLO MTA hostname should not be that of the recipient's domain
+		// The HELO MTA hostname should not be that of the recipient's domain
 		if(continue_checks
 			&& iniGetInt(OPT_MTAHOSTCHK)
 			&& priv->helo != NULL
@@ -1256,7 +1256,7 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 		}
 
 		// Technical enforcement - in reality, this varies wildly
-		// The HLO MTA hostname should resolve to an ip address
+		// The HELO MTA hostname should resolve to an ip address
 		if(continue_checks
 			&& iniGetInt(OPT_MTAHOSTCHK)
 			&& !dns_query_rr(&ds, ns_t_a, priv->helo)
@@ -1273,7 +1273,7 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 		}
 
 		// Policy enforcement
-		// Do BWL checking based on the HLO MTA hostname
+		// Do BWL checking based on the HELO MTA hostname
 		if(continue_checks
 			&& iniGetInt(OPT_MTAHOSTCHK)
 			&& (x = bwlistActionQuery(priv->pbwlistctx,BWL_L_SNDR,priv->helo,"",priv->sndractionexec)) != BWL_A_ACCEPT
@@ -1309,7 +1309,7 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 
 #ifdef SUPPORT_DBL
 		// Policy enforcement
-		// Do DBL checking based on the HLO MTA hostname
+		// Do DBL checking based on the HELO MTA hostname
 		if(continue_checks
 			&& iniGetInt(OPT_MTAHOSTCHK)
 		)
@@ -1322,19 +1322,19 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 			cpr.pbContinueChecks = &continue_checks;
 
 			dblq.pDomain = priv->helo;
-			dblq.pCallbackFn = &dblCheckCallbackHlo;
+			dblq.pCallbackFn = &dblCheckCallbackHelo;
 			dblq.pCallbackData = &cpr;
 			dblq.pCallbackPolicyFn = &dbl_callback_policy_std;
 
 			dbl_check_all(priv->pDblCtx, &ds, &dblq);
 			continue_checks = (rs == SMFIS_CONTINUE);
 			if(continue_checks)
-				mlfi_debug(priv->pSessionUuidStr,"HLO dbl_check '%s' - not listed\n",priv->helo);
+				mlfi_debug(priv->pSessionUuidStr,"HELO dbl_check '%s' - not listed\n",priv->helo);
 		}
 #endif
 
 		// Technical enforcement - in reality, this varies wildly
-		// The HLO MTA hostname should match the connecting ip address
+		// The HELO MTA hostname should match the connecting ip address
 		if(continue_checks
 			&& iniGetInt(OPT_MTAHOSTIPCHK)
 			&& strcmp(priv->helo,priv->iphostname) != 0
