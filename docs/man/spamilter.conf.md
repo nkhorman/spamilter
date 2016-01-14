@@ -28,6 +28,8 @@ Booleans are `1`, `On`, `True`, and `Yes` for True, and anything else for False.
 Integers are deicmal numbers.
 
 ### AliasTableChk
+Validate the recipient against the alias.db file, otherwise Reject.
+Location of alias.db file.
 - Type - String
 - Default - `/etc/mail/alias.db`
 
@@ -43,10 +45,13 @@ The filepath where the numerous db.* configuation files are located.
 - Default - `/var/db/spamilter`
 
 ### DnsBlChk
+Check the connecting MTA ip address against the RBLs specified in db.rdnsbl
 - Type - Boolean
 - Default - `True`
 
 ### GeoIPChk
+Lookup the connecting MTA ip address from the GeoIP database, find the Country,
+and check against the db.geocc database for Reject
 - Type - Boolean
 - Default - `True`
   
@@ -56,6 +61,7 @@ The location of GeoIp Database directory
 - Default - `/var/db/spamilter/geoip`
  
 ### GreyListChk
+Consult GreyDbd GreyList qualification before accepting.
 - Type - Boolean
 - Default - `True`
   
@@ -70,10 +76,13 @@ The port number that GreyDbd listens to.
 - Default - `7892`
   
 ### HeaderReceivedChk  
+Check that all Received header's ip address are not on an RBL.
 - Type - Boolean
 - Default - `False`
   
 ### HeaderReplyToChk
+Check the ReplyTo Address header, like the Envelope Sender Address (Smtp Sender Check), to validate that
+the address will accept a reply from the recipient.
 - Type - Boolean
 - Default - `True`
  
@@ -99,10 +108,12 @@ Note that the user account should be a nologin account, and doesn't require an a
 - Default - `` (empty)
   
 ### LocalUserTableChk
+Validate the recipent against the local user account database, otherwise Reject.
 - Type - Boolean
 - Default - `True`
 
 ### MsExtChk
+Check email body for attachements with certain extension names, and `Reject` or `Tag` based on the MsExtChkAction setting.
 - Type - Integer
 - Default - `0`
  
@@ -121,14 +132,24 @@ Valid Values;
   * `Tag`
 
 ### MtaHostChk
+This filter enables several tests. It requires that the HELO MTA hostname;
+  * NOT be an ip address.
+  * resolves to an ip address.
+  * is NOT that of the recipient's domain.  
+
+   Also, the following are tested;
+  * Enforces Black/White domain listing based on entries in db.sndr
+  * Require that the HELO MTA hostname passes DomainBlockList RBL testing based on db.dbl entries.
 - Type - Boolean
 - Default - `True`
 
 ### MtaHostChkAsIp   
+Require that the MTA hostname NOT be an ip address.
 - Type - Boolean
 - Default - `False`
 
 ### MtaHostIpChk
+The HELO MTA hostname should match the connecting IP address.
 - Type - Boolean
 - Default - `False`
 
