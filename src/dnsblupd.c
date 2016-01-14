@@ -56,7 +56,7 @@ static char const cvsid[] = "@(#)$Id: dnsblupd.c,v 1.13 2011/07/29 21:23:16 neal
 
 void usage()
 {
-	printf("dnsblupd [-d] [-z RDNSBL zone name] [[-a IP address] [-i IP address]] [-r IP address] [-l IP adress] [-?]\n"
+	printf("dnsblupd [-d] [-z RDNSBL zone name] [-a IP address] [-i IP address] [-r IP address] [-l IP adress] [-?]\n"
 		"\tWhere;\n"
 		"\t-d - debug mode.\n"
 		"\t-z - RDNSBL zone name. must preceed -i, -a, or -l.\n"
