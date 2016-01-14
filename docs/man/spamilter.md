@@ -59,15 +59,15 @@ Following is a list of filters, in basic order of proccessing during the End Of 
 - Black / White list the Sender's email address
 
 ### Technical Enforcement
-- MtaHostChk or MtaHostChkAsIp - The HLO MTA hostname should not be an ip address
-- MtaHostChk - The HLO MTA hostname should not be that of the recipent's domain
-- MtaHostChk - The HLO MTA hostname should resolve to an ip address
+- MtaHostChk or MtaHostChkAsIp - The HELO MTA hostname should not be an ip address
+- MtaHostChk - The HELO MTA hostname should not be that of the recipent's domain
+- MtaHostChk - The HELO MTA hostname should resolve to an ip address
 
 ### Policy Enforcement
-- MtaHostChk - DBL check the HLO MTA hostname
+- MtaHostChk - DBL check the HELO MTA hostname
 
 ### Technical Enforcement
-- MtaHostIpChk - The HLO MTA hostname should match the connecting ip address. This on should be effective, however, practically nobody bothers to properly configure reverse DNS to match the A record anymore, so this should probably left off.
+- MtaHostIpChk - The HELO MTA hostname should match the connecting ip address. This one would be effective if used, however, practically nobody bothers to properly configure reverse DNS to match the A record anymore, and many adminstrators simply improperly configure the MTA hostname anyway, so this should probably left off.
 
 ### Policy Enforcement
 - MtaSpfChk - The MTA should pas SPF tests
@@ -77,51 +77,6 @@ Following is a list of filters, in basic order of proccessing during the End Of 
 - Local compiled in content filter checks
 - ReplyTo header checks
 - Greylist checking
-
-## CONFIG OPTIONS
-
-### AliasTableChk
-Validate the recipient against the alias.db file, otherwise Reject.
-Location of alias.db file.
-
-### DnsBlChk
-Check the connecting MTA ip address against the RBLs specified in db.rdnsbl
-
-### GeoIPChk
-Lookup the connecting MTA ip address from the GeoIP database, find the Country,
-and check against the db.geocc database for Reject
-
-### GreyListChk
-Consult GreyDbd GreyList qualification before accepting.
-
-### HeaderReceivedChk  
-Check that all Received header's ip address are not on an RBL.
-
-### HeaderReplyToChk
-Check the ReplyTo Address header, like the Envelope Sender Address (Smtp Sender Check), to validate that
-the address will accept a reply from the recipient.
-
-### LocalUserTableChk
-Validate the recipent against the local user account database, otherwise Reject.
-
-### MsExtChk
-Check email body for attachements with certain extension names, and `Reject` or `Tag` based on the MsExtChkAction setting.
-
-### MtaHostChk
-This filter enables several tests. It requires that the HLO MTA hostname;
-  * NOT be an ip address.
-  * resolves to an ip address.
-  * is NOT that of the recipient's domain.  
-
-   Also, the following are tested;
-  * Enforces Black/White domain listing based on entries in db.sndr
-  * Require that the HLO MTA hostname passes DomainBlockList RBL testing based on db.dbl entries.
-
-### MtaHostChkAsIp   
-Require that the MTA hostname NOT be an ip address.
-
-### MtaHostIpfw
-As the result of a Reject operation, add the MTA host ip address to the firewall block list managed by IpfwMtad.
 
 ## SEE ALSO
 spamilter.conf, ipfwmtad, greydbd
