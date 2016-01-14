@@ -19,10 +19,17 @@ greydbd [-v] [-d debug level] [-p port number] [-h psql hostname] [-i psql host 
 - -? show cli usage if more than one arg, or man page if no args
 
 ## DESCRIPTION
-Provides a database storage and aging mechanisim to track ip address and email tuples.
+Provides a database storage and aging mechanisim to track ip address and email tuples. \
+Currently, only Postgresql is used to store and age the tuple entries. The aging mechanism
+requires a cron job using the greydbd_main.sh script. \
+For example:
+> 15 0 * * * root /usr/local/bin/greydbd_maint.sh > /dev/null 2>&1
+
+You will need to manually install the script, and possibly change the postgres db user, and
+or add a postgress db user password.
 
 ## SEE ALSO
-spamilter, ipfwmtad  
+spamilter
 _http://www.wanlink.com/spamilter_
 
 ## AUTHOR
