@@ -17,7 +17,7 @@ MANDIR= /usr/local/man/man8
 
 MANDOWNDIR=./hoedown.git
 MANDOWN=${MANDOWNDIR}/build/mandown
-MANDOWNFLAGS=--markdown --man-th-e1 ${SPAMILTER_RELEASE} --man-th-e2 ${SPAMILTER_DATE}
+MANDOWNFLAGS=--markdown --man-th-e1 ${SPAMILTER_RELEASE} --man-th-e2 ${SPAMILTER_DATE} --linebreak-hard
 
 SPAMILTER_RELEASE="0.60"
 SPAMILTER_DATE="May 30, 2012"
