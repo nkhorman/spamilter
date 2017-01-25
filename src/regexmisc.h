@@ -49,6 +49,7 @@
 
 	int mlfi_regex_mboxtwist(const char *pstr, const char *pRegex, char **ppFrm, char **ppDom);
 	int mlfi_regex_mboxsplit(const char *pstr, char **ppfrm, char **ppdom);
+	int mlfi_regex_mboxStripEncoding(char **ppMbox);
 
 	void mlfi_regex_line_http(const char *pSessionId, const char *pbuf, list_t *pListHosts);
 #endif

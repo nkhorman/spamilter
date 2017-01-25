@@ -501,6 +501,8 @@ sfsistat mlfi_envfrom(SMFICTX *ctx, char **envfrom)
 		priv->sndr = str2lo(strdup(*envfrom));
 
 		mlfi_regex_mboxsplit(priv->sndr,&pMbox,&pDomain);
+		if(mlfi_regex_mboxStripEncoding(&pMbox))
+			mlfi_debug(priv->pSessionUuidStr,"mlfi_envfrom: '%s' --> '%s@%s'\n", priv->sndr, pMbox, pDomain);
 		dupe_query(priv,*envfrom,DUPE_FROM);
 
 		priv->sndraction = bwlistActionQuery(priv->pbwlistctx,BWL_L_SNDR,pDomain,pMbox,priv->sndractionexec);
@@ -598,11 +600,16 @@ sfsistat mlfi_replyto(SMFICTX *ctx)
 			asprintf(&priv->replyto,"<%s@%s>",pMbox,pDomain);
 			if(priv->replyto != NULL && *priv->replyto)
 				str2lo(priv->replyto);
-			mlfi_debug(priv->pSessionUuidStr,"mlfi_replyto: replyto set: %s\n",priv->replyto);
+			mlfi_debug(priv->pSessionUuidStr, "mlfi_replyto: replyto set: %s\n", priv->replyto);
 
-			if(priv->replyto != NULL && strcasecmp(priv->sndr,priv->replyto) != 0)
-			{	
-				action = bwlistActionQuery(priv->pbwlistctx,BWL_L_SNDR,pDomain,pMbox,priv->replytoactionexec);
+			if(priv->replyto != NULL && strcasecmp(priv->sndr, priv->replyto) != 0)
+			{	char *pMboxDup = strdup(pMbox);
+
+				if(pMboxDup != NULL && mlfi_regex_mboxStripEncoding(&pMboxDup))
+					mlfi_debug(priv->pSessionUuidStr,"mlfi_replyto: '%s' --> '%s@%s'\n", priv->header_replyto, pMboxDup, pDomain);
+				action = bwlistActionQuery(priv->pbwlistctx, BWL_L_SNDR, pDomain, (pMboxDup == NULL ? pMbox : pMboxDup), priv->replytoactionexec);
+				if(pMboxDup != NULL)
+					free(pMboxDup);
 			}
 			else
 			{

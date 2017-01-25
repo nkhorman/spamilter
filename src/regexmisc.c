@@ -383,6 +383,40 @@ int mlfi_regex_mboxsplit(const char *pMboxDomain, char **ppMbox, char **ppDomain
 	return match;
 }
 
+// deal with BATV
+// http://mipassoc.org/batv/draft-levine-smtp-batv-01.html
+int mlfi_regex_mboxStripEncoding(char **ppMbox)
+{	int match = 0;
+
+	if(ppMbox != NULL && *ppMbox != NULL)
+	{
+		const char *pRegStrs[] =
+		{
+			"(prvs=[^=]*=)(.*)",
+			"(btv1=[^=]*=)(.*)",
+			"(msprvs1=[^=]*=)(.*)", // sparkpostmail.com
+		};
+		int i,q;
+
+		for(i=0,q=sizeof(pRegStrs)/sizeof(pRegStrs[0]); !match && i<q; i++)
+		{
+			regexapi_t *prat = regexapi_exec(*ppMbox, pRegStrs[i], REGEX_DEFAULT_CFLAGS, 1);
+
+			match = (prat != NULL && regexapi_matches(prat) && regexapi_nsubs(prat,0) == 2);
+
+			if(match)
+			{
+				free(*ppMbox);
+				*ppMbox = strdup(regexapi_sub(prat, 0, 1));
+			}
+			if(prat != NULL)
+				regexapi_free(prat);
+		}
+	}
+
+	return match;
+}
+
 typedef struct _listSearch_t
 {
 	int found;
@@ -495,6 +529,9 @@ int main(int argc, char **argv)
 					if(mlfi_regex_mboxsplit(optarg,&frm,&dom))
 					{
 						printf("split: '%s'@'%s'\n",frm,dom);
+						if(mlfi_regex_mboxStripEncoding(&frm))
+							printf("encoding stripped split: '%s'@'%s'\n", frm, dom);
+
 						if(frm != NULL)
 							free(frm);
 						if(dom != NULL)
