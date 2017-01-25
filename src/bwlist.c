@@ -303,7 +303,7 @@ static int bwlistCallbackRow(void *pCallbackCtx, list_t *pRow)
 			{	char *pregpat = NULL;
 
 				asprintf(&pregpat, "^%s$", ambox);
-				printf("mbox %d regex %d\n", strcasecmp(ambox,pbga->mbox) == 0, (pregpat != NULL ? regexapi(pbga->mbox, pregpat, REGEX_DEFAULT_CFLAGS) : 0) );
+				//printf("mbox %d regex %d\n", strcasecmp(ambox,pbga->mbox) == 0, (pregpat != NULL ? regexapi(pbga->mbox, pregpat, REGEX_DEFAULT_CFLAGS) : 0) );
 				if(strcasecmp(ambox,pbga->mbox) == 0 || (pregpat != NULL ? regexapi(pbga->mbox, pregpat, REGEX_DEFAULT_CFLAGS) : 0) )
 				{
 					pbga->action = action;
