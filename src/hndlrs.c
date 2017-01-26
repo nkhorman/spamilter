@@ -620,7 +620,7 @@ sfsistat mlfi_replyto(SMFICTX *ctx)
 			mlfi_debug(priv->pSessionUuidStr,"mlfi_replyto: to: '%s'/%s action = %u/'%s'\n"
 				,priv->header_replyto
 				,priv->replyto
-				,action,gpBwlStrs[action]
+				,action, gpBwlStrs[action]
 				);
 
 			switch(action)
@@ -900,6 +900,60 @@ sfsistat mlfi_envrcpt(SMFICTX *ctx, char **argv)
 				break;
 			}
 
+			// Policy enforcement
+			// Do local content filtering checks
+			if( rs == SMFIS_CONTINUE //continue_checks
+				//&& gxxxChk - TODO - should this be configurable ?
+				&& !priv->isAuthEn
+				&& mlfi_contentfilter(priv,&rs,RBL_S_FROM) == SMFIS_REJECT
+				)
+			{
+				mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - unathorized sender");
+				if(!mlfi_status_debug(priv,&rs,LOG_REJECTED_STR,"Unauthorized sender"
+					,"mlfi_hndlrs: Unauthorized sender\n")
+					)
+				{
+					//if(iniGetInt(OPT_MTAHOSTIPFW))
+						mlfi_MtaHostIpfwAction(priv,"add");
+					//else if(iniGetInt(OPT_MTAHOSTIPFWNOMINATE)) // multi-penalty for RBL hits
+					//	mlfi_MtaHostIpfwAction(priv,"inculpate");
+				}
+			}
+
+#ifdef SUPPORT_FWDHOSTCHK
+			// Policy enforcment
+			// Can we deliver to the recipient ?
+			if( rs == SMFIS_CONTINUE //continue_checks
+				&& iniGetInt(OPT_RCPTFWDHOSTCHK)
+				)
+			{
+				int smtprc = -1;
+				int fhlrc = fwdhostlist_is_deliverable(priv, pMbox, pDomain, &smtprc);
+				int deliverable = (fhlrc !=  0);
+
+				mlfi_debug(priv->pSessionUuidStr,"mlfi_envrcpt: FwdHostChk '%s@%s' = %d, deliverable %d, smtprc %d\n",pMbox,pDomain,fhlrc,deliverable,smtprc);
+				if(!deliverable)
+				{
+					if(smtprc == -1 || smtprc/100 == 4)
+					{
+						if(smtprc == -1)
+							smtprc = 450;
+						mlfi_setreply(ctx,smtprc,"4.7.1","Temporary failure - Unable to validate recipient, Please see: %s#tempfailinvalidrecipient",iniGetStr(OPT_POLICYURL));
+						mlfi_status_debug(priv,&rs,LOG_TEMPFAILED_STR,"TempFailed","Recipient address verification",NULL);
+					}
+					else
+					{
+						sleep(120);	// slow the bastard down!
+						mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Recipient undeliverable, Please see: %s#undeliverablerecipient",iniGetStr(OPT_POLICYURL));
+						asprintf(&reason,"Undeliverable recipient %d",smtprc);
+						if(!mlfi_status_debug(priv,&rs,LOG_REJECTED_STR,reason,NULL) && iniGetInt(OPT_MTAHOSTIPFWNOMINATE))
+							mlfi_MtaHostIpfwAction(priv,"inculpate");
+						free(reason);
+					}
+				}
+			}
+#endif
+
 			free(pMbox);
 			free(pDomain);
 		}
@@ -1128,48 +1182,6 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 		ds.pSessionId = priv->pSessionUuidStr;
 		ds.bLoggingEnabled = gDebug;
 
-#ifdef SUPPORT_FWDHOSTCHK
-		// Policy enforcment
-		// Can we deliver to the recipient ?
-		if(continue_checks
-			&& iniGetInt(OPT_RCPTFWDHOSTCHK)
-			)
-		{	
-			int smtprc = -1;
-			int fhlrc, deliverable;
-			char *rcptMbox = NULL;
-			char *rcptDom = NULL;
-
-			mlfi_regex_mboxsplit(priv->rcpt,&rcptMbox,&rcptDom);
-			
-			fhlrc = fwdhostlist_is_deliverable(priv,rcptMbox,rcptDom,&smtprc);
-			deliverable = (fhlrc !=  0);
-
-			mlfi_debug(priv->pSessionUuidStr,"mlfi_hndlrs: FwdHostChk '%s@%s' = %d, deliverable %d, smtprc %d\n",rcptMbox,rcptDom,fhlrc,deliverable,smtprc);
-			if(!deliverable)
-			{
-				if(smtprc == -1 || smtprc/100 == 4)
-				{
-					if(smtprc == -1)
-						smtprc = 450;
-					mlfi_setreply(ctx,smtprc,"4.7.1","Temporary failure - Unable to validate recipient, Please see: %s#tempfailinvalidrecipient",iniGetStr(OPT_POLICYURL));
-					continue_checks = mlfi_status_debug(priv,&rs,LOG_TEMPFAILED_STR,"TempFailed","Recipient address verification",NULL);
-				}
-				else
-				{
-					mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - Recipient undeliverable, Please see: %s#undeliverablerecipient",iniGetStr(OPT_POLICYURL));
-					asprintf(&reason,"Undeliverable recipient %d",smtprc);
-					continue_checks = mlfi_status_debug(priv,&rs,LOG_REJECTED_STR,reason,NULL);
-					if(!continue_checks && iniGetInt(OPT_MTAHOSTIPFWNOMINATE))
-						mlfi_MtaHostIpfwAction(priv,"inculpate");
-					free(reason);
-				}
-			}
-			free(rcptMbox);
-			free(rcptDom);
-		}
-#endif
-
 		// Policy enforcement
 		// How should we handle the sender ?
 		if(continue_checks
@@ -1216,6 +1228,8 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 			}
 			free(reason);
 		}
+
+		continue_checks &= (rs == SMFIS_CONTINUE && priv->rcptaction == BWL_A_NULL && priv->sndraction == BWL_A_NULL);
 
 		// Technical enforcement
 		// The HELO MTA hostname should not be an ip address
@@ -1427,18 +1441,6 @@ sfsistat mlfi_hndlrs(SMFICTX *ctx)
 			listForEach(priv->pGeoipList,&listCallbackGeoipReject,(void *)&lcgr);
 		}
 #endif
-
-		// Policy enforcement
-		// Do local content filtering checks
-		if(continue_checks
-			//&& gxxxChk - TODO - should this be configurable ?
-			&& mlfi_contentfilter(priv,&rs,RBL_S_FROM) == SMFIS_REJECT
-			)
-		{
-			mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - unathorized sender");
-			continue_checks = mlfi_status_debug(priv,&rs,LOG_REJECTED_STR,"Unauthorized sender"
-				,"mlfi_hndlrs: Unauthorized sender\n");
-		}
 
 		if(continue_checks
 			//&& gReplyToChk
