@@ -51,7 +51,7 @@ static char const cvsid[] = "@(#)$Id: dns.c,v 1.18 2012/06/26 01:04:29 neal Exp 
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <arpa/nameser.h>
+#include <arpa/nameser.h> // look here for ns_rr_xxx macros
 #include <resolv.h>
 #include <netdb.h>
 
@@ -109,7 +109,7 @@ typedef struct _nsType_t
 	const char *name;
 } nsType_t;
 
-nsType_t gNsTypes[] = { {ns_t_a, "A"}, {ns_t_aaaa, "AAAA"}, {ns_t_ptr, "PTR"}, {ns_t_cname, "CNAME"}, {ns_t_mx, "MX"} };
+nsType_t gNsTypes[] = { {ns_t_a, "A"}, {ns_t_aaaa, "AAAA"}, {ns_t_ptr, "PTR"}, {ns_t_cname, "CNAME"}, {ns_t_mx, "MX"}, {ns_t_txt, "TXT"} };
 
 const char *nsTypeLookup(int nsType)
 {	int i;
@@ -378,6 +378,8 @@ char *dns_inet_ptoarpa(const char *pHost, int afType, const char *pDomainRoot)
 }
 
 #ifdef UNIT_TEST
+// cc -D UNIT_TEST -o dns dns.c misc.c -lresolv
+
 // Show the text version of a given  RR
 int dnsParseResponseCallback(dqrr_t *pDqrr, void *pdata)
 {
@@ -424,6 +426,26 @@ int dnsParseResponseCallback(dqrr_t *pDqrr, void *pdata)
 			}
 			break;
 
+		case ns_t_mx:
+			{
+			      char hostName[NS_MAXDNAME];
+				int rc;
+				const u_char *rrData = ns_rr_rdata(pDqrr->rr);
+				unsigned short hostPreference = 0;
+
+				memset(hostName, 0, sizeof(hostName));
+				NS_GET16(hostPreference, rrData);
+
+				rc = ns_name_uncompress(ns_msg_base(pDqrr->rrMsg), ns_msg_end(pDqrr->rrMsg), rrData, hostName, sizeof(hostName));
+				if(rc != -1)
+					printf("\tMX %u %s\n", hostPreference, hostName);
+			}
+			break;
+
+		case ns_t_txt:
+			printf("\tTXT %.*s\n", ns_rr_rdlen(pDqrr->rr), ns_rr_rdata(pDqrr->rr));
+			break;
+
 		default:
 			printf("dnsParseResponseCallback - unhandled type %d\n", nsType);
 			break;
@@ -436,7 +458,8 @@ res_state gpRes = NULL;
 
 int testType(nsType_t *pType, const char *pQuery)
 {	int rc = 0;
-	dqrr_t *pDqrr = dns_query_rr_init(gpRes, pType->type);
+	ds_t ds = {.statp=gpRes, .pSessionId=NULL, .bLoggingEnabled=0};
+	dqrr_t *pDqrr = dns_query_rr_init(&ds, pType->type);
 
 	if(pDqrr != NULL)
 	{
@@ -476,7 +499,7 @@ void test1(int argc, char **argv)
 		}
 
 		if(rc == 0)
-			printf("%s - no A, AAAA, PTR, or CNAME record\n", argv[i]);
+			printf("%s - no A, AAAA, PTR, MX, TXT or CNAME record\n", argv[i]);
 	}
 }
 
