@@ -383,8 +383,13 @@ int mlfi_regex_mboxsplit(const char *pMboxDomain, char **ppMbox, char **ppDomain
 	return match;
 }
 
-// deal with BATV
+// Deal with BATV
 // http://mipassoc.org/batv/draft-levine-smtp-batv-01.html
+// The draft says pub3=<crypted>=<loc-core>@example.com
+// but microsft decided that pub3==<crypted>==<loc-core>@example.com was ok
+// so now we test for 1 or more = per separation
+#define PAT_BATV_PRE "("
+#define PAT_BATV_POST "[=]{1,}[^=]*[=]{1,})(.*)"
 int mlfi_regex_mboxStripEncoding(char **ppMbox)
 {	int match = 0;
 
@@ -392,9 +397,9 @@ int mlfi_regex_mboxStripEncoding(char **ppMbox)
 	{
 		const char *pRegStrs[] =
 		{
-			"(prvs=[^=]*=)(.*)",
-			"(btv1=[^=]*=)(.*)",
-			"(msprvs1=[^=]*=)(.*)", // sparkpostmail.com
+			PAT_BATV_PRE "prvs" PAT_BATV_POST,
+			PAT_BATV_PRE "btv1" PAT_BATV_POST,
+			PAT_BATV_PRE "msprvs1" PAT_BATV_POST, // sparkpostmail.com
 		};
 		int i,q;
 
