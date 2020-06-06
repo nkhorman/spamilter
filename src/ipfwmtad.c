@@ -584,7 +584,7 @@ void clientSessionAuth(int sd, char *buf)
 				if((pclient->pchallenge = BN_new()) != NULL)
 				{
 					BN_rand(pclient->pchallenge, 256, 0, 0);
-					BN_mod(pclient->pchallenge, pclient->pchallenge, pclient->pclikey->n, pbnctx);
+					BN_mod(pclient->pchallenge, pclient->pchallenge, key_getRsaN(pclient->pclikey), pbnctx);
 					pclient->pchallengestr = BN_bn2hex(pclient->pchallenge);
 				}
 
@@ -731,7 +731,7 @@ void clientSessionReadLines(int i, fd_set *fds)
 		if(pclient->pchallengestr != NULL)
 			free(pclient->pchallengestr);
 		if(pclient->pclikey != NULL)
-			key_free(pclient->pclikey);
+			key_free(&pclient->pclikey);
 		if(pclient->pIpStr != NULL)
 			free(pclient->pIpStr);
 

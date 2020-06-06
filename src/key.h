@@ -46,9 +46,13 @@
 	#include <openssl/rsa.h>
 
 	RSA *key_new();
-	RSA *key_demote(RSA *privkey);
-	void key_free(RSA *rsa);
+	//RSA *key_demote(RSA *privkey);
+	void key_free(RSA **rsa);
 	RSA *key_generate(int bits);
+
+	void key_getRsaNE(RSA *rsa, BIGNUM **rsaN, BIGNUM **rsaE);
+	BIGNUM *key_getRsaN(RSA *rsa);
+	BIGNUM *key_getRsaE(RSA *rsa);
 
 	int key_size(RSA *rsa);
 

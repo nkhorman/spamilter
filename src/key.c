@@ -77,6 +77,9 @@
 static char const cvsid[] = "@(#)$Id: key.c,v 1.4 2011/10/27 17:31:24 neal Exp $";
 
 #include <openssl/rsa.h>
+#include <openssl/opensslv.h>
+#include <openssl/rand.h>
+
 #include <string.h>
 
 #include "config.h"
@@ -86,8 +89,12 @@ static char const cvsid[] = "@(#)$Id: key.c,v 1.4 2011/10/27 17:31:24 neal Exp $
 #define min(a,b) ((a) <= (b) ? (a) : (b))
 #endif
 
+// https://www.openssl.org/docs/man1.1.1/man3/RSA_get0_key.html
 RSA *key_new()
 {	RSA	*rsa = RSA_new();
+#if OPENSSL_VERSION_NUMBER > 0x010100000L
+	int	ok = (rsa != NULL && RSA_set0_key(rsa, BN_new(), BN_new(), NULL) == 1);
+#else
 	int	ok = 0;
 
 	if(rsa != NULL)
@@ -97,29 +104,43 @@ RSA *key_new()
 	}
 
 	ok = (rsa != NULL && rsa->n != NULL && rsa->e != NULL);
+#endif
 
 	if(!ok)
-		RSA_free(rsa);
+		key_free(&rsa);
 
 	return(ok ? rsa : NULL);
 }
 
+/*
 RSA *key_demote(RSA *privkey)
 {	RSA	*pubkey = key_new();
 
 	if(pubkey != NULL)
 	{
+#if OPENSSL_VERSION_NUMBER > 0x010100000L
+		BIGNUM *rsaN = NULL;
+		BIGNUM *rsaE = NULL;
+
+		RSA_get0_key(privkey, (const BIGNUM **)&rsaN, (const BIGNUM **)&rsaE, NULL);
+		RSA_set0_key(pubkey, BN_dup(rsaN), BN_dup(rsaE), NULL);
+#else
 		pubkey->e = BN_dup(privkey->e);
 		pubkey->n = BN_dup(privkey->n);
+#endif
 	}
 
 	return(pubkey);
 }
+*/
 
-void key_free(RSA *rsa)
+void key_free(RSA **rsa)
 {
 	if(rsa != NULL)
-		RSA_free(rsa);
+	{
+		if(*rsa != NULL)
+			RSA_free(*rsa);
+	}
 }
 
 /*
@@ -178,46 +199,115 @@ int write_bignum(FILE *f, BIGNUM *num)
 	return(ok);
 }
 
+void key_getRsaNE(RSA *rsa, BIGNUM **rsaN, BIGNUM **rsaE)
+{
+	if(rsa != NULL)
+	{
+#if OPENSSL_VERSION_NUMBER > 0x010100000L
+		RSA_get0_key(rsa, (const BIGNUM **)rsaN, (const BIGNUM **)rsaE, NULL);
+#else
+		if(rsaN != NULL)
+			*rsaN = rsa->n;
+		if(rsaE != NULL)
+			*rsaE = rsa->e;
+#endif
+	}
+}
+
+BIGNUM *key_getRsaN(RSA *rsa)
+{
+	BIGNUM *bn = NULL;
+
+	key_getRsaNE(rsa, &bn, NULL);
+
+	return bn;
+}
+
+BIGNUM *key_getRsaE(RSA *rsa)
+{
+	BIGNUM *bn = NULL;
+
+	key_getRsaNE(rsa, NULL, &bn);
+
+	return bn;
+}
+
 int key_read(RSA *rsa, unsigned char **cpp)
 {	int	success = 0;
 	unsigned char	*cp = *cpp;
 	int	bits;
+	BIGNUM	*rsaN = NULL;
+	BIGNUM	*rsaE = NULL;
 
-	/* Get number of bits. */
+	// Get number of bits.
 	for (bits = 0; *cp >= '0' && *cp <= '9'; cp++)
 		bits = 10 * bits + *cp - '0';
 	*cpp = cp;
-	/* Get public exponent, public modulus. */
-	success = (bits > 0 && read_bignum(cpp, rsa->e) && read_bignum(cpp, rsa->n));
+
+	// Get public exponent, public modulus.
+	key_getRsaNE(rsa, &rsaN, &rsaE);
+	success = (bits > 0 && rsaE != NULL && rsaN != NULL && read_bignum(cpp, rsaE) && read_bignum(cpp, rsaN));
 
 	return(success);
 }
 
 int key_size(RSA *rsa)
 {
-	return(BN_num_bits(rsa->n));
+	return BN_num_bits(key_getRsaN(rsa));
 }
 
 int key_write(RSA *rsa, FILE *f)
 {
+	BIGNUM	*rsaN = NULL;
+	BIGNUM	*rsaE = NULL;
+
+	key_getRsaNE(rsa, &rsaN, &rsaE);
 	fprintf(f, "rsa %u", key_size(rsa));
 
-	return(write_bignum(f, rsa->e) && write_bignum(f, rsa->n));
+	return(write_bignum(f, rsaE) && write_bignum(f, rsaN));
 }
 
 RSA *key_generate(int bits)
 {
-	return(RSA_generate_key(bits, 35, NULL, NULL));
+// https://www.openssl.org/docs/man1.1.1/man3/RSA_generate_key_ex.html
+// https://www.dynamsoft.com/codepool/how-to-use-openssl-generate-rsa-keys-cc.html
+#if OPENSSL_VERSION_NUMBER > 0x010100000L
+	RSA *rsa = RSA_new();
+	BIGNUM *rsaE = BN_new();
+	int ok = 0;
+
+	if(rsaE != NULL)
+		ok = (BN_set_word(rsaE, RSA_F4) == 1);
+	ok = (ok && rsa != NULL ? RSA_generate_key_ex(rsa, bits, rsaE, NULL) == 1 : 0);
+
+	if(ok != 1)
+	{
+		key_free(&rsa);
+		if(rsaE != NULL)
+			BN_free(rsaE);
+	}
+
+	return rsa;
+#else
+	return RSA_generate_key(bits, 65537, NULL, NULL);
+#endif
 }
 
 unsigned char *key_pubkeytoasc(RSA *rsa)
 {	char	*dst = NULL;
 
 	if(rsa != NULL)
-	{	char	*buf1 = BN_bn2dec(rsa->e);
-		char	*buf2 = BN_bn2dec(rsa->n);
+	{
+		BIGNUM	*rsaN = NULL;
+		BIGNUM	*rsaE = NULL;
+		char	*buf1 = NULL;
+		char	*buf2 = NULL;
 
-		asprintf(&dst,"rsa %u %s %s",key_size(rsa),buf1,buf2);
+		key_getRsaNE(rsa, &rsaN, &rsaE);
+		buf1 = BN_bn2dec(rsaE);
+		buf2 = BN_bn2dec(rsaN);
+
+		asprintf(&dst, "rsa %u %s %s", key_size(rsa), buf1, buf2);
 
 		OPENSSL_free(buf1);
 		OPENSSL_free(buf2);
@@ -240,7 +330,7 @@ int key_encrypt(RSA *rsa, unsigned char *src, int srclen, unsigned char **dst, i
 int key_bn_encrypt(RSA *rsa, BIGNUM *in, BIGNUM *out)
 {	int	len;
 	int	ilen	= BN_num_bytes(in);
-	int	olen	= BN_num_bytes(rsa->n);
+	int	olen	= BN_num_bytes(key_getRsaN(rsa));
 	unsigned char	*ibuf	= calloc(1,ilen);
 	unsigned char	*obuf	= calloc(1,olen);
 
@@ -260,7 +350,7 @@ int key_bn_encrypt(RSA *rsa, BIGNUM *in, BIGNUM *out)
 int key_bn_decrypt(RSA *rsa, BIGNUM *in, BIGNUM *out)
 {	int	len;
 	int	ilen	= BN_num_bytes(in);
-	int	olen	= BN_num_bytes(rsa->n);
+	int	olen	= BN_num_bytes(key_getRsaN(rsa));
 	unsigned char	*ibuf	= calloc(1,ilen);
 	unsigned char	*obuf	= calloc(1,olen);
 
