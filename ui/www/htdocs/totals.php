@@ -194,7 +194,7 @@ class totalsStatus
 	{
 		$md5 = $this->currentGet();
 		$ob = $this->cacheGet();
-		if(!isset($ob) || !isset($md5) || count($ob) == 0 || !isset($ob['md5']) || $ob['md5'] != $md5)
+		if(!isset($ob) || !isset($md5) || (is_array($ob) && (count($ob) == 0 || !isset($ob['md5']) || $ob['md5'] != $md5)))
 		{
 			$this->statusPut('OLD');
 			if(isset($callback))
