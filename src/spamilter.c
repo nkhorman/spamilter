@@ -216,7 +216,7 @@ int main(int argc, char *argv[])
 #ifdef NEED_GETPROGNAME
 	__gpProgname = basename(strdup(argv[0]));
 #endif
-#if defined(HAVE_SETPROCTITLE) && defined(OS_Linux)
+#if defined(HAVE_SETPROCTITLE) && (defined(OS_Linux) || defined(__APPLE__))
 	spt_init(argc,argv[0]);
 #endif
 
