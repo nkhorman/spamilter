@@ -148,16 +148,16 @@ function SndrLinesShowTable($content)
 				{
 					switch(strtolower($fieldstr))
 					{
-						case accept:
+						case 'accept':
 							$lineattribs=' class="ok"';
 							break;
-						case none:
+						case 'none':
 							$lineattribs=' class="neutral"';
 							break;
-						case tarpit:
+						case 'tarpit':
 							$lineattribs=' class="medium"';
 							break;
-						case reject:
+						case 'reject':
 						default:
 							$lineattribs=' class="bad"';
 							break;
