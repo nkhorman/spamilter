@@ -110,9 +110,7 @@
 		int		replytoaction;
 		char		replytoactionexec[1024];
 #ifdef SUPPORT_GEOIP
-		const GeoIPDB	*pGeoipdb;
-		GeoIP		*pGeoipCC;
-		GeoIP		*pGeoipCity;
+		geoipApi2Ctx_t *pGeoipApi2Ctx;
 		int		fdGeoipBWL;
 		list_t		*pGeoipList;
 #endif

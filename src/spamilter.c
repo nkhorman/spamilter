@@ -299,7 +299,7 @@ int main(int argc, char *argv[])
 		mlfi.xxfi_body = NULL;
 
 	c = 0;
-	smfi_setconn(iniGetStr(OPT_CONN));
+	smfi_setconn((char *)iniGetStr(OPT_CONN)); // TODO - XXX - this cast is BAD!, but smfi_setconn leaves me no choice
 	if (smfi_register(mlfi) == MI_FAILURE)
 	{
 		fprintf(stderr, "smfi_register failed\n");

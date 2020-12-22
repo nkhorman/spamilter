@@ -156,7 +156,31 @@ ConfigSwitchWith()
 	With "${theflag}"
 }
 
+PkgInstall()
+{
+	echo "can't find ${1}"
+	case "$os" in
+		FreeBSD)
+			echo "try pkg install ${1}"
+			;;
+		Darwin)
+			echo "try brew install ${1}"
+			;;
+		Linux)
+			echo "try apt-get bla bla ${1} something... sorry"
+			;;
+		*)
+			echo "em.... your on your own here, sorry"
+			;;
+	esac
+	exit 0
+}
+
 if [ "$1" = "" ]; then usage; exit 0; fi
+
+if [ -z "`which pkg-config`" ]; then
+	PkgInstall pkg-config
+fi
 
 CFlags "ALLOW_LOCALNET_HOSTS"
 CFlags "USEIPFWDIRECT"
@@ -168,7 +192,6 @@ CFlags "CONF_SPAMILTER" "\"${confspamilter}\""
 while [ "$1" != "" ]; do
 	case "$1" in
 		-f)
-			$echobin "$1 \\" >> $log
 			if [ -f Makefile ]; then
 				make distclean || rm -f Makefile
 			fi
@@ -298,10 +321,17 @@ while [ "$1" != "" ]; do
 			ConfigSwitchWith "FWDHOSTCHK" "$1"
 			;;
 		--with-geoip)
-			x="`SedifyDir 1.4.8`"
-			TagLine "GEOIPDIR" $x
-			TagLine "PKGGEOIP" ALL
-			ConfigSwitchWith "GEOIP" "$1"
+			if `pkg-config libmaxminddb --exists`; then
+				x1="`pkg-config libmaxminddb --cflags-only-I`"
+				x2="`pkg-config libmaxminddb --libs-only-L`"
+				incdirs="`SedifyDir $x1` $incdirs"
+				libdirs="`SedifyDir $x2` $libdirs"
+				libs="`pkg-config libmaxminddb --libs-only-l` $libs"
+				ConfigSwitchWith "GEOIP" "$1"
+				TagLine "PKGGEOIP" ALL
+			else
+				PkgInstall libmaxminddb
+			fi
 			;;
 		--with-tables-flatfile)
 			ConfigSwitchWith "TABLE_FLATFILE" "$1"
@@ -366,7 +396,6 @@ if [ -f Makefile ]; then
 	$echobin "Use configure -f to rebuild the Makefile";
 	exit 0;
 else
-#	osbsd="`uname -s|sed -e's/^.*[Bb][Ss][Dd]/BSD/'`"
 	CFlags "OS_${os}"
 	case "$os" in
 		FreeBSD)

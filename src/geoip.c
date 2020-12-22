@@ -60,60 +60,58 @@ static char const cvsid[] = "@(#)$Id: geoip.c,v 1.12 2012/11/18 21:13:16 neal Ex
 #include "regexapi.h"
 #include "list.h"
 #include "geoip.h"
-#include "GeoIP.h"
-#include "GeoIP_internal.h"
+
+#include "geoipApi2.h"
+
+#ifdef _UNIT_TEST
+mlfiPriv gmlfipriv =  {0};
+#undef MLFIPRIV
+#define MLFIPRIV (&gmlfipriv)
+#endif
 
 void geoip_init(SMFICTX *ctx)
-{	mlfiPriv *priv = MLFIPRIV;
+{
+	mlfiPriv *priv = MLFIPRIV;
 
 	if(priv != NULL)
 	{
-		priv->pGeoipdb = NULL;
-		priv->pGeoipCC = NULL;
-		priv->pGeoipCity = NULL;
+		priv->pGeoipApi2Ctx = NULL;
 		priv->fdGeoipBWL = -1;
 		priv->pGeoipList = listCreate();
 	}
 }
 
 int geoip_open(SMFICTX *ctx, const char *dbpath, const char *pGeoipdbPath)
-{	mlfiPriv *priv = MLFIPRIV;
+{
+	mlfiPriv *priv = MLFIPRIV;
 	int ok = 0;
 
 	if(priv != NULL && dbpath != NULL)
 	{
-		priv->pGeoipdb = GeoIP_setup_custom_directory(pGeoipdbPath);
-		priv->pGeoipCC = ( GeoIP_db_avail(priv->pGeoipdb,GEOIP_COUNTRY_EDITION) ? GeoIP_open_type(priv->pGeoipdb,GEOIP_COUNTRY_EDITION,GEOIP_STANDARD) : NULL);
-		priv->pGeoipCity = ( GeoIP_db_avail(priv->pGeoipdb,GEOIP_CITY_EDITION_REV0) ? GeoIP_open_type(priv->pGeoipdb,GEOIP_CITY_EDITION_REV0 ,GEOIP_STANDARD) : NULL);
+		priv->pGeoipApi2Ctx = geoipApi2_open(pGeoipdbPath);
 
 		if(priv->fdGeoipBWL == -1)
-		{	char	*fn = NULL;
+		{
+			char *fn = NULL;
 
-			asprintf(&fn,"%s/db.geocc",dbpath);
-			priv->fdGeoipBWL = open(fn,O_RDONLY);
+			asprintf(&fn, "%s/db.geocc", dbpath);
+			priv->fdGeoipBWL = open(fn, O_RDONLY);
 			if(priv->fdGeoipBWL == -1)
-				mlfi_debug(priv->pSessionUuidStr,"geoip: Unable to open Sender file '%s'\n",fn);
+				mlfi_debug(priv->pSessionUuidStr, "geoip: Unable to open Sender file '%s'\n", fn);
 			if(fn != NULL)
 				free(fn);
 		}
-
-		ok = (priv->pGeoipdb != NULL && priv->pGeoipCC != NULL && priv->fdGeoipBWL != -1);
+		ok = (priv->pGeoipApi2Ctx != NULL && priv->fdGeoipBWL != -1);
 	}
 
-	mlfi_debug(priv->pSessionUuidStr,"geoip_open: ok %d\n",ok);
+	mlfi_debug(priv->pSessionUuidStr, "geoip_open: ok %d\n", ok);
 
 	return ok;
 }
 
 static int geoipResultFreeCallback(void *pData, void *pCallbackData)
-{	geoipResult *pResult = (geoipResult *)pData;
-
-	if(pResult->pGeoIPRecord != NULL)
-		GeoIPRecord_delete(pResult->pGeoIPRecord);
-	if(pResult->pCountryCity != NULL)
-		free(pResult->pCountryCity);
-
-	free(pResult);
+{
+	geoipApi2_ResFree((geoipApi2Res_t *)pData);
 
 	return 1; // again
 }
@@ -123,11 +121,7 @@ void geoip_close(SMFICTX *ctx)
 
 	if(priv != NULL)
 	{
-		GeoIP_delete(priv->pGeoipCC);
-		GeoIP_delete(priv->pGeoipCity);
-		priv->pGeoipCC = NULL;
-		priv->pGeoipCity = NULL;
-		GeoIP_cleanup(&priv->pGeoipdb);
+		priv->pGeoipApi2Ctx = geoipApi2_close(priv->pGeoipApi2Ctx);
 
 		if(priv->fdGeoipBWL != -1)
 		{
@@ -135,26 +129,21 @@ void geoip_close(SMFICTX *ctx)
 			priv->fdGeoipBWL = -1;
 		}
 
-		listDestroy(priv->pListBodyHosts,&geoipResultFreeCallback,NULL);
+		listDestroy(priv->pListBodyHosts, &geoipResultFreeCallback, NULL);
 		priv->pGeoipList = NULL;
 	}
 }
 
 const char *geoip_LookupCCByAF(SMFICTX *ctx, int af, const char *in)
-{	mlfiPriv *priv = MLFIPRIV;
+{
+	mlfiPriv *priv = MLFIPRIV;
 	const char *pCC = NULL;
 
-	if(priv != NULL && priv->pGeoipCC != NULL)
+	if(priv != NULL )
 	{
-		switch(af)
-		{
-			case AF_INET:
-				pCC = GeoIP_country_code_by_ipnum(priv->pGeoipCC, ntohl(*(unsigned long *)in));
-				break;
-			case AF_INET6:
-				pCC = GeoIP_country_code_by_ipnum_v6(priv->pGeoipCC, *(struct in6_addr *)in);
-				break;
-		}
+		geoipApi2Res_t * pRes = geoipApi2_LookupCCByAF(priv->pGeoipApi2Ctx, af, in);
+
+		pCC = pRes->pCc;
 	}
 
 	return (pCC != NULL ? pCC : "--");
@@ -262,7 +251,34 @@ int geoip_query_action_cc(SMFICTX *ctx, const char *pCC)
 	return rc;
 }
 
-static const char * _mk_NA( const char * p ) { return p ? p : "N/A"; }
+const char *geoip_result_addAF(SMFICTX *ctx, int afType, const char *in, const char *pCountryCode)
+{
+	mlfiPriv *priv = MLFIPRIV;
+	const char *pStr = NULL;
+
+	if(priv->pGeoipList != NULL)
+	{
+		geoipApi2Res_t *pRes = geoipApi2_LookupCCByAF(priv->pGeoipApi2Ctx, afType, in);
+
+		pRes->ip.afType = afType;
+		switch(afType)
+		{
+			case AF_INET:
+				pRes->ip.ipv4 = *(unsigned long*)in;
+				break;
+			case AF_INET6:
+				pRes->ip.ipv6 = *(struct in6_addr *)in;
+				break;
+		}
+
+		pStr = (strcmp(pCountryCode, pRes->pCc) == 0 ? pRes->pCountryCity : pCountryCode);
+
+		listAdd(priv->pGeoipList, pRes);
+	}
+
+	return pStr;
+}
+
 
 const char *geoip_result_addIpv4(SMFICTX *ctx, unsigned long ip, const char *pCountryCode)
 {	unsigned long nip = htonl(ip);
@@ -286,51 +302,54 @@ const char *geoip_result_addSA(SMFICTX *ctx, struct sockaddr *psa, const char *p
 	return pStr;
 }
 
-const char *geoip_result_addAF(SMFICTX *ctx, int afType, const char *in, const char *pCountryCode)
-{	mlfiPriv *priv = MLFIPRIV;
-	const char *pStr = NULL;
 
-	if(priv->pGeoipList != NULL)
-	{	geoipResult *pResult = calloc(1,sizeof(geoipResult));
+#ifdef _UNIT_TEST
 
-		if(pResult != NULL)
+void test1()
+{
+	SMFICTX *ctx = NULL;
+
+	geoip_init(ctx);
+
+	geoip_open(ctx, "./", "./geoip2/tst/");
+
+	{
+		mlfiPriv *priv = MLFIPRIV;
+		struct hostent *pHostent = gethostbyname("wan2.wanlink.com");
+		struct sockaddr_in sa4 = {0};
+		struct sockaddr_in6 sa6 = {0};
+		int afType = pHostent->h_addrtype;
+		char *in = (char *)(pHostent->h_addr);
+
+		switch(afType)
 		{
-			pResult->ip.afType = afType;
-			switch(afType)
-			{
-				case AF_INET:
-					pResult->ip.ipv4 = *(unsigned long*)in;
-					pResult->pGeoIPRecord = (*pCountryCode != '-'
-						&& priv->pGeoipCity != NULL ? GeoIP_record_by_ipnum(priv->pGeoipCity, ntohl(pResult->ip.ipv4)) : NULL);
-					break;
-				case AF_INET6:
-					pResult->ip.ipv6 = *(struct in6_addr *)in;
-					pResult->pGeoIPRecord = (*pCountryCode != '-'
-						&& priv->pGeoipCity != NULL ? GeoIP_record_by_ipnum_v6(priv->pGeoipCity, pResult->ip.ipv6) : NULL);
-					break;
-			}
+			case AF_INET:
+				sa4.sin_family = AF_INET;
+				sa4.sin_len = sizeof(struct sockaddr_in);
+				sa4.sin_addr = *(struct in_addr *)in;
+				priv->pip = (struct sockaddr *)&sa4;
+				break;
+			case AF_INET6:
+				sa6.sin6_family = AF_INET6;
+				sa6.sin6_len = sizeof(struct sockaddr_in6);
+				sa6.sin6_addr = *(struct in6_addr *)in;
+				priv->pip = (struct sockaddr *)&sa6;
+				break;
+		}
 
-			pResult->pCountryCode = pCountryCode;
-			pResult->pCountryCity = NULL;
-			if(pResult->pGeoIPRecord != NULL
-				// matching CC ?
-				&& strcmp(pResult->pCountryCode,pResult->pGeoIPRecord->country_code) == 0
-			)
-			{	GeoIPRecord *gir = pResult->pGeoIPRecord;
+		const char *pGeoipCC = geoip_result_addSA(ctx, priv->pip, geoip_LookupCCBySA(ctx, priv->pip));
 
-				asprintf(
-					&pResult->pCountryCity
-					,"%s, %s, %s, %s, %f, %f"
-					,gir->country_code ,_mk_NA(gir->region) ,_mk_NA(gir->city), _mk_NA(gir->postal_code), gir->latitude, gir->longitude
-					);
-				pStr = pResult->pCountryCity;
-			}
-			else
-				pStr = pCountryCode;
-
-			listAdd(priv->pGeoipList,pResult);
+		if(pGeoipCC != NULL)
+		{
+			printf("mlfi_connect: geoip: %s, CC: %s\n", priv->ipstr, pGeoipCC);
 		}
 	}
-
-	return pStr;
 }
+
+int main(int argc, char **argv)
+{
+	test1();
+
+	return 0;
+}
+#endif

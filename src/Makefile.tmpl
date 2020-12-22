@@ -11,7 +11,7 @@
 <ALL> #--------------------------------------------------------------------*
 <ALL>
 #<ALL>CC =		gcc
-<ALL>SRCS =		ini.c dns.c list.c table.c dnsbl.c hndlrs.c misc.c smisc.c mx.c smtp.c inet.c ifi.c ifidb.c bwlist.c badext.c dupe.c regexapi.c regexmisc.c md5api.c ipfw_mtacli.c key.c <WITH_DBL dbl.c> <WITH_ALIASES aliastable.c> <WITH_VIRTUSER virtusertable.c> <WITH_POPAUTH popauth.c> <WITH_LIBSPF spfapi.c> <WITH_VASPRINTF nstring.c> <WITH_FWDHOSTCHK fwdhostlist.c> <WITH_GEOIP geoip.c> <WITH_TABLE_FLATFILE tableDriverFlatFile.c> <WITH_TABLE_PGSQL pgsql.c tableDriverPsql.c> <WITH_AUTO_WHITELIST relaydomain.c>
+<ALL>SRCS =		ini.c dns.c list.c table.c dnsbl.c hndlrs.c misc.c smisc.c mx.c smtp.c inet.c ifi.c ifidb.c bwlist.c badext.c dupe.c regexapi.c regexmisc.c md5api.c ipfw_mtacli.c key.c <WITH_DBL dbl.c> <WITH_ALIASES aliastable.c> <WITH_VIRTUSER virtusertable.c> <WITH_POPAUTH popauth.c> <WITH_LIBSPF spfapi.c> <WITH_VASPRINTF nstring.c> <WITH_FWDHOSTCHK fwdhostlist.c> <WITH_GEOIP geoip.c geoipApi2.c> <WITH_TABLE_FLATFILE tableDriverFlatFile.c> <WITH_TABLE_PGSQL pgsql.c tableDriverPsql.c> <WITH_AUTO_WHITELIST relaydomain.c>
 <NEED_LIBUTIL_LOCAL>SRCS +=		libutil/pidfile.c libutil/flopen.c
 <NOT_BSD>SRCS +=		md5c.c md5hl.c
 <NOT_BSD>SRCS +=		setproctitle.c
@@ -36,14 +36,12 @@
 <LIBSPF2DIR>LIBSPFDIR =	<X>/libspf2/.libs
 <LIBSPF2DIR>LIBSPFINC =	<X>/include
 <PKGLIBSPF2>LIBSPF =	libspf2.a
-<GEOIPDIR>LIBGEOIPDIR =	geoip/GeoIP-<X>.mod/libGeoIP/.libs
-<GEOIPDIR>LIBGEOIPINC =	geoip/GeoIP-<X>.mod/libGeoIP
 <PGSQLDIR>LIBPGSQLDIR = <X>/lib
 <PGSQLDIR>LIBPGSQLINC = <X>/include
 <PGSQLDIR>LIBPGSQL = -lpq -L${LIBPGSQLDIR} -I${LIBPGSQLINC}
 <NOT_FreeBSD>SMOBJDIR =	${SMDIR}/obj.<SMOBJDIR>
 <ALL>
-<ALL>INCLUDEDIR =	-I. -I${SMDIR}/include <WITH_LIBSPF -I${LIBSPFINC}> <WITH_GEOIP -I${LIBGEOIPINC}>
+<ALL>INCLUDEDIR =	-I. -I${SMDIR}/include <WITH_LIBSPF -I${LIBSPFINC}>
 <INCDIRS>INCLUDEDIR +=		<X>
 <ALL>
 <ALL>CFLAGS =	-Wall -Wno-unused-const-variable <INC_SunOS s>
@@ -80,11 +78,10 @@
 <ALL>
 <ALL>uninstall: uninstall-man
 <ALL>	rm -f ${BINDIR}/spamilter ${BINDIR}/dnsblchk <INC_FreeBSD ${BINDIR}/dnsblupd> ${BINDIR}/mxlookup ${BINDIR}/ipfwmtad <INC_FreeBSD ${RCDIR}/${RCSHELL}> <WITH_GREYLIST ${BINDIR}/greydbd>
-<ALL>	echo "Files in ${CONF_DIR_DB} and ${CONF_DIR} have been left in place, you'll need to remove them if you don't want them anymore."
+<ALL>	echo " *** Files in ${CONF_DIR_DB} and ${CONF_DIR} have been left in place, you'll need to remove them if you don't want them anymore. ***"
 <ALL>
 <ALL>distclean: clean
 <ALL>	rm -f Makefile
-<GEOIPDIR>	rm -rf geoip/.built geoip/GeoIP-<X>.mod
 <PKGLIBSPF>	rm -rf libspf/.built libspf/build
 <PKGLIBSPF2>	rm -rf libspf/.built libspf/build2
 <ALL>
@@ -124,18 +121,18 @@
 <ALL>		for i in db.extensions db.fwdhost db.geocc db.rcpt db.rdnsbl db.sndr db.dbl db.ifi db.sent; do \
 <ALL>			install -p -m 0664 ../conf/$${i} ${CONF_DIR_DB}; \
 <ALL>		done; \
-<GEOIPDIR>		install -d -C -m 0664 ${CONF_DIR_DB}/geoip; \
-<GEOIPDIR>		install -p -m 0754 ../conf/geoip/fetchgeoip.sh ${CONF_DIR_DB}/geoip; \
-<GEOIPDIR>		sed -e"s;geoipdir=.*\$;geoipdir=\"${CONF_DIR_DB}/geoip\";" -i '' ${CONF_DIR_DB}/geoip/fetchgeoip.sh; \
-<GEOIPDIR>		if [ ! -e ${CONF_DIR_DB}/geoip/GeoIP.dat ]; then ${CONF_DIR_DB}/geoip/fetchgeoip.sh; fi; \
+<PKGGEOIP>		install -d -C -m 0664 ${CONF_DIR_DB}/geoip; \
+<PKGGEOIP>		install -p -m 0754 ../conf/geoip/fetchmmdb.sh ${CONF_DIR_DB}/geoip; \
+<PKGGEOIP>		if [ ! -e ${CONF_DIR_DB}/geoip/GeoLite2-City.mmdb ]; then echo -e "\n *** Make sure to get a license and download a database. See ${CONF_DIR_DB}/geoip/fetchmmdb.sh. You'll probably want to add this to your crontab set for every 30 days. ***\n"; fi; \
 <FreeBSD>		install -d -C -m 0664 /usr/local/etc/newsyslog.conf.d; \
 <FreeBSD>		install -p -m 0754 ../conf/spamilter.newsyslog /usr/local/etc/newsyslog.conf.d; \
 <FreeBSD>		newsyslog -CN; \
-<NOT_FreeBSD>		if [ ! -e /var/log/spam.log ]; then touch /var/log/spam.log && chmod 0644 /var/log/spam.log; fi; \
-<NOT_FreeBSD>		if [ ! -e /var/log/spam.info ]; then touch /var/log/spam.info && chmod 0644 /var/log/spam.info; fi; \
-<NOT_FreeBSD>		if [ ! -e /var/log/greydbd.log ]; then touch /var/log/greydbd.log && chmod 0644 /var/log/greydbd.log; fi; \
-<NOT_FreeBSD>		if [ -z "`grep Spamilter /etc/syslog.conf`" ]; then echo -e '\n!Spamilter\n*.info\t/var/log/spam.log\n*.<>info\t/var/log/spam.info\n' >> /etc/syslog.conf && service syslogd restart; fi; \
-<NOT_FreeBSD>		if [ -z "`grep greydbd /etc/syslog.conf`" ]; then echo -e '\n!greydbd\n*.*\t/var/log/greydbd.log\n' >> /etc/syslog.conf && service syslogd restart; fi; \
+<FreeBSD>		if [ ! -e /var/log/spam.log ]; then touch /var/log/spam.log && chmod 0644 /var/log/spam.log; fi; \
+<FreeBSD>		if [ ! -e /var/log/spam.info ]; then touch /var/log/spam.info && chmod 0644 /var/log/spam.info; fi; \
+<FreeBSD>		install -d -C -m 0664 /usr/local/etc/syslog.d; \
+<FreeBSD>		if [ ! -e /usr/local/etc/syslog.d/spamilter.spam.conf ]; then echo -e '\n!Spamilter\n*.info\t/var/log/spam.log\n*.<>info\t/var/log/spam.info\n' > /usr/local/etc/syslog.d/spamilter.spam.conf && service syslogd restart; fi; \
+<FreeBSD>		if [ ! -e /var/log/greydbd.log ]; then touch /var/log/greydbd.log && chmod 0644 /var/log/greydbd.log; fi; \
+<FreeBSD>		if [ ! -e /usr/local/etc/syslog.d/spamilter.greydbd.conf ]; then echo -e '\n!greydbd\n*.*\t/var/log/greydbd.log\n' > /usr/local/etc/syslog.d/spamilter.greydbd.conf && service syslogd restart; fi; \
 <ALL>	fi
 <ALL>
 <ALL>install-man:
@@ -144,17 +141,14 @@
 <ALL>uninstall-man:
 <ALL>	${MAKE} -C ../docs/man uninstall
 <ALL>
-<PKGGEOIP>${LIBGEOIPDIR}/libGeoIP.a:
-<PKGGEOIP>	cd geoip && ./build.sh
-<PKGGEOIP>
 <PKGLIBSPF>${LIBSPFDIR}/${LIBSPF}:
 <PKGLIBSPF>	cd libspf && ./build.sh
 <PKGLIBSPF>
 <PKGLIBSPF2>${LIBSPFDIR}/${LIBSPF}:
 <PKGLIBSPF2>	cd libspf && ./build2.sh
 <PKGLIBSPF2>
-<ALL>spamilter: Makefile <WITH_GEOIP ${LIBGEOIPDIR}/libGeoIP.a> <WITH_LIBSPF ${LIBSPFDIR}/${LIBSPF}> ${WATCHERSRCS} ${SRCS} <WITH_NSCOMPAT ${NRSRCS}> spamilter.o ${WATCHEROBJS} ${OBJS} <WITH_NSCOMPAT ${NROBJS}> ${INCLUDES} ${WATCHERINCS}
-<ALL>	${CC} ${CFLAGS} -o spamilter spamilter.o ${WATCHEROBJS} ${OBJS} <WITH_NSCOMPAT ${NROBJS}> <WITH_LIBSPF ${LIBSPFDIR}/${LIBSPF}> <WITH_GEOIP ${LIBGEOIPDIR}/libGeoIP.a> ${LIBDIRS} ${LIBS} <WITH_TABLE_PGSQL ${LIBPGSQL}>
+<ALL>spamilter: Makefile <WITH_LIBSPF ${LIBSPFDIR}/${LIBSPF}> ${WATCHERSRCS} ${SRCS} <WITH_NSCOMPAT ${NRSRCS}> spamilter.o ${WATCHEROBJS} ${OBJS} <WITH_NSCOMPAT ${NROBJS}> ${INCLUDES} ${WATCHERINCS}
+<ALL>	${CC} ${CFLAGS} -o spamilter spamilter.o ${WATCHEROBJS} ${OBJS} <WITH_NSCOMPAT ${NROBJS}> <WITH_LIBSPF ${LIBSPFDIR}/${LIBSPF}> ${LIBDIRS} ${LIBS} <WITH_TABLE_PGSQL ${LIBPGSQL}>
 <ALL>
 <ALL>dnsblchk: Makefile ${SRCS} <WITH_NSCOMPAT ${NRSRCS}> <WITH_VASPRINTF nstring.c> dnsblchk.o ${OBJS} <WITH_NSCOMPAT ${NROBJS}> <WITH_VASPRINTF nstring.o> ${INCLUDES} dnsblchk.c
 <ALL>	${CC} ${CFLAGS} -o dnsblchk dnsblchk.o dnsbl.o ini.o regexapi.o dns.o smisc.o misc.o mx.o smtp.o inet.o ifi.o ifidb.o list.o table.o <WITH_TABLE_FLATFILE tableDriverFlatFile.o> <WITH_TABLE_PGSQL pgsql.c tableDriverPsql.c> <WITH_NSCOMPAT ${NROBJS}> <WITH_VASPRINTF nstring.o> ${LIBDIRS} ${LIBS}

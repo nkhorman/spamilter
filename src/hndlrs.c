@@ -1113,35 +1113,38 @@ typedef struct _lcgr_t
 }lcgr_t;
 
 int listCallbackGeoipReject(void *pData, void *pCallbackData)
-{	geoipResult *pResult = (geoipResult *)pData;
+{
+	geoipApi2Res_t *pResult = (geoipApi2Res_t *)pData;
+	char const *pCC = pResult->pCc;
+
 	lcgr_t *plcgr = (lcgr_t *)pCallbackData;
 	SMFICTX *ctx = plcgr->cpr.ctx;
 	mlfiPriv *priv = MLFIPRIV;
 	int *pContinueChecks = plcgr->pContinueChecks;
-	int action = geoip_query_action_cc(ctx, pResult->pCountryCode);
+	int action = geoip_query_action_cc(ctx, pCC);
 
-	asprintf(plcgr->cpr.ppReason,"Blacklisted Country Code '%s'",pResult->pCountryCode);
-	mlfi_debug(priv->pSessionUuidStr,"mlfi_hndlrs: GeoIP action = %u/'%s'\n",action,gpBwlStrs[action]);
+	asprintf(plcgr->cpr.ppReason, "Blacklisted Country Code '%s'", pCC);
+	mlfi_debug(priv->pSessionUuidStr, "mlfi_hndlrs: GeoIP action = %u/'%s'\n", action, gpBwlStrs[action]);
 	switch(action)
 	{
 		case GEOIPLIST_A_TARPIT:
 			sleep(120);	// slow the bastard down!
 			// deliberate fall thru to GEOIPLIST_A_REJECT
 		case GEOIPLIST_A_REJECT:
-			mlfi_setreply(ctx,550,"5.7.1","Rejecting due to security policy - "
+			mlfi_setreply(ctx,550,"5.7.1", "Rejecting due to security policy - "
 				"Country Code '%s' has been blacklisted, Please see: %s#blacklistedcountrycode"
-				,pResult->pCountryCode,iniGetStr(OPT_POLICYURL)
+				, pCC, iniGetStr(OPT_POLICYURL)
 				);
-			*pContinueChecks = mlfi_status_debug(priv,plcgr->cpr.prs,LOG_REJECTED_STR,*plcgr->cpr.ppReason
-				,"mlfi_hndlrs: Blacklisted Country Code, '%s'\n",pResult->pCountryCode);
+			*pContinueChecks = mlfi_status_debug(priv, plcgr->cpr.prs, LOG_REJECTED_STR, *plcgr->cpr.ppReason
+				, "mlfi_hndlrs: Blacklisted Country Code, '%s'\n", pCC);
 			if(iniGetInt(OPT_MTAHOSTIPFW))
 				mlfi_MtaHostIpfwAction(priv,"add");
 			break;
 		case GEOIPLIST_A_TEMPFAIL:
-			*pContinueChecks = mlfi_status_debug(priv,plcgr->cpr.prs,LOG_TEMPFAILED_STR,*plcgr->cpr.ppReason,NULL);
+			*pContinueChecks = mlfi_status_debug(priv, plcgr->cpr.prs, LOG_TEMPFAILED_STR, *plcgr->cpr.ppReason,NULL);
 			break;
 		case GEOIPLIST_A_DISCARD:
-			 *pContinueChecks = mlfi_status_debug(priv,plcgr->cpr.prs,LOG_DISCARDED_STR,*plcgr->cpr.ppReason,NULL);
+			 *pContinueChecks = mlfi_status_debug(priv, plcgr->cpr.prs, LOG_DISCARDED_STR, *plcgr->cpr.ppReason,NULL);
 			break;
 		case GEOIPLIST_A_ACCEPT:
 			// take no further action
@@ -1756,14 +1759,16 @@ int listCallbackBodyHosts(void *pData, void *pCallbackData)
 
 #ifdef SUPPORT_GEOIP
 int listCallbackGeoipAddHdr(void *pData, void *pCallbackData)
-{	geoipResult *pResult = (geoipResult *)pData;
+{
+	geoipApi2Res_t *pResult = (geoipApi2Res_t *)pData;
+	char const *pCC = pResult->pCountryCity;
 	SMFICTX *ctx = (SMFICTX *)pCallbackData;
 	char *pIpStr = mlfi_inet_ntopAF(pResult->ip.afType, (pResult->ip.afType == AF_INET ? (char *)&pResult->ip.ipv4 : (char *)&pResult->ip.ipv6));
 
-	mlfi_addhdr_printf(ctx,"X-Milter", "%s DataSet=GeoIP; receiver=%s; ip=%s; CC=%s;"
+	mlfi_addhdr_printf(ctx, "X-Milter", "%s DataSet=GeoIP; receiver=%s; ip=%s; CC=%s;"
 		,mlfi.xxfi_name ,gHostname
 		,pIpStr
-		,(pResult->pCountryCity != NULL ? pResult->pCountryCity : pResult->pCountryCode)
+		,pCC
 	);
 
 	return 1;

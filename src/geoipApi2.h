@@ -2,7 +2,7 @@
  *
  * Developed by;
  *	Neal Horman - http://www.wanlink.com
- *	Copyright (c) 2003 Neal Horman. All Rights Reserved
+ *	Copyright (c) 2020 Neal Horman. All Rights Reserved
  *
  *	Redistribution and use in source and binary forms, with or without
  *	modification, are permitted provided that the following conditions
@@ -31,39 +31,62 @@
  *	OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  *	SUCH DAMAGE.
  *
- *	CVSID:  $Id: geoip.h,v 1.3 2012/05/03 19:44:22 neal Exp $
+ *	CVSID:  $Id:$
  *
  * DESCRIPTION:
  *	application:	Spamilter
- *	module:		geoip.h
+ *	module:		geoipApi2.h
  *--------------------------------------------------------------------*/
 
-#ifndef _SPAMILTER_GEOIP_H_
-#define _SPAMILTER_GEOIP_H_
-
-#include "geoipApi2.h"
+#ifndef _SPAMILTER_GEOIPAPI2_H_
+#define _SPAMILTER_GEOIPAPI2_H_
 
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+typedef struct _geoipApi2Ctx_t geoipApi2Ctx_t; // opaque
 
-	enum { GEOIPLIST_A_NULL, GEOIPLIST_A_ACCEPT, GEOIPLIST_A_REJECT, GEOIPLIST_A_DISCARD, GEOIPLIST_A_TEMPFAIL, GEOIPLIST_A_TARPIT/*, GEOIPLIST_A_IPFW*/ };
+// you must call geoipApi2_ResFree() when done with an intance of this
+typedef struct _geopipApi2Res_t
+{
+	// The _ip_t structure is not filled in the geoipApi2.c module,
+	// but rather in the geoip.c module in geoip_result_addAF()
+	struct _ip_t
+	{
+		int afType;
+		union
+		{
+			unsigned long ipv4;
+			struct in6_addr ipv6;
+		};
+	} ip;
 
+	char const *pCc;
+	char const *pRegion;
+	char const *pCity;
+	char const *pPostal;
+	char const *pLat;
+	char const *pLong;
+	char const *pCountryCity;
+} geoipApi2Res_t;
 
-	void geoip_init(SMFICTX *ctx);
-	int geoip_open(SMFICTX *ctx, const char *dbpath, const char *pGeoipdbPath);
-	void geoip_close(SMFICTX *ctx);
+geoipApi2Ctx_t * geoipApi2_open(char const *pDbFname);
+geoipApi2Ctx_t *geoipApi2_close(geoipApi2Ctx_t *pCtx);
 
-	int geoip_query_action_cc(SMFICTX *ctx, const char *pCC);
+geoipApi2Res_t *geoipApi2_LookupCCByStr(geoipApi2Ctx_t *pCtx, char const *pStrIp);
+geoipApi2Res_t *geoipApi2_LookupCCByHostEnt(geoipApi2Ctx_t *pCtx, const struct hostent *pHostEnt);
+geoipApi2Res_t *geoipApi2_LookupCCBySA(geoipApi2Ctx_t *pCtx, const struct sockaddr *pSa);
+geoipApi2Res_t *geoipApi2_LookupCCByAF(geoipApi2Ctx_t *pCtx, int afType, const char *in);
 
-	const char *geoip_LookupCCByAF(SMFICTX *ctx, int af, const char *in);
-	const char *geoip_LookupCCByHostEnt(SMFICTX *ctx, const struct hostent *pHostEnt);
-	const char *geoip_LookupCCByHostName(SMFICTX *ctx, const char *pHostName);
-	const char *geoip_LookupCCBySA(SMFICTX *ctx, const struct sockaddr *pip);
+void geoipApi2_ResFree(geoipApi2Res_t *pRes);
 
-	const char *geoip_result_addIpv4(SMFICTX *ctx, unsigned long ip, const char *pCountryCode);
-	const char *geoip_result_addSA(SMFICTX *ctx, struct sockaddr *psa, const char *pCountryCode);
-	const char *geoip_result_addAF(SMFICTX *ctx, int afType, const char *in, const char *pCountryCode);
+#ifdef __cplusplus
+}
+#endif
+
 #endif
